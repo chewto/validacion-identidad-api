@@ -1,0 +1,7 @@
+{
+  "code": 410,
+  "data": {},
+  "message": "Media URL expired",
+  "name": "MoleculerError",
+  "type": "MEDIA_API_ERROR"
+}

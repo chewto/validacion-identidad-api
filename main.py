@@ -1,162 +1,279 @@
-import os
-import string
-import urllib
-import uuid
-import pickle
-import datetime
-import time
-import shutil
-
-import cv2
-from fastapi import FastAPI, File, UploadFile, Form, UploadFile, Response
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify
+from requests import get
 import face_recognition
-import starlette
-from pydantic import BaseModel
-import requests
-import sqlite3
+import io
+import mariadb
+import json
 
 
-ATTENDANCE_LOG_DIR = './logs'
-DB_PATH = './db'
-for dir_ in [ATTENDANCE_LOG_DIR, DB_PATH]:
-    if not os.path.exists(dir_):
-        os.mkdir(dir_)
-
-app = FastAPI()
-
-origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.post("/login")
-async def login(file: UploadFile = File(...)):
-
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
-
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
-
-    user_name, match_status = recognize(file.filename)
-
-    if match_status:
-        epoch_time = time.time()
-        date = time.strftime('%Y%m%d', time.localtime(epoch_time))
-        with open(os.path.join(ATTENDANCE_LOG_DIR, '{}.csv'.format(date)), 'a') as f:
-            f.write('{},{},{}\n'.format(user_name, datetime.datetime.now(), 'IN'))
-            f.close()
-
-    return {'user': user_name, 'match_status': match_status}
+app = Flask(__name__)
 
 
-@app.post("/logout")
-async def logout(file: UploadFile = File(...)):
+@app.route("/cedula", methods=['POST'])
+def agregarCedula():
+  nombreCompleto = request.form.get('nombre')
+  anverso = request.files['anverso']
+  reverso = request.files['reverso']
 
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
+  nombreCompleto = nombreCompleto.lower()
+  anversoBlob = anverso.stream.read()
+  reversoBlob = reverso.stream.read()
 
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
+  if len(anversoBlob) >= 200 and len(reversoBlob) >= 200:
+    conn = mariadb.connect(
+      user='root',
+      password="30265611",
+      host='localhost',
+      port=3306,
+      database='pki_validacion_identidad'
+    )
 
-    user_name, match_status = recognize(cv2.imread(file.filename))
+    cursor = conn.cursor()
 
-    if match_status:
-        epoch_time = time.time()
-        date = time.strftime('%Y%m%d', time.localtime(epoch_time))
-        with open(os.path.join(ATTENDANCE_LOG_DIR, '{}.csv'.format(date)), 'a') as f:
-            f.write('{},{},{}\n'.format(user_name, datetime.datetime.now(), 'OUT'))
-            f.close()
+    cursor.execute("SELECT * FROM documento_usuario")
 
-    return {'user': user_name, 'match_status': match_status}
+    rows = cursor.fetchall()
 
-@app.post("/register_new_user")
-async def register_new_user(file: UploadFile = File(...), text=None):
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
+    global duplicado
+    duplicado = False
 
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
+    for row in rows:
+      nombre = row[1]
+      if nombre == nombreCompleto:
+        duplicado = True
 
-    shutil.copy(file.filename, os.path.join(DB_PATH, '{}.png'.format(text)))
+    if duplicado == False:
+      cursor.execute("INSERT INTO documento_usuario (nombre_completo, anverso, reverso) VALUES (?,?,?)", (nombreCompleto, anversoBlob, reversoBlob))
 
-    embeddings = face_recognition.face_encodings(cv2.imread(file.filename))
+      conn.commit()
+      cursor.close()
+      conn.close()
+      return jsonify({"mensaje":"documento registrado", "nombre_documento":nombreCompleto})
+    
+    if duplicado:
+      conn.commit()
+      cursor.close()
+      conn.close()
+      return jsonify({"mensaje":"el documento ya se encuentra registrado"})
 
-    file_ = open(os.path.join(DB_PATH, '{}.pickle'.format(text)), 'wb')
-    pickle.dump(embeddings, file_)
-    print(file.filename, text)
 
-    os.remove(file.filename)
+@app.route("/verificacion-rostro-rostro", methods=['POST'])
+def verificacion():
 
-    return {'registration_status': 200}
+  archivo = request.files['file']
 
-@app.get("/get_attendance_logs")
-async def get_attendance_logs():
+  obtenerImagenSnippet = '''
+for row in filas:
+  b = io.BytesIO(row[1])
+  imagenes.append(b)
 
-    filename = 'out.zip'
+print(imagenes)
+'''
 
-    shutil.make_archive(filename[:-4], 'zip', ATTENDANCE_LOG_DIR)
+  comparacion = reconocimiento(archivo, 'usuarios', obtenerImagenSnippet);
 
-    ##return File(filename, filename=filename, content_type="application/zip", as_attachment=True)
-    return starlette.responses.FileResponse(filename, media_type='application/zip',filename=filename)
+  reconocido = comparacion[1]
 
-def recognize(img):
-    # it is assumed there will be at most 1 match in the db
-    image = face_recognition.load_image_file(img)
-    embeddings_unknown = face_recognition.face_encodings(image)
-    if len(embeddings_unknown) == 0:
-        print('no reconocido')
-        return 'no_persons_found', False
+  print(comparacion[1])
+
+  return jsonify({"proceso":"realizado con exito" , "reconocido": reconocido})
+
+
+@app.route("/verificacion-rostro-documento", methods=['POST'])
+def verfificacionRostroDocumento():
+  foto = request.files['file']
+
+  print(foto)
+
+  snippet = '''
+
+for row in filas:
+  b = io.BytesIO(row[2])
+  imagenes.append(b)
+  nombre = row[1]
+  nombres.append(nombre)
+
+'''
+
+  comparacion = reconocimiento(foto, 'documento_usuario', snippet)
+
+  reconocido = comparacion[1]
+  nombre = comparacion[0]
+
+  return jsonify({"proceso":"realizado con exito", "persona_reconocida":nombre,"reconocido":reconocido })
+
+
+@app.route("/webhook", methods=['POST'])
+def webhookListener():
+
+  data = request.get_json()
+
+  event = data['eventName']
+
+  if event == "step_completed":
+    mediaStep = data['step']
+    mediaData = mediaStep['data']
+    mediaID = mediaStep['id']
+
+    if mediaID == 'liveness':
+      if mediaData.get("spriteUrl") is not None:
+        selfieURL = mediaData['spriteUrl']
+    
+      if mediaData.get("videoUrl") is not None:
+        videoURL = mediaData['videoUrl']
+
+      spriteBlob = descargarRecursos(selfieURL)
+
+      videoBlob = descargarRecursos(videoURL)
+
+      if isinstance(spriteBlob, str) == False and isinstance(videoBlob, str) == False:
+        spriteRead = spriteBlob.read()
+        videoRead = videoBlob.read()
+
+      else:
+        return jsonify({"mensaje":"la url no era valida y devolvio un string"})
+
+      if len(spriteRead) >= 200 and len(videoRead) >= 200:
+
+        conn = mariadb.connect(
+          user='root',
+          password="30265611",
+          host='localhost',
+          port=3306,
+          database='pki_validacion_identidad'
+        )
+        cursor = conn.cursor()
+
+        cursor.execute('INSERT INTO usuarios (foto) VALUES (?)', (spriteRead,))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"status":"exitoso", "video":videoURL, "selfie":selfieURL, "id":mediaID})
+      else:
+        return jsonify({"status":"la data no cumple con los requerimentos"})
+
+
+
+
+    if mediaID == 'document-reading':
+      if mediaData.get("fullName") is not None:
+        nombreCompleto = mediaData['fullName']['value']
+
+      if mediaData.get("frontUrl") is not None:
+        anverso = mediaData['frontUrl']
+
+      if mediaData.get("backUrl") is not None:
+        reverso = mediaData['backUrl']
+
+      anversoBlob = descargarRecursos(anverso)
+
+      reversoBlob = descargarRecursos(reverso)
+
+      if isinstance(anversoBlob, str) == False and isinstance(reversoBlob, str) == False:
+        anversoRead = anversoBlob.read()
+        reversoRead = reversoBlob.read()
+
+      else:
+        return jsonify({"mensaje":"la url no era valida y devolvio un string"})
+
+      if len(anversoRead) >= 200 and len(reversoRead) >= 200:
+
+        conn = mariadb.connect(
+          user='root',
+          password="30265611",
+          host='localhost',
+          port=3306,
+          database='pki_validacion_identidad'
+        )
+        cursor = conn.cursor()
+
+        cursor.execute('INSERT INTO cedula_usuario (nombre_completo, anverso, reverso) VALUES (?,?,?) ', (nombreCompleto,anversoRead,reversoRead))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"status":"exitoso","nombreCompleto":nombreCompleto ,"anverso":anverso, "reverso":reverso, "id":mediaID})
+      else:
+        return jsonify({"status":"la data no cumple con los requerimentos"})
+      
+
+  if event != "step_completed":
+    return jsonify({"mensaje":"este evento no posee la informacion que se busca"})
+
+
+def reconocimiento(img, tabla, snippet):
+
+    conn = mariadb.connect(
+      user='root',
+      password="30265611",
+      host='localhost',
+      port=3306,
+      database='pki_validacion_identidad'
+    )
+    cursor = conn.cursor()
+
+    cursor.execute(f'SELECT * FROM {tabla}')
+
+    filas = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    cargarImg = face_recognition.load_image_file(img)
+    reconocerImagen = face_recognition.face_encodings(cargarImg)
+    if len(reconocerImagen) == 0:
+        return 'no se encontro ninguna persona', False
     else:
-        embeddings_unknown = embeddings_unknown[0]
+        reconocerImagen = reconocerImagen[0]
 
-    match = False
+    reconocido = False
     nombre = ''
-    j = 0
+    vueltas = 0
 
-    db_dir = sorted([j for j in os.listdir(DB_PATH) if j.endswith('.png') or j.endswith('.jpg')])
+    nombres = []
+    imagenes = []
 
-    print(db_dir)
-    while ((not match) and (j < len(db_dir))):
-        path_ = os.path.join(DB_PATH, db_dir[j])
+    exec(snippet)
 
-        print(path_)
 
-        loadImage = face_recognition.load_image_file(path_)
-        compareImage = face_recognition.face_encodings(loadImage)
+    dbData = [imagen for imagen in imagenes]
 
-        if len(compareImage) == 0:
+    while ((not reconocido) and (vueltas < len(dbData))):
+        imagenComparar = imagenes[vueltas]
+
+        nombreUsuario = nombres[vueltas]
+
+
+        cargarImgComparar = face_recognition.load_image_file(imagenComparar)
+        reconocerImagenComparar = face_recognition.face_encodings(cargarImgComparar)
+
+        if len(reconocerImagenComparar) == 0:
             return 'no se ha reconocido a una persona'
         else:
-            compareImage = compareImage[0]
+            reconocerImagenComparar = reconocerImagenComparar[0]
 
-        match = face_recognition.compare_faces([compareImage], embeddings_unknown)
+        reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen)
 
-        match = match[0]
+        reconocido = reconocido[0]
 
-        if match:
-            nombre = db_dir[j]
-            nombre = nombre.replace('.jpg', '')
-        else:
-            nombre = ''
+        vueltas+= 1
 
-        j+= 1
-
-    if match:
-        print('reconocido', nombre)
-        return nombre, True
+    if reconocido:
+        return nombreUsuario, True
     else:
-        print('no reconocido')
         return 'no reconocido', False
 
-# python3 -m uvicorn main:app
+def descargarRecursos(url):
+  if len(url) >= 1:
+    response = get(url, stream=True)
+    stream = io.BytesIO(response.content)
+    return stream
+  else:
+    return "url invalida"
+
+
+if __name__ == "__main__":
+  app.run(debug=False,host="0.0.0.0")
