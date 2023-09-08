@@ -1,60 +1,43 @@
 from flask import Flask, request, jsonify
 from requests import get
-import face_recognition
 import io
-import mariadb
-import json
+from reconocimiento import reconocerRostro
+import controlador_db
+from validar_duplicado import comprobarDuplicado
+
 
 
 app = Flask(__name__)
 
 
-@app.route("/cedula", methods=['POST'])
+@app.route("/agregar-documento", methods=['POST'])
 def agregarCedula():
-  nombreCompleto = request.form.get('nombre')
+  nombres = request.form.get('nombres')
+  apellidos = request.form.get('apellidos')
+  numeroDocumento = request.form.get('numero_documento')
   anverso = request.files['anverso']
   reverso = request.files['reverso']
 
-  nombreCompleto = nombreCompleto.lower()
+  nombres = nombres.lower()
+  apellidos = apellidos.lower()
   anversoBlob = anverso.stream.read()
   reversoBlob = reverso.stream.read()
 
   if len(anversoBlob) >= 200 and len(reversoBlob) >= 200:
-    conn = mariadb.connect(
-      user='root',
-      password="30265611",
-      host='localhost',
-      port=3306,
-      database='pki_validacion_identidad'
-    )
 
-    cursor = conn.cursor()
+    duplicado = comprobarDuplicado('documento_usuario', numeroDocumento)
 
-    cursor.execute("SELECT * FROM documento_usuario")
+    if duplicado != numeroDocumento:
+      columnasQuery:tuple = ('nombres', 'apellidos', 'numero_documento', 'anverso_documento', 'reverso_documento')
+      tablaQuery:str = 'documento_usuario'
+      valoresQuery:tuple = (nombres, apellidos, numeroDocumento, anversoBlob, reversoBlob,)
 
-    rows = cursor.fetchall()
+      mensaje:str = controlador_db.agregarDocumento(columnasQuery, tablaQuery, valoresQuery)
 
-    global duplicado
-    duplicado = False
-
-    for row in rows:
-      nombre = row[1]
-      if nombre == nombreCompleto:
-        duplicado = True
-
-    if duplicado == False:
-      cursor.execute("INSERT INTO documento_usuario (nombre_completo, anverso, reverso) VALUES (?,?,?)", (nombreCompleto, anversoBlob, reversoBlob))
-
-      conn.commit()
-      cursor.close()
-      conn.close()
-      return jsonify({"mensaje":"documento registrado", "nombre_documento":nombreCompleto})
+      return jsonify({"mensaje":mensaje, "duplicado":duplicado})
     
-    if duplicado:
-      conn.commit()
-      cursor.close()
-      conn.close()
-      return jsonify({"mensaje":"el documento ya se encuentra registrado"})
+    if duplicado == numeroDocumento:
+      return jsonify({"mensaje":"el documento ya se encuentra registrado", "duplicado":duplicado})
 
 
 @app.route("/verificacion-rostro-rostro", methods=['POST'])
@@ -70,209 +53,69 @@ for row in filas:
 print(imagenes)
 '''
 
-  comparacion = reconocimiento(archivo, 'usuarios', obtenerImagenSnippet);
+  comparacion = reconocerRostro(archivo, 'usuarios', obtenerImagenSnippet);
 
   reconocido = comparacion[1]
 
   print(comparacion[1])
 
-  return jsonify({"proceso":"realizado con exito" , "reconocido": reconocido})
+  return jsonify({"mensaje":"realizado con exito" , "reconocido": reconocido})
 
 
 @app.route("/verificacion-rostro-documento", methods=['POST'])
 def verfificacionRostroDocumento():
-  foto = request.files['file']
+  nombres = request.form.get('nombres')
+  apellidos = request.form.get('apellidos')
+  numeroDocumento = request.form.get('numero_documento')
+  fotoPersona = request.files['foto_persona']
+  anverso = request.files['anverso']
+  reverso = request.files['reverso']
 
-  print(foto)
+  nombres = nombres.lower()
+  apellidos = apellidos.lower()
+  fotoPersonaBlob = fotoPersona.stream.read()
+  anversoBlob = anverso.stream.read()
+  reversoBlob = reverso.stream.read()
 
   snippet = '''
 
 for row in filas:
-  b = io.BytesIO(row[2])
+  b = io.BytesIO(row[4])
   imagenes.append(b)
   nombre = row[1]
-  nombres.append(nombre)
+  apellido = row[2]
+  nombreCompleto = f"{nombre} {apellido}"
+  nombres.append(nombreCompleto)
 
 '''
 
-  comparacion = reconocimiento(foto, 'documento_usuario', snippet)
+  if len(anversoBlob) >= 200 and len(reversoBlob) >= 200 and len(fotoPersonaBlob) >= 200:
+    duplicado = comprobarDuplicado('documento_usuario', numeroDocumento)
 
-  reconocido = comparacion[1]
-  nombre = comparacion[0]
+    if duplicado != numeroDocumento:
 
-  return jsonify({"proceso":"realizado con exito", "persona_reconocida":nombre,"reconocido":reconocido })
+      columnasQuery:tuple = ('nombres', 'apellidos','numero_documento', 'anverso_documento', 'reverso_documento')
+      tablaQuery:str = 'documento_usuario'
+      valoresQuery:tuple = (nombres, apellidos, numeroDocumento, anversoBlob, reversoBlob,)
 
+      mensaje:str = controlador_db.agregarDocumento(columnasQuery, tablaQuery, valoresQuery)
 
-@app.route("/webhook", methods=['POST'])
-def webhookListener():
+      comparacion = reconocerRostro(fotoPersona, 'documento_usuario', snippet)
+      reconocido = comparacion[1]
+      nombre = comparacion[0]
 
-  data = request.get_json()
+      return jsonify({"persona_reconocida":nombre,"coincidencia_documento_rostro":reconocido, "registradoDB_antes":False })
 
-  event = data['eventName']
+    if duplicado == numeroDocumento:
 
-  if event == "step_completed":
-    mediaStep = data['step']
-    mediaData = mediaStep['data']
-    mediaID = mediaStep['id']
-
-    if mediaID == 'liveness':
-      if mediaData.get("spriteUrl") is not None:
-        selfieURL = mediaData['spriteUrl']
-    
-      if mediaData.get("videoUrl") is not None:
-        videoURL = mediaData['videoUrl']
-
-      spriteBlob = descargarRecursos(selfieURL)
-
-      videoBlob = descargarRecursos(videoURL)
-
-      if isinstance(spriteBlob, str) == False and isinstance(videoBlob, str) == False:
-        spriteRead = spriteBlob.read()
-        videoRead = videoBlob.read()
-
-      else:
-        return jsonify({"mensaje":"la url no era valida y devolvio un string"})
-
-      if len(spriteRead) >= 200 and len(videoRead) >= 200:
-
-        conn = mariadb.connect(
-          user='root',
-          password="30265611",
-          host='localhost',
-          port=3306,
-          database='pki_validacion_identidad'
-        )
-        cursor = conn.cursor()
-
-        cursor.execute('INSERT INTO usuarios (foto) VALUES (?)', (spriteRead,))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return jsonify({"status":"exitoso", "video":videoURL, "selfie":selfieURL, "id":mediaID})
-      else:
-        return jsonify({"status":"la data no cumple con los requerimentos"})
-
-
-
-
-    if mediaID == 'document-reading':
-      if mediaData.get("fullName") is not None:
-        nombreCompleto = mediaData['fullName']['value']
-
-      if mediaData.get("frontUrl") is not None:
-        anverso = mediaData['frontUrl']
-
-      if mediaData.get("backUrl") is not None:
-        reverso = mediaData['backUrl']
-
-      anversoBlob = descargarRecursos(anverso)
-
-      reversoBlob = descargarRecursos(reverso)
-
-      if isinstance(anversoBlob, str) == False and isinstance(reversoBlob, str) == False:
-        anversoRead = anversoBlob.read()
-        reversoRead = reversoBlob.read()
-
-      else:
-        return jsonify({"mensaje":"la url no era valida y devolvio un string"})
-
-      if len(anversoRead) >= 200 and len(reversoRead) >= 200:
-
-        conn = mariadb.connect(
-          user='root',
-          password="30265611",
-          host='localhost',
-          port=3306,
-          database='pki_validacion_identidad'
-        )
-        cursor = conn.cursor()
-
-        cursor.execute('INSERT INTO cedula_usuario (nombre_completo, anverso, reverso) VALUES (?,?,?) ', (nombreCompleto,anversoRead,reversoRead))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return jsonify({"status":"exitoso","nombreCompleto":nombreCompleto ,"anverso":anverso, "reverso":reverso, "id":mediaID})
-      else:
-        return jsonify({"status":"la data no cumple con los requerimentos"})
+      comparacion = reconocerRostro(fotoPersona, 'documento_usuario', snippet)
+      reconocido = comparacion[1]
+      nombre = comparacion[0]
       
+      return jsonify({"persona_reconocida":nombre,"coincidencia_documento_rostro":reconocido, "registradoDB_antes":True})
 
-  if event != "step_completed":
-    return jsonify({"mensaje":"este evento no posee la informacion que se busca"})
-
-
-def reconocimiento(img, tabla, snippet):
-
-    conn = mariadb.connect(
-      user='root',
-      password="30265611",
-      host='localhost',
-      port=3306,
-      database='pki_validacion_identidad'
-    )
-    cursor = conn.cursor()
-
-    cursor.execute(f'SELECT * FROM {tabla}')
-
-    filas = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    cargarImg = face_recognition.load_image_file(img)
-    reconocerImagen = face_recognition.face_encodings(cargarImg)
-    if len(reconocerImagen) == 0:
-        return 'no se encontro ninguna persona', False
-    else:
-        reconocerImagen = reconocerImagen[0]
-
-    reconocido = False
-    nombre = ''
-    vueltas = 0
-
-    nombres = []
-    imagenes = []
-
-    exec(snippet)
-
-
-    dbData = [imagen for imagen in imagenes]
-
-    while ((not reconocido) and (vueltas < len(dbData))):
-        imagenComparar = imagenes[vueltas]
-
-        nombreUsuario = nombres[vueltas]
-
-
-        cargarImgComparar = face_recognition.load_image_file(imagenComparar)
-        reconocerImagenComparar = face_recognition.face_encodings(cargarImgComparar)
-
-        if len(reconocerImagenComparar) == 0:
-            return 'no se ha reconocido a una persona'
-        else:
-            reconocerImagenComparar = reconocerImagenComparar[0]
-
-        reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen)
-
-        reconocido = reconocido[0]
-
-        vueltas+= 1
-
-    if reconocido:
-        return nombreUsuario, True
-    else:
-        return 'no reconocido', False
-
-def descargarRecursos(url):
-  if len(url) >= 1:
-    response = get(url, stream=True)
-    stream = io.BytesIO(response.content)
-    return stream
   else:
-    return "url invalida"
+    return jsonify({'mensaje':'blob invalido'})
 
 
 if __name__ == "__main__":
