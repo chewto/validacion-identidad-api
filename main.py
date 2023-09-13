@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
-from requests import get
-import io
+from flask_cors import CORS, cross_origin
+from flask_ngrok import run_with_ngrok
 from reconocimiento import reconocerRostro
 import controlador_db
 from validar_duplicado import comprobarDuplicado
@@ -8,7 +8,12 @@ from validar_duplicado import comprobarDuplicado
 
 
 app = Flask(__name__)
-
+cors = CORS(app, resources={
+  r"/*":{
+    "origins":"*"
+  }
+})
+app.config['CORS_HEADER'] = 'Content-type'
 
 @app.route("/agregar-documento", methods=['POST'])
 def agregarCedula():
