@@ -13,7 +13,7 @@ Flask==2.2.5
 filelock==3.12.2
 h11==0.14.0
 idna==3.4
-imageio==2.31.3
+imageio==2.31.2
 itsdangerous==2.1.2
 Jinja2==3.1.2
 lazy_loader==0.3
