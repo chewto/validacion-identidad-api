@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from flask_ngrok import run_with_ngrok
 from reconocimiento import reconocerRostro
 import controlador_db
 from validar_duplicado import comprobarDuplicado
