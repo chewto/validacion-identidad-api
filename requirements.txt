@@ -17,7 +17,7 @@ imageio==2.31.2
 itsdangerous==2.1.2
 Jinja2==3.1.2
 lazy_loader==0.3
-mariadb==1.1.7
+mariadb==1.1.6
 MarkupSafe==2.1.3
 mpmath==1.3.0
 networkx==3.1
