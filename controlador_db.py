@@ -19,7 +19,7 @@ def obtenerTodos(tabla:str) -> list:
 
   return filas
 
-def obtenerSolo(tabla:str, condicion:str):
+def obtenerDocumentoUsuario(tabla:str, condicion:str):
   try:
     conn = mariadb.connect(
       user='root',
@@ -38,11 +38,19 @@ def obtenerSolo(tabla:str, condicion:str):
 
     cursor.execute(query)
 
-    usuario = cursor.fetchone()
+    usuarios = cursor.fetchall()
 
-    if usuario is not None:
-      documento = usuario[3]
-      return documento
+    listaUsuarios = []
+
+    if usuarios is not None:
+      for filas in usuarios:
+        data = {
+          'documento': filas[3],
+          'tipoDocumento': filas[4]
+        }
+        listaUsuarios.append(data)
+
+      return listaUsuarios
     else:
       return ''
 
