@@ -1,78 +1,123 @@
 import mariadb
+import base64
+import socket
 
-def obtenerTodos(tabla:str) -> list:
+passwordDB = '30265611'
+nombreDB = 'pki_validacion_identidad'
+
+def obtenerIP():
+  hostname = socket.gethostname()
+  direccionIp = socket.gethostbyname(hostname)
+  return direccionIp
+
+def obtenerUsuario(tabla,id):
+  
   conn = mariadb.connect(
     user='root',
-    password="30265611",
+    password=passwordDB,
     host='localhost',
     port=3306,
-    database='pki_validacion_identidad'
+    database=nombreDB
   )
+
   cursor = conn.cursor()
 
-  cursor.execute(f'SELECT * FROM {tabla}')
+  cursor.execute(f'SELECT * FROM {tabla} WHERE id = {id}')
 
-  filas:list = cursor.fetchall()
+  usuario = cursor.fetchone()
 
   cursor.close()
   conn.close()
 
-  return filas
+  return usuario
 
-def obtenerDocumentoUsuario(tabla:str, condicion:str):
+  cursor.close()
+  conn.close()
+
+
+def agregarVerificacion(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
+
   try:
     conn = mariadb.connect(
       user='root',
-      password="30265611",
+      password=passwordDB,
       host='localhost',
       port=3306,
-      database='pki_validacion_identidad'
+      database=nombreDB
     )
   except mariadb.Error as e:
-    return f'error = {e}'
+    return f"error en la query, error = {e}"
 
   try:
     cursor = conn.cursor()
 
-    query = f'SELECT * FROM {tabla} WHERE {condicion}'
+    columnasStr:str = ','.join(columnas)
+    placeHolder:list = []
 
-    cursor.execute(query)
+    for columna in columnas:
+      placeHolder.append('?')
 
-    usuarios = cursor.fetchall()
+    placeHolderStr:str = ','.join(placeHolder)
 
-    listaUsuarios = []
+    queryEvidencias = f"INSERT INTO {tabla}({columnasStr}) VALUES ({placeHolderStr})"
+    cursor.execute(queryEvidencias, valores)
 
-    if usuarios is not None:
-      for filas in usuarios:
-        data = {
-          'documento': filas[3],
-          'tipoDocumento': filas[4]
-        }
-        listaUsuarios.append(data)
+    evidenciasID = cursor.lastrowid
 
-      return listaUsuarios
-    else:
-      return ''
+    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {evidenciasID} WHERE id = {idParam}"
+    cursor.execute(queryUpdate)
+
+    return 'agregada y actualizada'
 
 
   except mariadb.Error as e:
-    print(e)
-    return ''
+    return f"error = {e}"
 
   finally:
+    conn.commit()
     cursor.close()
     conn.close()
 
-
-def agregarDocumento(columnas: tuple, tabla:str, valores: tuple) -> str:
+def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
 
   try:
     conn = mariadb.connect(
       user='root',
-      password="30265611",
+      password=passwordDB,
       host='localhost',
       port=3306,
-      database='pki_validacion_identidad'
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+
+    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = '{valorNuevo}' WHERE id = {idParam}"
+    cursor.execute(queryUpdate)
+
+    return 'actualizado tipo documento'
+
+  except mariadb.Error as e:
+    return f"error = {e}"
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
+
+  try:
+    conn = mariadb.connect(
+      user='root',
+      password=passwordDB,
+      host='localhost',
+      port=3306,
+      database=nombreDB
     )
   except mariadb.Error as e:
     return f"error en la query, error = {e}"
@@ -89,11 +134,11 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple) -> str:
     placeHolderStr:str = ','.join(placeHolder)
 
 
-    query:str = f'INSERT IGNORE INTO {tabla} ({columnasStr}) VALUES ({placeHolderStr})'
+    queryInfo = f"INSERT INTO {tabla} ({columnasStr}) VALUES ({placeHolderStr})"
+    cursor.execute(queryInfo,valores)
 
-    cursor.execute(query, valores)
+    return 'agregado'
 
-    return "usuario agregado correctamente"
   except mariadb.Error as e:
     return f"error = {e}"
 
@@ -101,3 +146,34 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple) -> str:
     conn.commit()
     cursor.close()
     conn.close()
+
+
+# def obtenerUltimoId(tabla:str):
+#   try:
+#     conn = mariadb.connect(
+#       user='root',
+#       password=passwordDB,
+#       host='localhost',
+#       port=3306,
+#       database='pki_validacion_identidad'
+#     )
+#   except mariadb.Error as e:
+#     return f"error en la query, error = {e}"
+
+#   try:
+#     cursor = conn.cursor()
+
+#     query:str = f'select last_insert_id() from {tabla}'
+
+#     cursor.execute(query)
+
+#     id = cursor.fetchone()
+
+#     return id
+#   except mariadb.Error as e:
+#     return f"error = {e}"
+
+#   finally:
+#     conn.commit()
+#     cursor.close()
+#     conn.close()
