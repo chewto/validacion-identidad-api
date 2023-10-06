@@ -31,11 +31,8 @@ def obtenerUsuario(tabla,id):
 
   return usuario
 
-  cursor.close()
-  conn.close()
 
-
-def agregarVerificacion(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
+def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
 
   try:
     conn = mariadb.connect(
@@ -67,8 +64,38 @@ def agregarVerificacion(columnas:tuple,tabla:str, valores:tuple, tablaActualizar
     queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {evidenciasID} WHERE id = {idParam}"
     cursor.execute(queryUpdate)
 
-    return 'agregada y actualizada'
+    return evidenciasID
 
+
+  except mariadb.Error as e:
+    return f"error = {e}"
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
+
+  try:
+    conn = mariadb.connect(
+      user='root',
+      password=passwordDB,
+      host='localhost',
+      port=3306,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+
+    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = '{valorNuevo}' WHERE id = {idParam}"
+    cursor.execute(queryUpdate)
+
+    return 'actualizada data'
 
   except mariadb.Error as e:
     return f"error = {e}"
@@ -95,10 +122,10 @@ def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idP
     cursor = conn.cursor()
 
 
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = '{valorNuevo}' WHERE id = {idParam}"
+    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {valorNuevo} WHERE id = {idParam}"
     cursor.execute(queryUpdate)
 
-    return 'actualizado tipo documento'
+    return 'actualizada data'
 
   except mariadb.Error as e:
     return f"error = {e}"
@@ -137,7 +164,9 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
     queryInfo = f"INSERT INTO {tabla} ({columnasStr}) VALUES ({placeHolderStr})"
     cursor.execute(queryInfo,valores)
 
-    return 'agregado'
+    documentoUsuarioID = cursor.lastrowid
+
+    return documentoUsuarioID
 
   except mariadb.Error as e:
     return f"error = {e}"

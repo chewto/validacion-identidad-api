@@ -1,5 +1,7 @@
+import cv2
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
+import numpy
 from reconocimiento import reconocerRostro
 import controlador_db
 from validar_duplicado import comprobarDuplicado
@@ -136,18 +138,126 @@ def verfificacionRostroDocumento(id):
     return jsonify({'mensaje':'blob invalido'})
 
 
-@app.route('/obtener-evidencias/<id>', methods=['GET'])
-def obtenerEvidencias(id):
+
+@app.route('/validacion-vida', methods=['POST'])
+def validacionVida():
+
+  imagenes = request.get_json()
+
+  print(imagenes)
+
+
+  return jsonify({'probando':imagenes})
+
+@app.route('/obtener-firmador/<id>', methods=['GET'])
+def obtenerFirmador(id):
+  return jsonify({'firmaElectronicaId':id, "nombre":"prueba", "apellido": "prueba2", "correo":"prueba3", "tipoDocumento": "prueba4", "documento":"prueba5", "enlaceTemporal":"prueba6", "ordenFirma":0})
+
+@app.route('/obtener-evidencias', methods=['GET'])
+def obtenerEvidencias():
+
+  id = request.args.get('id')
+  tipo = request.args.get('tipo')
 
   usuario = controlador_db.obtenerUsuario('documento_usuario', id)
 
   idEvidencias = usuario[6]
   idEvidenciasAdicionales = usuario[7]
 
-  return jsonify({'idEvidencias':idEvidencias, 'idEvidenciasAdicionales':idEvidenciasAdicionales})
+  return jsonify({'idEvidencias':idEvidencias, 'idEvidenciasAdicionales':idEvidenciasAdicionales, "tipo": tipo})
 
-@app.route('/verificacion-evidencias/<id>', methods=['POST'])
-def verificacionEvidencias(id):
+@app.route('/validacion-identidad-tipo-3', methods=['POST'])
+def validacionIdentidadTipo3():
+
+  id = request.args.get('id')
+  idUsuario = request.args.get('idUsuario')
+  idUsuario = int(idUsuario)
+  tipo = request.args.get('tipo')
+
+  #documento usuario
+  nombres = request.form.get('nombres')
+  apellidos = request.form.get('apellidos')
+  email = request.form.get('email')
+  tipoDocumento = request.form.get('tipo_documento')
+  documento = request.form.get('numero_documento')
+
+  #evidencias adicionales
+  IP = controlador_db.obtenerIP()
+  dispositivo = request.form.get('dispositivo')
+  navegador = request.form.get('navegador')
+  latitud = request.form.get('latitud')
+  longitud = request.form.get('longitud')
+  hora = request.form.get('hora')
+  fecha = request.form.get('fecha')
+
+  #evidencias usuario
+  fotoPersona = request.files['foto_persona']
+  anverso = request.files['anverso']
+  reverso = request.files['reverso']
+
+  #streams
+  fotoPersonaBlob = fotoPersona.stream.read()
+  anversoBlob = anverso.stream.read()
+  reversoBlob = reverso.stream.read()
+
+
+  reconocer = reconocerRostro(fotoPersona, anverso)
+  coincidencia = reconocer[0]
+  estadoVericacion = reconocer[1]
+
+  #normalizacion
+  nombres = nombres.lower()
+  apellidos = apellidos.lower()
+  email = email.lower()
+  tipoDocumento = tipoDocumento.lower()
+  documento = documento.lower()
+
+  #creando documento_usuario
+  columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
+  tablaDocumento = 'documento_usuario'
+  valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, 0, 0, idUsuario)
+  documentoUsuario = controlador_db.agregarDocumento(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
+
+
+  tablaActualizar = 'documento_usuario'
+
+  #tabla evidencias 
+  columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
+  tablaEvidencias = 'evidencias_usuario'
+  valoresEvidencias = (anversoBlob, reversoBlob, fotoPersonaBlob, '', '')
+  evidenciasUsuario = controlador_db.agregarDocumento(columnasEvidencias, tablaEvidencias, valoresEvidencias)
+
+  #tabla evidencias adicionales
+
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip', 'latitud', 'longitud', 'hora', 'fecha')
+  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, IP, latitud, longitud, hora,fecha)
+  evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
+
+
+  columnaIdEvidencias = 'id_evidencias'
+  columnaIdEvidenciasA = 'id_evidencias_adicionales'
+
+  actualizarIdEvidencias = controlador_db.actualizarData(tablaDocumento,columnaIdEvidencias,evidenciasUsuario, documentoUsuario )
+  actualizarIdEvidenciasA = controlador_db.actualizarData(tablaDocumento,columnaIdEvidenciasA,evidenciasAdicionales, documentoUsuario )
+
+  # #actualizar documento usuario
+  # tipoDocumento = request.form.get('tipo_documento')
+  # tipoDocumento = tipoDocumento.lower()
+
+  # columnaTipoDocumento = 'tipo_documento'
+  # actualizarTipoDocumento = controlador_db.actualizarData(tablaActualizar, columnaTipoDocumento, tipoDocumento, documentoUsuario)
+
+  return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
+
+
+@app.route('/validacion-identidad-tipo-1', methods=['POST'])
+def validacionIdentidadTipo1():
+
+  id = request.args.get('id')
+  idUsuario = request.args.get('idUsuario')
+  tipo = request.args.get('tipo')
+
   dispositivo = request.form.get('dispositivo')
   navegador = request.form.get('navegador')
   latitud = request.form.get('latitud')
@@ -167,17 +277,17 @@ def verificacionEvidencias(id):
   fotoPersonaBlob = fotoPersona.stream.read()
   anversoBlob = anverso.stream.read()
   reversoBlob = reverso.stream.read()
-
+  print(fotoPersonaBlob)
   reconocer = reconocerRostro(fotoPersona, anverso)
   coincidencia = reconocer[0]
   estadoVericacion = reconocer[1]
 
 
-  columnasEvidencias = ('anverso_documento','reverso_documento','foto_usuario')
+  columnasEvidencias = ('anverso_documento','reverso_documento','foto_usuario','estado_verificacion','tipo_documento')
   tablaEvidencias = 'evidencias_usuario'
-  valoresEvidencias = (anversoBlob, reversoBlob, fotoPersonaBlob)
+  valoresEvidencias = (anversoBlob, reversoBlob, fotoPersonaBlob, '', '')
   columnaActualizarEvidencias = 'id_evidencias'
-  evidencias = controlador_db.agregarVerificacion(columnasEvidencias, tablaEvidencias,valoresEvidencias,tablaActualizar,columnaActualizarEvidencias, id)
+  evidencias = controlador_db.agregarEvidencias(columnasEvidencias, tablaEvidencias,valoresEvidencias,tablaActualizar,columnaActualizarEvidencias, id)
 
   #tabla evidencias adicionales
 
@@ -185,16 +295,16 @@ def verificacionEvidencias(id):
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
   valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, IP, latitud, longitud, hora,fecha)
   columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
-  evidenciasAdicionales = controlador_db.agregarVerificacion(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
+  evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
 
   #actualizar documento usuario
   tipoDocumento = request.form.get('tipo_documento')
   tipoDocumento = tipoDocumento.lower()
 
   columnaTipoDocumento = 'tipo_documento'
-  actualizarTipoDocumento = controlador_db.actualizarData(tablaActualizar, columnaTipoDocumento, tipoDocumento, id)
+  actualizarTipoDocumento = controlador_db.actualizarTipoDocumento(tablaActualizar, columnaTipoDocumento, tipoDocumento, id)
 
-  return jsonify({"coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion, 'evidencias':evidencias, 'evidenciasAdicionales':evidenciasAdicionales, 'tipoDocumento':actualizarTipoDocumento})
+  return jsonify({"coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
   
 if __name__ == "__main__":
-  app.run(debug=True,host="0.0.0.0")
+  app.run(debug=True,host="0.0.0.0", port=4000)
