@@ -1,14 +1,20 @@
 import mariadb
 import base64
 import socket
+import requests
 
 passwordDB = '30265611'
 nombreDB = 'pki_validacion_identidad'
 
-def obtenerIP():
+def obtenerIpPrivada():
   hostname = socket.gethostname()
   direccionIp = socket.gethostbyname(hostname)
   return direccionIp
+
+def obtenerIpPublica():
+  ip = requests.get('https://api.ipify.org').text
+
+  return ip
 
 def obtenerUsuario(tabla,id):
   

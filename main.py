@@ -1,7 +1,6 @@
 import cv2
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-import numpy
 from reconocimiento import reconocerRostro
 import controlador_db
 from validar_duplicado import comprobarDuplicado
@@ -151,7 +150,21 @@ def validacionVida():
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
-  return jsonify({'firmaElectronicaId':id, "nombre":"prueba", "apellido": "prueba2", "correo":"prueba3", "tipoDocumento": "prueba4", "documento":"prueba5", "enlaceTemporal":"prueba6", "ordenFirma":0})
+  return jsonify({
+    "dato": {
+        "id": 11,
+        "firmaElectronicaId": 11,
+        "nombre": "BENITO",
+        "apellido": "OTERO",
+        "correo": "benito.otero.carreira@gmail.com",
+        "tipoDocumento": "CEDULA",
+        "documento": "423105",
+        "evidenciasCargadas": False,
+        "enlaceTemporal": "nhxNYeTyF8",
+        "ordenFirma": 1,
+        "fechaCreacion": "2023-10-07T11:13:52-05:00"
+    }
+})
 
 @app.route('/obtener-evidencias', methods=['GET'])
 def obtenerEvidencias():
@@ -182,7 +195,8 @@ def validacionIdentidadTipo3():
   documento = request.form.get('numero_documento')
 
   #evidencias adicionales
-  IP = controlador_db.obtenerIP()
+  ipPrivada = controlador_db.obtenerIpPrivada()
+  ipPublica = controlador_db.obtenerIpPublica()
   dispositivo = request.form.get('dispositivo')
   navegador = request.form.get('navegador')
   latitud = request.form.get('latitud')
@@ -229,9 +243,9 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip', 'latitud', 'longitud', 'hora', 'fecha')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, IP, latitud, longitud, hora,fecha)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
   evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
 
@@ -268,7 +282,8 @@ def validacionIdentidadTipo1():
   anverso = request.files['anverso']
   reverso = request.files['reverso']
 
-  IP = controlador_db.obtenerIP()
+  ipPrivada = controlador_db.obtenerIpPrivada()
+  ipPublica = controlador_db.obtenerIpPublica()
 
   tablaActualizar = 'documento_usuario'
 
@@ -291,9 +306,9 @@ def validacionIdentidadTipo1():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip','latitud','longitud','hora','fecha')
+  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, IP, latitud, longitud, hora,fecha)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
   columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
   evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
 
