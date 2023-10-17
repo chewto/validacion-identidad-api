@@ -1,162 +1,264 @@
-import os
-import string
-import urllib
-import uuid
-import pickle
-import datetime
-import time
-import shutil
+from flask import Flask, request, jsonify
+from flask_cors import CORS, cross_origin
+from reconocimiento import reconocerRostro, pruebaVida
+import controlador_db
+from validar_duplicado import comprobarDuplicado
+from utilidades import leerDataUrl, cv2Blob
+from ocr import imagenOCR, validarOCR
 
-import cv2
-from fastapi import FastAPI, File, UploadFile, Form, UploadFile, Response
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-import face_recognition
-import starlette
-from pydantic import BaseModel
-import requests
-import sqlite3
+app = Flask(__name__)
+cors = CORS(app, resources={
+  r"/*":{
+    "origins":"*"
+  }
+})
+app.config['CORS_HEADER'] = 'Content-type'
 
+@app.route('/obtener-firmador/<id>', methods=['GET'])
+def obtenerFirmador(id):
+  return jsonify({
+    "dato": {
+        "id": 11,
+        "firmaElectronicaId": 11,
+        "nombre": "BENITO",
+        "apellido": "OTERO",
+        "correo": "benito.otero.carreira@gmail.com",
+        "tipoDocumento": "CEDULA",
+        "documento": "423105",
+        "evidenciasCargadas": False,
+        "enlaceTemporal": "nhxNYeTyF8",
+        "ordenFirma": 1,
+        "fechaCreacion": "2023-10-07T11:13:52-05:00"
+    }
+})
 
-ATTENDANCE_LOG_DIR = './logs'
-DB_PATH = './db'
-for dir_ in [ATTENDANCE_LOG_DIR, DB_PATH]:
-    if not os.path.exists(dir_):
-        os.mkdir(dir_)
+#rutas para el front
+@app.route('/ocr', methods=['POST'])
+def verificarDocumento():
 
-app = FastAPI()
+  tipoDocumento = request.args.get('tipoDocumento')
+  ladoDocumento = request.args.get('ladoDocumento')
 
-origins = ["*"]
+  print(tipoDocumento, ladoDocumento)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+  documento = request.get_json()
 
-@app.post("/login")
-async def login(file: UploadFile = File(...)):
+  documentoData = documento['imagen'][ladoDocumento]
 
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
+  documentoOCR = imagenOCR(documentoData, tipoDocumento, ladoDocumento)
 
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
+  print(documentoOCR)
 
-    user_name, match_status = recognize(file.filename)
+  validacion = validarOCR(documentoOCR, tipoDocumento, ladoDocumento)
 
-    if match_status:
-        epoch_time = time.time()
-        date = time.strftime('%Y%m%d', time.localtime(epoch_time))
-        with open(os.path.join(ATTENDANCE_LOG_DIR, '{}.csv'.format(date)), 'a') as f:
-            f.write('{},{},{}\n'.format(user_name, datetime.datetime.now(), 'IN'))
-            f.close()
-
-    return {'user': user_name, 'match_status': match_status}
+  return jsonify({'validacion':validacion})
 
 
-@app.post("/logout")
-async def logout(file: UploadFile = File(...)):
+@app.route('/validacion-vida', methods=['POST'])
+def validacionVida():
 
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
+  data = request.get_json()
 
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
+  imagenes = data['imagenes']
 
-    user_name, match_status = recognize(cv2.imread(file.filename))
+  imagenBaseContador = 0
+  imagenComaparacionContador = 1
 
-    if match_status:
-        epoch_time = time.time()
-        date = time.strftime('%Y%m%d', time.localtime(epoch_time))
-        with open(os.path.join(ATTENDANCE_LOG_DIR, '{}.csv'.format(date)), 'a') as f:
-            f.write('{},{},{}\n'.format(user_name, datetime.datetime.now(), 'OUT'))
-            f.close()
+  porcentaje = 0
 
-    return {'user': user_name, 'match_status': match_status}
+  while imagenBaseContador <= 7 and imagenComaparacionContador <= 8:
 
-@app.post("/register_new_user")
-async def register_new_user(file: UploadFile = File(...), text=None):
-    file.filename = f"{uuid.uuid4()}.png"
-    contents = await file.read()
+    print(f"vuelta: {imagenComaparacionContador}")
+    imagenBase = imagenes[imagenBaseContador]
+    imagenComparacion = imagenes[imagenComaparacionContador]
 
-    # example of how you can save the file
-    with open(file.filename, "wb") as f:
-        f.write(contents)
+    imagenBaseData = leerDataUrl(imagenBase)
+    imagenComparacionData = leerDataUrl(imagenComparacion)
 
-    shutil.copy(file.filename, os.path.join(DB_PATH, '{}.png'.format(text)))
+    comparacion = pruebaVida(imagenBaseData, imagenComparacionData)
 
-    embeddings = face_recognition.face_encodings(cv2.imread(file.filename))
+    coincidencia = comparacion[0]
 
-    file_ = open(os.path.join(DB_PATH, '{}.pickle'.format(text)), 'wb')
-    pickle.dump(embeddings, file_)
-    print(file.filename, text)
+    resultado = comparacion[1]
 
-    os.remove(file.filename)
+    porcentaje = porcentaje + resultado
 
-    return {'registration_status': 200}
+    print(comparacion)
+    print(f'{porcentaje}%')
 
-@app.get("/get_attendance_logs")
-async def get_attendance_logs():
+    imagenBaseContador = imagenBaseContador + 1
+    imagenComaparacionContador = imagenComaparacionContador + 1
 
-    filename = 'out.zip'
 
-    shutil.make_archive(filename[:-4], 'zip', ATTENDANCE_LOG_DIR)
+  return jsonify({'porcentajePruebaVida':porcentaje})
 
-    ##return File(filename, filename=filename, content_type="application/zip", as_attachment=True)
-    return starlette.responses.FileResponse(filename, media_type='application/zip',filename=filename)
+@app.route('/obtener-evidencias', methods=['GET'])
+def obtenerEvidencias():
 
-def recognize(img):
-    # it is assumed there will be at most 1 match in the db
-    image = face_recognition.load_image_file(img)
-    embeddings_unknown = face_recognition.face_encodings(image)
-    if len(embeddings_unknown) == 0:
-        print('no reconocido')
-        return 'no_persons_found', False
-    else:
-        embeddings_unknown = embeddings_unknown[0]
+  id = request.args.get('id')
+  tipo = request.args.get('tipo')
 
-    match = False
-    nombre = ''
-    j = 0
+  usuario = controlador_db.obtenerUsuario('documento_usuario', id)
 
-    db_dir = sorted([j for j in os.listdir(DB_PATH) if j.endswith('.png') or j.endswith('.jpg')])
+  idEvidencias = usuario[6]
+  idEvidenciasAdicionales = usuario[7]
 
-    print(db_dir)
-    while ((not match) and (j < len(db_dir))):
-        path_ = os.path.join(DB_PATH, db_dir[j])
+  return jsonify({'idEvidencias':idEvidencias, 'idEvidenciasAdicionales':idEvidenciasAdicionales, "tipo": tipo})
 
-        print(path_)
+@app.route('/validacion-identidad-tipo-3', methods=['POST'])
+def validacionIdentidadTipo3():
 
-        loadImage = face_recognition.load_image_file(path_)
-        compareImage = face_recognition.face_encodings(loadImage)
+  id = request.args.get('id')
+  idUsuario = request.args.get('idUsuario')
+  idUsuario = int(idUsuario)
+  tipo = request.args.get('tipo')
 
-        if len(compareImage) == 0:
-            return 'no se ha reconocido a una persona'
-        else:
-            compareImage = compareImage[0]
+  #documento usuario
+  nombres = request.form.get('nombres')
+  apellidos = request.form.get('apellidos')
+  email = request.form.get('email')
+  tipoDocumento = request.form.get('tipo_documento')
+  documento = request.form.get('numero_documento')
 
-        match = face_recognition.compare_faces([compareImage], embeddings_unknown)
+  #evidencias adicionales
+  ipPrivada = controlador_db.obtenerIpPrivada()
+  ipPublica = controlador_db.obtenerIpPublica()
+  dispositivo = request.form.get('dispositivo')
+  navegador = request.form.get('navegador')
+  latitud = request.form.get('latitud')
+  longitud = request.form.get('longitud')
+  hora = request.form.get('hora')
+  fecha = request.form.get('fecha')
 
-        match = match[0]
+  #evidencias usuario
+  fotoPersona = request.form.get('foto_persona')
+  anverso = request.form.get('anverso')
+  reverso = request.form.get('reverso')
 
-        if match:
-            nombre = db_dir[j]
-            nombre = nombre.replace('.jpg', '')
-        else:
-            nombre = ''
+  #leer data url
+  fotoPersonaData = leerDataUrl(fotoPersona)
+  anversoData = leerDataUrl(anverso)
+  reversoData = leerDataUrl(reverso)
 
-        j+= 1
+  print(fotoPersonaData, anversoData, reversoData)
 
-    if match:
-        print('reconocido', nombre)
-        return nombre, True
-    else:
-        print('no reconocido')
-        return 'no reconocido', False
+  reconocer = reconocerRostro(fotoPersonaData, anversoData)
+  coincidencia = reconocer[0]
+  estadoVericacion = reconocer[1]
+  anversoOrientado = reconocer[2]
 
-# python3 -m uvicorn main:app
+  fotoPersonaBlob = cv2Blob(fotoPersonaData)
+  reversoBlob = cv2Blob(reversoData)
+
+
+  #normalizacion
+  nombres = nombres.lower()
+  apellidos = apellidos.lower()
+  email = email.lower()
+  tipoDocumento = tipoDocumento.lower()
+  documento = documento.lower()
+
+  #creando documento_usuario
+  columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
+  tablaDocumento = 'documento_usuario'
+  valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, 0, 0, idUsuario)
+  documentoUsuario = controlador_db.agregarDocumento(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
+
+
+  tablaActualizar = 'documento_usuario'
+
+  #tabla evidencias 
+  columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
+  tablaEvidencias = 'evidencias_usuario'
+  valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
+  evidenciasUsuario = controlador_db.agregarDocumento(columnasEvidencias, tablaEvidencias, valoresEvidencias)
+
+  #tabla evidencias adicionales
+
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha')
+  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
+  evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
+
+
+  columnaIdEvidencias = 'id_evidencias'
+  columnaIdEvidenciasA = 'id_evidencias_adicionales'
+
+  actualizarIdEvidencias = controlador_db.actualizarData(tablaDocumento,columnaIdEvidencias,evidenciasUsuario, documentoUsuario )
+  actualizarIdEvidenciasA = controlador_db.actualizarData(tablaDocumento,columnaIdEvidenciasA,evidenciasAdicionales, documentoUsuario )
+
+  # #actualizar documento usuario
+  # tipoDocumento = request.form.get('tipo_documento')
+  # tipoDocumento = tipoDocumento.lower()
+
+  # columnaTipoDocumento = 'tipo_documento'
+  # actualizarTipoDocumento = controlador_db.actualizarData(tablaActualizar, columnaTipoDocumento, tipoDocumento, documentoUsuario)
+
+  return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
+
+
+@app.route('/validacion-identidad-tipo-1', methods=['POST'])
+def validacionIdentidadTipo1():
+
+  id = request.args.get('id')
+  idUsuario = request.args.get('idUsuario')
+  tipo = request.args.get('tipo')
+
+  dispositivo = request.form.get('dispositivo')
+  navegador = request.form.get('navegador')
+  latitud = request.form.get('latitud')
+  longitud = request.form.get('longitud')
+  hora = request.form.get('hora')
+  fecha = request.form.get('fecha')
+
+  ipPrivada = controlador_db.obtenerIpPrivada()
+  ipPublica = controlador_db.obtenerIpPublica()
+
+  tablaActualizar = 'documento_usuario'
+
+  #evidencias usuario
+  fotoPersona = request.form.get('foto_persona')
+  anverso = request.form.get('anverso')
+  reverso = request.form.get('reverso')
+
+  #leer data url
+  fotoPersonaData = leerDataUrl(fotoPersona)
+  anversoData = leerDataUrl(anverso)
+  reversoData = leerDataUrl(reverso)
+
+  print(fotoPersonaData, anversoData, reversoData)
+
+  reconocer = reconocerRostro(fotoPersonaData, anversoData)
+  coincidencia = reconocer[0]
+  estadoVericacion = reconocer[1]
+  anversoOrientado = reconocer[2]
+
+  fotoPersonaBlob = cv2Blob(fotoPersonaData)
+  reversoBlob = cv2Blob(reversoData)
+
+
+  columnasEvidencias = ('anverso_documento','reverso_documento','foto_usuario','estado_verificacion','tipo_documento')
+  tablaEvidencias = 'evidencias_usuario'
+  valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
+  columnaActualizarEvidencias = 'id_evidencias'
+  evidencias = controlador_db.agregarEvidencias(columnasEvidencias, tablaEvidencias,valoresEvidencias,tablaActualizar,columnaActualizarEvidencias, id)
+
+  #tabla evidencias adicionales
+
+  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha')
+  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
+  columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
+  evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
+
+  #actualizar documento usuario
+  tipoDocumento = request.form.get('tipo_documento')
+  tipoDocumento = tipoDocumento.lower()
+
+  columnaTipoDocumento = 'tipo_documento'
+  actualizarTipoDocumento = controlador_db.actualizarTipoDocumento(tablaActualizar, columnaTipoDocumento, tipoDocumento, id)
+
+  return jsonify({"coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
+  
+if __name__ == "__main__":
+  app.run(debug=True,host="0.0.0.0", port=4000)
