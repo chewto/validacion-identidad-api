@@ -3,8 +3,17 @@ import base64
 import socket
 import requests
 
+# passwordDB = '30265611'
+# nombreDB = 'pki_validacion'
+# hostDB = '93.93.119.219'
+# portDB = 3306
+# userDB = 'administrador'
+
 passwordDB = '30265611'
 nombreDB = 'pki_validacion_identidad'
+hostDB = 'localhost'
+portDB = 3306
+userDB = 'root'
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -19,10 +28,10 @@ def obtenerIpPublica():
 def obtenerUsuario(tabla,id):
   
   conn = mariadb.connect(
-    user='root',
+    user=userDB,
     password=passwordDB,
-    host='localhost',
-    port=3306,
+    host=hostDB,
+    port=portDB,
     database=nombreDB
   )
 
@@ -42,10 +51,10 @@ def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:s
 
   try:
     conn = mariadb.connect(
-      user='root',
+      user=userDB,
       password=passwordDB,
-      host='localhost',
-      port=3306,
+      host=hostDB,
+      port=portDB,
       database=nombreDB
     )
   except mariadb.Error as e:
@@ -85,10 +94,10 @@ def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo
 
   try:
     conn = mariadb.connect(
-      user='root',
+      user=userDB,
       password=passwordDB,
-      host='localhost',
-      port=3306,
+      host=hostDB,
+      port=portDB,
       database=nombreDB
     )
   except mariadb.Error as e:
@@ -115,10 +124,10 @@ def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idP
 
   try:
     conn = mariadb.connect(
-      user='root',
+      user=userDB,
       password=passwordDB,
-      host='localhost',
-      port=3306,
+      host=hostDB,
+      port=portDB,
       database=nombreDB
     )
   except mariadb.Error as e:
@@ -146,10 +155,10 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
 
   try:
     conn = mariadb.connect(
-      user='root',
+      user=userDB,
       password=passwordDB,
-      host='localhost',
-      port=3306,
+      host=hostDB,
+      port=portDB,
       database=nombreDB
     )
   except mariadb.Error as e:
@@ -188,8 +197,8 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
 #     conn = mariadb.connect(
 #       user='root',
 #       password=passwordDB,
-#       host='localhost',
-#       port=3306,
+#       host=hostDB,
+#       port=portDB,
 #       database='pki_validacion_identidad'
 #     )
 #   except mariadb.Error as e:

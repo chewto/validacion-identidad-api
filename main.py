@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
-from validar_duplicado import comprobarDuplicado
 from utilidades import leerDataUrl, cv2Blob
 from ocr import imagenOCR, validarOCR
 
