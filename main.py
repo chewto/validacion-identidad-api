@@ -1,9 +1,10 @@
-import cv2
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from reconocimiento import reconocerRostro
+from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
 from validar_duplicado import comprobarDuplicado
+from utilidades import leerDataUrl, cv2Blob
+from ocr import imagenOCR, validarOCR
 
 app = Flask(__name__)
 cors = CORS(app, resources={
@@ -12,141 +13,6 @@ cors = CORS(app, resources={
   }
 })
 app.config['CORS_HEADER'] = 'Content-type'
-
-@app.route("/agregar-documento", methods=['POST'])
-def agregarCedula():
-  nombres = request.form.get('nombres')
-  apellidos = request.form.get('apellidos')
-  numeroDocumento = request.form.get('numero_documento')
-  anverso = request.files['anverso']
-  reverso = request.files['reverso']
-
-  nombres = nombres.lower()
-  apellidos = apellidos.lower()
-  anversoBlob = anverso.stream.read()
-  reversoBlob = reverso.stream.read()
-
-  if len(anversoBlob) >= 200 and len(reversoBlob) >= 200:
-
-    duplicado = comprobarDuplicado('documento_usuario', numeroDocumento)
-
-    if duplicado != numeroDocumento:
-      columnasQuery:tuple = ('nombres', 'apellidos', 'numero_documento', 'anverso_documento', 'reverso_documento')
-      tablaQuery:str = 'documento_usuario'
-      valoresQuery:tuple = (nombres, apellidos, numeroDocumento, anversoBlob, reversoBlob,)
-
-      mensaje:str = controlador_db.agregarDocumento(columnasQuery, tablaQuery, valoresQuery)
-
-      return jsonify({"mensaje":mensaje, "duplicado":duplicado})
-    
-    if duplicado == numeroDocumento:
-      return jsonify({"mensaje":"el documento ya se encuentra registrado", "duplicado":duplicado})
-
-
-@app.route("/verificacion-rostro-rostro", methods=['POST'])
-def verificacion():
-
-  archivo = request.files['file']
-
-  obtenerImagenSnippet = '''
-for row in filas:
-  b = io.BytesIO(row[1])
-  imagenes.append(b)
-
-print(imagenes)
-'''
-
-  comparacion = reconocerRostro(archivo, 'usuarios', obtenerImagenSnippet);
-
-  reconocido = comparacion[1]
-
-  print(comparacion[1])
-
-  return jsonify({"mensaje":"realizado con exito" , "reconocido": reconocido})
-
-
-@app.route("/verificacion-rostro-documento/<id>", methods=['POST'])
-def verfificacionRostroDocumento(id):
-
-# #   snippet = '''
-
-# # for row in filas:
-# #   b = io.BytesIO(row[5])
-# #   imagenes.append(b)
-# #   nombre = row[1]
-# #   apellido = row[2]
-# #   nombreCompleto = f"{nombre} {apellido}"
-# #   nombres.append(nombreCompleto)
-
-# # '''
-
-#   if len(anversoBlob) >= 200 and len(reversoBlob) >= 200 and len(fotoPersonaBlob) >= 200:
-#     # duplicados = comprobarDuplicado('documento_usuario',numeroDocumento, tipoDocumento)
-
-#     # print(duplicados)
-
-#     # documentosDuplicados = 0
-#     # tipoDocumentoDuplicados = 0
-  
-#     # for duplicado in duplicados:
-#     #   if(duplicado['documento'] == numeroDocumento):
-#     #     documentosDuplicados = documentosDuplicados + 1
-#     #     print(documentosDuplicados)
-      
-#     #   if(duplicado['tipoDocumento'] == tipoDocumento):
-#     #     tipoDocumentoDuplicados = tipoDocumentoDuplicados + 1
-#     #     print(tipoDocumentoDuplicados)
-
-
-#     # comparacion = reconocerRostro(fotoPersona, anverso)
-#     # reconocido = comparacion[1]
-#     # coincidencia = comparacion[0]
-
-#     mensaje= controlador_db.agregarDocumento(('nombres','apellidos','numero_documento','tipo_documento','email','id_evidencias','id_evidencias_adicionales'),'documento_usuario',(nombres, apellidos, numeroDocumento, tipoDocumento, email, 0, 0))
-
-
-#     return jsonify({"status": mensaje})
-
-#     # if len(duplicados) >= 1:
-#     #   if(documentosDuplicados >= 1 and tipoDocumentoDuplicados >= 1):
-
-#     #     comparacion = reconocerRostro(fotoPersona, anverso)
-#     #     reconocido = comparacion[1]
-#     #     coincidencia = comparacion[0]
-
-#     #     query = f'numero_documento = "{numeroDocumento}" AND tipo_documento = "{tipoDocumento}"'
-#     #     info = controlador_db.obtenerUsuario('documento_usuario', query)
-
-#     #     idEvidencias = info[0]['id_evidencias']
-
-#     #     queryActualizar = f'UPDATE evidencias_usuario  SET foto_usuario = {fotoPersonaBlob}  WHERE id = {idEvidencias}'
-#     #     actualizar = controlador_db.actualizarEstado(queryActualizar)
-
-#     #     return jsonify({"coincidencia_documento_rostro":reconocido, "estado_verificacion":reconocido, "status":"documento previamente registrado"})
-
-#     #   if(documentosDuplicados >= 1 and  tipoDocumentoDuplicados <= 0):
-
-#     #     comparacion = reconocerRostro(fotoPersona, anverso)
-#     #     reconocido = comparacion[1]
-#     #     coincidencia = comparacion[0]
-
-#     #     mensaje= controlador_db.agregarDocumento(anversoBlob, reversoBlob, fotoPersonaBlob, nombres, apellidos, numeroDocumento, tipoDocumento, reconocido)
-
-#     #     return jsonify({"coincidencia_documento_rostro":reconocido, "estado_verificacion":reconocido, "status": 'agregado satisfactoriamente desde b'})
-
-    return jsonify({'mensaje':'blob invalido'})
-
-
-
-@app.route('/validacion-vida', methods=['POST'])
-def validacionVida():
-
-  imagenes = request.get_json()
-
-  print(imagenes)
-
-
-  return jsonify({'probando':imagenes})
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -165,6 +31,66 @@ def obtenerFirmador(id):
         "fechaCreacion": "2023-10-07T11:13:52-05:00"
     }
 })
+
+#rutas para el front
+@app.route('/ocr', methods=['POST'])
+def verificarDocumento():
+
+  tipoDocumento = request.args.get('tipoDocumento')
+  ladoDocumento = request.args.get('ladoDocumento')
+
+  print(tipoDocumento, ladoDocumento)
+
+  documento = request.get_json()
+
+  documentoData = documento['imagen'][ladoDocumento]
+
+  documentoOCR = imagenOCR(documentoData, tipoDocumento, ladoDocumento)
+
+  print(documentoOCR)
+
+  validacion = validarOCR(documentoOCR, tipoDocumento, ladoDocumento)
+
+  return jsonify({'validacion':validacion})
+
+
+@app.route('/validacion-vida', methods=['POST'])
+def validacionVida():
+
+  data = request.get_json()
+
+  imagenes = data['imagenes']
+
+  imagenBaseContador = 0
+  imagenComaparacionContador = 1
+
+  porcentaje = 0
+
+  while imagenBaseContador <= 7 and imagenComaparacionContador <= 8:
+
+    print(f"vuelta: {imagenComaparacionContador}")
+    imagenBase = imagenes[imagenBaseContador]
+    imagenComparacion = imagenes[imagenComaparacionContador]
+
+    imagenBaseData = leerDataUrl(imagenBase)
+    imagenComparacionData = leerDataUrl(imagenComparacion)
+
+    comparacion = pruebaVida(imagenBaseData, imagenComparacionData)
+
+    coincidencia = comparacion[0]
+
+    resultado = comparacion[1]
+
+    porcentaje = porcentaje + resultado
+
+    print(comparacion)
+    print(f'{porcentaje}%')
+
+    imagenBaseContador = imagenBaseContador + 1
+    imagenComaparacionContador = imagenComaparacionContador + 1
+
+
+  return jsonify({'porcentajePruebaVida':porcentaje})
 
 @app.route('/obtener-evidencias', methods=['GET'])
 def obtenerEvidencias():
@@ -205,19 +131,25 @@ def validacionIdentidadTipo3():
   fecha = request.form.get('fecha')
 
   #evidencias usuario
-  fotoPersona = request.files['foto_persona']
-  anverso = request.files['anverso']
-  reverso = request.files['reverso']
+  fotoPersona = request.form.get('foto_persona')
+  anverso = request.form.get('anverso')
+  reverso = request.form.get('reverso')
 
-  #streams
-  fotoPersonaBlob = fotoPersona.stream.read()
-  anversoBlob = anverso.stream.read()
-  reversoBlob = reverso.stream.read()
+  #leer data url
+  fotoPersonaData = leerDataUrl(fotoPersona)
+  anversoData = leerDataUrl(anverso)
+  reversoData = leerDataUrl(reverso)
 
+  print(fotoPersonaData, anversoData, reversoData)
 
-  reconocer = reconocerRostro(fotoPersona, anverso)
+  reconocer = reconocerRostro(fotoPersonaData, anversoData)
   coincidencia = reconocer[0]
   estadoVericacion = reconocer[1]
+  anversoOrientado = reconocer[2]
+
+  fotoPersonaBlob = cv2Blob(fotoPersonaData)
+  reversoBlob = cv2Blob(reversoData)
+
 
   #normalizacion
   nombres = nombres.lower()
@@ -238,7 +170,7 @@ def validacionIdentidadTipo3():
   #tabla evidencias 
   columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
   tablaEvidencias = 'evidencias_usuario'
-  valoresEvidencias = (anversoBlob, reversoBlob, fotoPersonaBlob, '', '')
+  valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
   evidenciasUsuario = controlador_db.agregarDocumento(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
   #tabla evidencias adicionales
@@ -278,29 +210,36 @@ def validacionIdentidadTipo1():
   longitud = request.form.get('longitud')
   hora = request.form.get('hora')
   fecha = request.form.get('fecha')
-  fotoPersona = request.files['foto_persona']
-  anverso = request.files['anverso']
-  reverso = request.files['reverso']
 
   ipPrivada = controlador_db.obtenerIpPrivada()
   ipPublica = controlador_db.obtenerIpPublica()
 
   tablaActualizar = 'documento_usuario'
 
-  #tabla evidencias
-  
-  fotoPersonaBlob = fotoPersona.stream.read()
-  anversoBlob = anverso.stream.read()
-  reversoBlob = reverso.stream.read()
-  print(fotoPersonaBlob)
-  reconocer = reconocerRostro(fotoPersona, anverso)
+  #evidencias usuario
+  fotoPersona = request.form.get('foto_persona')
+  anverso = request.form.get('anverso')
+  reverso = request.form.get('reverso')
+
+  #leer data url
+  fotoPersonaData = leerDataUrl(fotoPersona)
+  anversoData = leerDataUrl(anverso)
+  reversoData = leerDataUrl(reverso)
+
+  print(fotoPersonaData, anversoData, reversoData)
+
+  reconocer = reconocerRostro(fotoPersonaData, anversoData)
   coincidencia = reconocer[0]
   estadoVericacion = reconocer[1]
+  anversoOrientado = reconocer[2]
+
+  fotoPersonaBlob = cv2Blob(fotoPersonaData)
+  reversoBlob = cv2Blob(reversoData)
 
 
   columnasEvidencias = ('anverso_documento','reverso_documento','foto_usuario','estado_verificacion','tipo_documento')
   tablaEvidencias = 'evidencias_usuario'
-  valoresEvidencias = (anversoBlob, reversoBlob, fotoPersonaBlob, '', '')
+  valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
   columnaActualizarEvidencias = 'id_evidencias'
   evidencias = controlador_db.agregarEvidencias(columnasEvidencias, tablaEvidencias,valoresEvidencias,tablaActualizar,columnaActualizarEvidencias, id)
 
