@@ -1,3 +1,5 @@
+from io import BytesIO
+from PIL import Image
 import cv2
 import numpy as np
 import base64
@@ -20,3 +22,12 @@ def cv2Blob(imagen):
   imagenBlob = imagenEncode.tobytes()
 
   return imagenBlob
+
+def ioBytesDesdeDataURL(imagen):
+  _, encoded = imagen.split(",", 1)
+
+  imagenBytes = BytesIO(base64.b64decode(encoded))
+
+  imagen = Image.open(imagenBytes)
+
+  return imagen

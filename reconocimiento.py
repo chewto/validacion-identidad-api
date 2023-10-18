@@ -1,9 +1,11 @@
 import face_recognition
-import controlador_db
-import io
 import numpy as np
 import cv2
-from utilidades import cv2Blob
+from utilidades import cv2Blob, ioBytesDesdeDataURL
+import mediapipe as mp
+
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
 
 # def reconocerRostro(imgPersona, imgDocumento):
 
@@ -103,6 +105,61 @@ def pruebaVida(imagenBase, imagenComparacion):
        return comparacion, 12.5
     else:
        return comparacion, 0
+
+def detectarDedos(data_url:str):
+    hands = mp_hands.Hands(static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5)
+
+    # Decode data URL
+    image = ioBytesDesdeDataURL(data_url)
+    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    image = cv2.flip(image, 1)
+
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    results = hands.process(rgb)
+
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+            # Detect fingers
+            finger_names = ['pulgar', 'indice', 'medio', 'anular', 'meñique']
+            fingers_up = []
+
+            # Thumb
+            thumb_up = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y < hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP].y
+            if thumb_up:
+                fingers_up.append(finger_names[0])
+
+            # Index Finger
+            index_finger_up = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y < hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y
+            if index_finger_up:
+                fingers_up.append(finger_names[1])
+
+            # Middle Finger
+            middle_finger_up = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP].y < hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP].y
+            if middle_finger_up:
+                fingers_up.append(finger_names[2])
+
+            # Ring Finger
+            ring_finger_up = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP].y < hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_MCP].y
+            if ring_finger_up:
+                fingers_up.append(finger_names[3])
+
+            # Pinky Finger
+            pinky_finger_up = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP].y < hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP].y
+            if pinky_finger_up:
+                fingers_up.append(finger_names[4])
+
+            # Display the fingers that are up
+            if fingers_up:
+                finger_text = ', '.join(fingers_up)
+                cv2.putText(image, f'Finger(s) Up: {finger_text}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                
+                return fingers_up
+            else:
+                cv2.putText(image, 'No fingers up', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
 
 # def reconocerRostro(img, tabla):
 

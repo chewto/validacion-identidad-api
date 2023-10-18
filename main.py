@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from reconocimiento import reconocerRostro, pruebaVida
+from reconocimiento import reconocerRostro, pruebaVida, detectarDedos
 import controlador_db
 from utilidades import leerDataUrl, cv2Blob
 from ocr import imagenOCR, validarOCR
@@ -140,6 +140,13 @@ def validacionIdentidadTipo3():
   reversoData = leerDataUrl(reverso)
 
   print(fotoPersonaData, anversoData, reversoData)
+
+  #reconocimiento de manos
+
+  dedosDetectados = detectarDedos(fotoPersona)
+  print(dedosDetectados)
+
+  #reconocimiento persona documento
 
   reconocer = reconocerRostro(fotoPersonaData, anversoData)
   coincidencia = reconocer[0]
