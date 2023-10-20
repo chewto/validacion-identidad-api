@@ -34,19 +34,16 @@ def obtenerFirmador(id):
 #rutas para el front
 @app.route('/ocr', methods=['POST'])
 def verificarDocumento():
-
-  tipoDocumento = request.args.get('tipoDocumento')
-  ladoDocumento = request.args.get('ladoDocumento')
-
-  print(tipoDocumento, ladoDocumento)
-
   documento = request.get_json()
 
-  documentoData = documento['imagen'][ladoDocumento]
+  tipoDocumento = documento['tipoDocumento']
+
+  ladoDocumento = documento['ladoDocumento']
+
+  documentoData = documento['imagen']
 
   documentoOCR = imagenOCR(documentoData, tipoDocumento, ladoDocumento)
 
-  print(documentoOCR)
 
   validacion = validarOCR(documentoOCR, tipoDocumento, ladoDocumento)
 
