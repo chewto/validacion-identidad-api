@@ -10,7 +10,7 @@ import requests
 # userDB = 'administrador'
 
 passwordDB = '30265611'
-nombreDB = 'pki_validacion_identidad'
+nombreDB = 'pki_validacion'
 hostDB = 'localhost'
 portDB = 3306
 userDB = 'root'
