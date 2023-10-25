@@ -10,7 +10,7 @@ import requests
 # userDB = 'administrador'
 
 passwordDB = '30265611'
-nombreDB = 'pki_validacion_identidad'
+nombreDB = 'database_prueba'
 hostDB = 'localhost'
 portDB = 3306
 userDB = 'root'
@@ -83,6 +83,7 @@ def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:s
 
 
   except mariadb.Error as e:
+    print("error = ", e)
     return f"error = {e}"
 
   finally:
@@ -113,6 +114,7 @@ def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo
     return 'actualizada data'
 
   except mariadb.Error as e:
+    print("error = ", e)
     return f"error = {e}"
 
   finally:
@@ -143,6 +145,7 @@ def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idP
     return 'actualizada data'
 
   except mariadb.Error as e:
+    print("error = ", e)
     return f"error = {e}"
 
   finally:
@@ -184,6 +187,8 @@ def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
     return documentoUsuarioID
 
   except mariadb.Error as e:
+
+    print("error =", e)
     return f"error = {e}"
 
   finally:
