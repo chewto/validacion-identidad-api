@@ -5,7 +5,11 @@ import base64
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-def imagenOCR(imagen:str, tipoDocumento:str ,ladoDocumento:str):
+def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
+  
+  nombre = nombre.upper()
+  apellido = apellido.upper()
+
   imagenData:list[str] = imagen.split(',')[1]
   decoded:bytes = base64.b64decode(imagenData)
   lerrImagen:Image = Image.open(BytesIO(decoded))
@@ -14,68 +18,98 @@ def imagenOCR(imagen:str, tipoDocumento:str ,ladoDocumento:str):
 
   lineas:list[str] = txt.splitlines()
 
-  palabrasClave = []
+  informacionOCR = {}
 
   letras = 'qwertyuiopasdfghjklzxcvbnm'
+  numeros = '1234567890'
 
   for linea in lineas:
-    lineaSinEspacios = linea.replace(' ','')
-    lineaSinCaracteres = lineaSinEspacios.replace('-', '')
-    lineaLower = lineaSinCaracteres.lower()
+
+    linea = linea.upper()
+    linea = linea.strip()
+
+    print(linea)
+
+    lineaLimpia = ''
+
+    for caracter in linea:
+      for numero in numeros:
+        if(caracter == numero):
+          lineaLimpia +=  caracter
+
+    if(linea.find(nombre) != -1):
+      informacionOCR['nombre'] = linea
+
+    
+    if(linea.find(apellido) != -1):
+      informacionOCR['apellido'] = linea
 
 
-    lineaSinNumeros = ''
+    if(lineaLimpia.find(numeroDocumento) != -1):
+      informacionOCR['numeroDocumento'] = lineaLimpia
 
-    for caracter in lineaLower:
+  return informacionOCR
 
-      for letra in letras:
-        if(caracter == letra):
-          lineaSinNumeros += letra
 
-    if(ladoDocumento == 'reverso' and tipoDocumento == 'Cédula de ciudadanía'):
-      if('fecha' in lineaSinNumeros or 'lugar' in lineaSinNumeros or 'registrador' in lineaSinNumeros):
-        palabrasClave.append(lineaSinNumeros)
+def validarOCR(infoDocumento, nombre:str, apellido:str, numeroDocumento:str):
 
-    if(ladoDocumento == 'anverso' and tipoDocumento == 'Cédula de ciudadanía'):
-      if('cedula' in lineaSinNumeros or 'republica' in lineaSinNumeros or 'identificacion' in lineaSinNumeros or 'colombia' in lineaSinNumeros):
-        palabrasClave.append(lineaSinNumeros)
+  nombreParam = nombre.upper()
+  apellidoParam = apellido.upper()
+  numeroDocumentoParam = numeroDocumento.upper()
+
+  nombreOCR = ''
+  apellidoOCR = ''
+  numeroDocumentoOCR = ''
+
+  coincidenciaNombre = 0
+  coincidenciaApellido = 0
+  coincidenciaDocumento = 0
+
+  if('nombre' in infoDocumento):
+    nombreOCR = infoDocumento['nombre']
+    coincidenciaNombre += porcetajeNombres(nombreParam, nombreOCR)
+
+  if('apellido' in infoDocumento):
+    apellidoOCR = infoDocumento['apellido']
+    coincidenciaApellido += porcetajeNombres(apellidoParam, apellidoOCR)
+
+
+  if('numeroDocumento' in infoDocumento):
+    numeroDocumentoOCR = infoDocumento['numeroDocumento']
+    coincidenciaDocumento += porcentajeDocumento(numeroDocumentoParam, numeroDocumentoOCR)
+
+  return coincidenciaNombre, coincidenciaApellido, coincidenciaDocumento
+
+def porcetajeNombres(valorBase:str, valorRecolectado:str):
+
+  validacionMaxima = 100
+
+  porcentajeUnidad = validacionMaxima/len(valorBase)
+
+  porcentajeAcumulado = 0
+
+  for caracter, caracterComparar in zip(valorBase, valorRecolectado):
+    print(caracter, caracterComparar)
+    if(caracter == caracterComparar):
+      porcentajeAcumulado += porcentajeUnidad
+      print(porcentajeAcumulado)
   
-  return palabrasClave
+  porcentajeAcumulado = round(porcentajeAcumulado)
 
-def validarOCR(arrayTexto:list[str], tipoDocumento:str, ladoDocumento:str):
+  return porcentajeAcumulado
 
-  print(arrayTexto)
+def porcentajeDocumento(valorBase:str, valorRecolectado:str):
 
-  palabrasClave = {
-    'Cédula de ciudadanía': {
-      'anverso': ['republicadecolombia', 'identificacionpersonal', 'ceduladeciudadania'],
-      'reverso': ['fechadenacimiento', 'lugardenacimiento', 'fechaylugardeexpedicion', 'registradornacional']
-    }
-  }
+  validacionMaxima = 100
 
-  palabras = palabrasClave[tipoDocumento][ladoDocumento]
+  porcentajeUnidad = validacionMaxima / len(valorBase)
 
-  arrayOCR = arrayTexto
+  porcentajeAcumulado = 0
 
-  porcentajeValidacion = 0
+  for caracterBase, caracterRecolectado in zip(valorBase, valorRecolectado):
+    if(caracterBase == caracterRecolectado):
+      porcentajeAcumulado += porcentajeUnidad
 
-  for palabra, palabraClave in zip(arrayOCR, palabras):
+  porcentajeAcumulado = round(porcentajeAcumulado)
 
-    inicioPalabra = palabra.startswith(palabraClave)
-    if(inicioPalabra == False):
-      palabraIndex = palabra.find(palabraClave)
-      palabra = palabra[palabraIndex:]
-
-
-    porcentajePalabra = 0
-
-    for letra, letraClave in zip(palabra, palabraClave):
-      if(letra == letraClave):
-        porcentajePalabra = porcentajePalabra + 1.5
-        porcentajeValidacion = porcentajeValidacion + porcentajePalabra
-
-
-  porcentajeValidacion = (porcentajeValidacion / 10)
-  porcentajeValidacion = round(porcentajeValidacion)
-
-  return porcentajeValidacion
+  return porcentajeAcumulado

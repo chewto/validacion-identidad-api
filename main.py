@@ -19,11 +19,11 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "BENITO",
-        "apellido": "OTERO",
-        "correo": "benito.otero.carreira@gmail.com",
+        "nombre": "ERIKA",
+        "apellido": "CRUZ",
+        "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "423105",
+        "documento": "1014233022",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
@@ -36,18 +36,19 @@ def obtenerFirmador(id):
 def verificarDocumento():
   documento = request.get_json()
 
-  tipoDocumento = documento['tipoDocumento']
-
-  ladoDocumento = documento['ladoDocumento']
-
   documentoData = documento['imagen']
 
-  documentoOCR = imagenOCR(documentoData, tipoDocumento, ladoDocumento)
+  nombre = documento['nombre']
+  apellido = documento['apellido']
+  numeroDocumento = documento['documento']
 
+  print('data:', nombre, apellido, numeroDocumento)
 
-  validacion = validarOCR(documentoOCR, tipoDocumento, ladoDocumento)
+  documentoOCR = imagenOCR(documentoData, nombre, apellido, numeroDocumento)
 
-  return jsonify({'validacion':validacion})
+  validacionNombre, validacionApellido, validacionDocumento = validarOCR(documentoOCR, nombre, apellido, numeroDocumento)
+
+  return jsonify({'ocrNombre':validacionNombre, 'ocrApellido':validacionApellido,'ocrDocumento':validacionDocumento})
 
 
 @app.route('/validacion-vida', methods=['POST'])
@@ -88,6 +89,19 @@ def validacionVida():
 
   return jsonify({'porcentajePruebaVida':porcentaje})
 
+
+@app.route('/obtener-usuario', methods=['GET'])
+def obtenerUsuario():
+  id = request.args.get('id')
+
+
+  usuario = controlador_db.obtenerUsuario('documento_usuario',id)
+
+  print(usuario)
+
+  return jsonify({'dato':usuario})
+
+
 @app.route('/obtener-evidencias', methods=['GET'])
 def obtenerEvidencias():
 
@@ -118,7 +132,9 @@ def validacionIdentidadTipo3():
 
   #evidencias adicionales
   ipPrivada = controlador_db.obtenerIpPrivada()
-  ipPublica = controlador_db.obtenerIpPublica()
+  # ipPublica = controlador_db.obtenerIpPublica()
+  ipPublica = request.form.get('ip')
+
   dispositivo = request.form.get('dispositivo')
   navegador = request.form.get('navegador')
   latitud = request.form.get('latitud')
@@ -130,6 +146,11 @@ def validacionIdentidadTipo3():
   fotoPersona = request.form.get('foto_persona')
   anverso = request.form.get('anverso')
   reverso = request.form.get('reverso')
+
+  #validacion del ocr
+  ocrNombre = request.form.get('ocr_nombre')
+  ocrApellido = request.form.get('ocr_apellido')
+  ocrDocumento = request.form.get('ocr_documento')
 
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
@@ -171,9 +192,9 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento)
   evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
 
@@ -208,7 +229,8 @@ def validacionIdentidadTipo1():
   fecha = request.form.get('fecha')
 
   ipPrivada = controlador_db.obtenerIpPrivada()
-  ipPublica = controlador_db.obtenerIpPublica()
+  # ipPublica = controlador_db.obtenerIpPublica()
+  ipPublica = request.form.get('ip')
 
   tablaActualizar = 'documento_usuario'
 
@@ -216,6 +238,11 @@ def validacionIdentidadTipo1():
   fotoPersona = request.form.get('foto_persona')
   anverso = request.form.get('anverso')
   reverso = request.form.get('reverso')
+
+  #validacion del ocr
+  ocrNombre = request.form.get('ocr_nombre')
+  ocrApellido = request.form.get('ocr_apellido')
+  ocrDocumento = request.form.get('ocr_documento')
 
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
@@ -241,9 +268,9 @@ def validacionIdentidadTipo1():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha')
+  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha',  'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento)
   columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
   evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
 

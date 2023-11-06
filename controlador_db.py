@@ -10,7 +10,7 @@ import requests
 # userDB = 'administrador'
 
 passwordDB = '30265611'
-nombreDB = 'pki_validacion_identidad'
+nombreDB = 'pki_validacion'
 hostDB = 'localhost'
 portDB = 3306
 userDB = 'root'
@@ -41,10 +41,17 @@ def obtenerUsuario(tabla,id):
 
   usuario = cursor.fetchone()
 
+  usuarioDiccionario = {
+    'nombre': usuario[1],
+    'apellido': usuario[2],
+    'correo': usuario[5],
+    'documento': usuario[3]
+  }
+
   cursor.close()
   conn.close()
 
-  return usuario
+  return usuarioDiccionario
 
 
 def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
