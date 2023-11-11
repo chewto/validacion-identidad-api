@@ -7,48 +7,82 @@ tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
   
-  nombre = nombre.upper()
-  apellido = apellido.upper()
+    nombre = nombre.upper()
+    apellido = apellido.upper()
 
-  imagenData:list[str] = imagen.split(',')[1]
-  decoded:bytes = base64.b64decode(imagenData)
-  lerrImagen:Image = Image.open(BytesIO(decoded))
+    imagenData:list[str] = imagen.split(',')[1]
+    decoded:bytes = base64.b64decode(imagenData)
+    lerrImagen:Image = Image.open(BytesIO(decoded))
 
-  txt:str = tess.image_to_string(lerrImagen)
+    txt:str = tess.image_to_string(lerrImagen)
 
-  lineas:list[str] = txt.splitlines()
+    lineas:list[str] = txt.splitlines()
 
-  informacionOCR = {}
+    informacionOCR = {}
 
-  letras = 'qwertyuiopasdfghjklzxcvbnm'
-  numeros = '1234567890'
+    letras = 'qwertyuiopasdfghjklzxcvbnm'
+    numeros = '1234567890'
 
-  for linea in lineas:
+    for linea in lineas:
 
-    linea = linea.upper()
-    linea = linea.strip()
+        linea = linea.upper()
+        linea = linea.strip()
 
-    print(linea)
+        lineaLimpia = ''
 
-    lineaLimpia = ''
+        for caracter in linea:
+            for numero in numeros:
+                if (caracter == numero):
+                    lineaLimpia += caracter
 
-    for caracter in linea:
-      for numero in numeros:
-        if(caracter == numero):
-          lineaLimpia +=  caracter
+        if (linea.find(nombre) != -1):
+            nombreLimpio = limpiarData(linea, nombre)
 
-    if(linea.find(nombre) != -1):
-      informacionOCR['nombre'] = linea
+            print(nombreLimpio)
+            informacionOCR['nombre'] = nombreLimpio
 
-    
-    if(linea.find(apellido) != -1):
-      informacionOCR['apellido'] = linea
+        if (linea.find(apellido) != -1):
+            apellidoLimpio = limpiarData(linea, apellido)
+
+            print(apellidoLimpio)
+            informacionOCR['apellido'] = apellidoLimpio
+
+        if (lineaLimpia.find(numeroDocumento) != -1):
+            informacionOCR['numeroDocumento'] = lineaLimpia
+
+    return informacionOCR
 
 
-    if(lineaLimpia.find(numeroDocumento) != -1):
-      informacionOCR['numeroDocumento'] = lineaLimpia
+def limpiarData(dataSinLimpiar: str, dataBase: str):
 
-  return informacionOCR
+    dataArray = dataSinLimpiar.split(' ')
+
+    dataBaseArray = dataBase.split(' ')
+
+    dataLimpiaArr = []
+
+    print(len(dataBaseArray))
+
+    if (len(dataBaseArray) >= 2):
+        a = dataBaseArray[0]
+        b = dataBaseArray[1]
+
+        for data in dataArray:
+            if (data == a):
+                dataLimpiaArr.append(a)
+            if (data == b):
+                dataLimpiaArr.append(b)
+
+    if (len(dataBaseArray) <= 1):
+        a = dataBaseArray[0]
+
+        for data in dataArray:
+            if (data == a):
+                dataLimpiaArr.append(a)
+
+    dataLimpiaStr = ' '.join(dataLimpiaArr)
+
+    return dataLimpiaStr
 
 
 def validarOCR(infoDocumento, nombre:str, apellido:str, numeroDocumento:str):

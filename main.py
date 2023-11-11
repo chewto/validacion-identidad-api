@@ -19,8 +19,8 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "ERIKA",
-        "apellido": "CRUZ",
+        "nombre": "erika",
+        "apellido": "cruz luengas",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
         "documento": "1014233022",
@@ -34,21 +34,45 @@ def obtenerFirmador(id):
 #rutas para el front
 @app.route('/ocr', methods=['POST'])
 def verificarDocumento():
-  documento = request.get_json()
+    documento = request.get_json()
 
-  documentoData = documento['imagen']
+    documentoData = documento['imagen']
 
-  nombre = documento['nombre']
-  apellido = documento['apellido']
-  numeroDocumento = documento['documento']
+    dataOCR = {
+      'numeroDocumentoOCR': 'no encontrado',
+      'nombreOCR': 'no encontrado',
+      'apellidoOCR': 'no encontrado'
+    }
 
-  print('data:', nombre, apellido, numeroDocumento)
+    nombre = documento['nombre']
+    apellido = documento['apellido']
+    numeroDocumento = documento['documento']
 
-  documentoOCR = imagenOCR(documentoData, nombre, apellido, numeroDocumento)
+    documentoOCR = imagenOCR(documentoData, nombre, apellido, numeroDocumento)
 
-  validacionNombre, validacionApellido, validacionDocumento = validarOCR(documentoOCR, nombre, apellido, numeroDocumento)
+    if ('numeroDocumento' in documentoOCR):
+        dataOCR['numeroDocumentoOCR'] = documentoOCR['numeroDocumento']
 
-  return jsonify({'ocrNombre':validacionNombre, 'ocrApellido':validacionApellido,'ocrDocumento':validacionDocumento})
+    if ('nombre' in documentoOCR):
+        dataOCR['nombreOCR'] = documentoOCR['nombre']
+
+    if ('apellido' in documentoOCR):
+        dataOCR['apellidoOCR'] = documentoOCR['apellido']
+
+    validacionNombre, validacionApellido, validacionDocumento = validarOCR(documentoOCR, nombre, apellido, numeroDocumento)
+
+    return jsonify({
+      'ocr': {
+          'nombreOCR': dataOCR['nombreOCR'],
+          'apellidoOCR': dataOCR['apellidoOCR'],
+          'documentoOCR': dataOCR['numeroDocumentoOCR']
+      },
+      'porcentajes': {
+          'porcentajeNombreOCR': validacionNombre,
+          'porcentajeApellidoOCR': validacionApellido,
+          'porcentajeDocumentoOCR': validacionDocumento
+        }
+      })
 
 
 @app.route('/validacion-vida', methods=['POST'])
@@ -148,9 +172,17 @@ def validacionIdentidadTipo3():
   reverso = request.form.get('reverso')
 
   #validacion del ocr
-  ocrNombre = request.form.get('ocr_nombre')
-  ocrApellido = request.form.get('ocr_apellido')
-  ocrDocumento = request.form.get('ocr_documento')
+  ocrNombre = request.form.get('porcentaje_nombre_ocr')
+  ocrApellido = request.form.get('porcentaje_apellido_ocr')
+  ocrDocumento = request.form.get('porcentaje_documento_ocr')
+
+  dataOCRNombre = request.form.get('nombre_ocr')
+  dataOCRApellido = request.form.get('apellido_ocr')
+  dataOCRDocumento = request.form.get('documento_ocr')
+
+  print(ocrNombre,ocrApellido, ocrDocumento)
+
+  print(dataOCRNombre,dataOCRApellido, dataOCRDocumento)
 
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
@@ -192,9 +224,9 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
   evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
 
@@ -240,9 +272,13 @@ def validacionIdentidadTipo1():
   reverso = request.form.get('reverso')
 
   #validacion del ocr
-  ocrNombre = request.form.get('ocr_nombre')
-  ocrApellido = request.form.get('ocr_apellido')
-  ocrDocumento = request.form.get('ocr_documento')
+  ocrNombre = request.form.get('porcentaje_nombre_ocr')
+  ocrApellido = request.form.get('porcentaje_apellido_ocr')
+  ocrDocumento = request.form.get('porcentaje_documento_ocr')
+
+  dataOCRNombre = request.form.get('nombre_ocr')
+  dataOCRApellido = request.form.get('apellido_ocr')
+  dataOCRDocumento = request.form.get('documento_ocr')
 
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
@@ -268,9 +304,9 @@ def validacionIdentidadTipo1():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha',  'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr')
+  columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha',  'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
   columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
   evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
 
