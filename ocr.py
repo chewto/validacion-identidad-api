@@ -21,8 +21,6 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
 
     numeros = '1234567890'
 
-    print(nombre, apellido, numeroDocumento)
-
     for linea in lineas:
 
         linea = linea.upper()
@@ -38,11 +36,12 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
         if (linea.find(nombre) != -1):
             nombreLimpio = limpiarData(linea, nombre)
 
-            print(nombreLimpio)
             informacionOCR['nombre'] = nombreLimpio
 
         if (linea.find(apellido) != -1):
             apellidoLimpio = limpiarData(linea, apellido)
+
+            print(apellidoLimpio)
 
             informacionOCR['apellido'] = apellidoLimpio
 
@@ -60,17 +59,12 @@ def limpiarData(dataSinLimpiar: str, dataBase: str):
 
     dataLimpiaArr = []
 
-    print(len(dataBaseArray))
 
     if (len(dataBaseArray) >= 2):
-        a = dataBaseArray[0]
-        b = dataBaseArray[1]
 
-        for data in dataArray:
-            if (data == a):
-                dataLimpiaArr.append(a)
-            if (data == b):
-                dataLimpiaArr.append(b)
+        for data, dataComparacion in zip(dataArray, dataBaseArray):
+            if (data == dataComparacion):
+                dataLimpiaArr.append(dataComparacion)
 
     if (len(dataBaseArray) <= 1):
         a = dataBaseArray[0]
