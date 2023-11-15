@@ -45,7 +45,15 @@ def verificarDocumento():
     }
 
     nombre = documento['nombre']
+
+    nombre = nombre.upper()
+    nombre = nombre.strip()
+
     apellido = documento['apellido']
+
+    apellido = apellido.upper()
+    apellido = apellido.strip()
+
     numeroDocumento = documento['documento']
 
     documentoOCR = imagenOCR(documentoData, nombre, apellido, numeroDocumento)

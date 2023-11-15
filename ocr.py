@@ -6,22 +6,22 @@ import base64
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
-  
-    nombre = nombre.upper()
-    apellido = apellido.upper()
 
-    imagenData:list[str] = imagen.split(',')[1]
-    decoded:bytes = base64.b64decode(imagenData)
-    lerrImagen:Image = Image.open(BytesIO(decoded))
+    imagenData: list[str] = imagen.split(',')[1]
 
-    txt:str = tess.image_to_string(lerrImagen)
+    decoded: bytes = base64.b64decode(imagenData)
 
-    lineas:list[str] = txt.splitlines()
+    lerrImagen: Image = Image.open(BytesIO(decoded))
+
+    txt: str = tess.image_to_string(lerrImagen)
+
+    lineas: list[str] = txt.splitlines()
 
     informacionOCR = {}
 
-    letras = 'qwertyuiopasdfghjklzxcvbnm'
     numeros = '1234567890'
+
+    print(nombre, apellido, numeroDocumento)
 
     for linea in lineas:
 
@@ -44,7 +44,6 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
         if (linea.find(apellido) != -1):
             apellidoLimpio = limpiarData(linea, apellido)
 
-            print(apellidoLimpio)
             informacionOCR['apellido'] = apellidoLimpio
 
         if (lineaLimpia.find(numeroDocumento) != -1):
