@@ -38,7 +38,6 @@ def reconocerRostro(imgPersona, imgDocumento):
 
     blobdocumento = cv2Blob(imgDocumento)
 
-
     reconocido = False
 
     orientado = False

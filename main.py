@@ -3,7 +3,7 @@ from flask_cors import CORS, cross_origin
 from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
 from utilidades import leerDataUrl, cv2Blob
-from ocr import imagenOCR, validarOCR
+from ocr import imagenOCR, validarOCR, verificacionRostro, validarLadoDocumento
 
 app = Flask(__name__)
 cors = CORS(app, resources={
@@ -31,12 +31,23 @@ def obtenerFirmador(id):
     }
 })
 
+
 #rutas para el front
 @app.route('/ocr', methods=['POST'])
 def verificarDocumento():
     documento = request.get_json()
 
     documentoData = documento['imagen']
+
+    ladoDocumento = documento['ladoDocumento']
+
+    tipoDocumento = documento['tipoDocumento']
+
+    data = leerDataUrl(documentoData)
+
+    buscarRostro = verificacionRostro(data)
+
+    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData)
 
     dataOCR = {
       'numeroDocumentoOCR': 'no encontrado',
@@ -79,7 +90,9 @@ def verificarDocumento():
           'porcentajeNombreOCR': validacionNombre,
           'porcentajeApellidoOCR': validacionApellido,
           'porcentajeDocumentoOCR': validacionDocumento
-        }
+        },
+      'rostro': buscarRostro,
+      'ladoValido': validarLado
       })
 
 
