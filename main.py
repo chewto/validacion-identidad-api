@@ -19,11 +19,11 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "erika",
-        "apellido": "cruz luengas",
+        "nombre": "Benito",
+        "apellido": "Otero Carreira",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "1014233022",
+        "documento": "423105",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
@@ -37,17 +37,21 @@ def obtenerFirmador(id):
 def verificarDocumento():
     documento = request.get_json()
 
-    documentoData = documento['imagen']
+    imagenPersona = documento['imagenPersona']
+
+    imagenDocumento = documento['imagen']
 
     ladoDocumento = documento['ladoDocumento']
 
     tipoDocumento = documento['tipoDocumento']
 
-    data = leerDataUrl(documentoData)
+    documentoData = leerDataUrl(imagenDocumento)
 
-    buscarRostro = verificacionRostro(data)
+    personaData = leerDataUrl(imagenPersona)
 
-    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData)
+    buscarRostro, a,b = reconocerRostro(personaData, documentoData)
+
+    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
 
     dataOCR = {
       'numeroDocumentoOCR': 'no encontrado',
@@ -67,7 +71,7 @@ def verificarDocumento():
 
     numeroDocumento = documento['documento']
 
-    documentoOCR = imagenOCR(documentoData, nombre, apellido, numeroDocumento)
+    documentoOCR = imagenOCR(imagenDocumento, nombre, apellido, numeroDocumento)
 
     if ('numeroDocumento' in documentoOCR):
         dataOCR['numeroDocumentoOCR'] = documentoOCR['numeroDocumento']
@@ -201,16 +205,10 @@ def validacionIdentidadTipo3():
   dataOCRApellido = request.form.get('apellido_ocr')
   dataOCRDocumento = request.form.get('documento_ocr')
 
-  print(ocrNombre,ocrApellido, ocrDocumento)
-
-  print(dataOCRNombre,dataOCRApellido, dataOCRDocumento)
-
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
   anversoData = leerDataUrl(anverso)
   reversoData = leerDataUrl(reverso)
-
-  print(fotoPersonaData, anversoData, reversoData)
 
   reconocer = reconocerRostro(fotoPersonaData, anversoData)
   coincidencia = reconocer[0]
@@ -305,8 +303,6 @@ def validacionIdentidadTipo1():
   fotoPersonaData = leerDataUrl(fotoPersona)
   anversoData = leerDataUrl(anverso)
   reversoData = leerDataUrl(reverso)
-
-  print(fotoPersonaData, anversoData, reversoData)
 
   reconocer = reconocerRostro(fotoPersonaData, anversoData)
   coincidencia = reconocer[0]

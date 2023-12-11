@@ -48,7 +48,7 @@ def reconocerRostro(imgPersona, imgDocumento):
       reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
 
       if len(reconocerImagenComparar) == 0:
-        print(False, 'pendiente revision')
+        print(False, 'girando imagen')
         imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
         intentosOrientacion = intentosOrientacion + 1
 
@@ -68,7 +68,6 @@ def reconocerRostro(imgPersona, imgDocumento):
     else:
         reconocerImagen = reconocerImagen[0]
 
-    print(reconocerImagenComparar)
     reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen)
 
     reconocido = reconocido[0]

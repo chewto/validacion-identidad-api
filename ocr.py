@@ -47,6 +47,8 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
 
     lineas: list[str] = txt.splitlines()
 
+    print(lineas)
+
     informacionOCR = {}
 
     numeros = '1234567890'
@@ -56,25 +58,27 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
         linea = linea.upper()
         linea = linea.strip()
 
-        lineaLimpia = ''
-
-        for caracter in linea:
-            for numero in numeros:
-                if (caracter == numero):
-                    lineaLimpia += caracter
-
         if (linea.find(nombre) != -1):
-            nombreLimpio = limpiarData(linea, nombre)
-
+            nombreIndex = linea.find(nombre)
+            nombreSinLimpiar = linea[nombreIndex:]
+            nombreLimpio = limpiarData(nombreSinLimpiar, nombre)
             informacionOCR['nombre'] = nombreLimpio
 
         if (linea.find(apellido) != -1):
-            apellidoLimpio = limpiarData(linea, apellido)
-
+            apellidoIndex = linea.find(apellido)
+            apellidoSinLimpiar = linea[apellidoIndex:]
+            apellidoLimpio = limpiarData(apellidoSinLimpiar, apellido)
             informacionOCR['apellido'] = apellidoLimpio
 
-        if (lineaLimpia.find(numeroDocumento) != -1):
-            informacionOCR['numeroDocumento'] = lineaLimpia
+        if (linea.find(numeroDocumento) != -1):
+            documentoArr = linea.split(' ')
+            documentoEncontrado = ''
+
+            for elemento in documentoArr:
+                if(elemento == numeroDocumento):
+                    documentoEncontrado = elemento
+
+            informacionOCR['numeroDocumento'] = documentoEncontrado
 
     return informacionOCR
 
@@ -172,7 +176,6 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
 
     lineas: list[str] = txt.splitlines()
 
-    print(lineas)
 
     infoHash = {
       "Cédula de ciudadanía": {
