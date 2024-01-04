@@ -1,8 +1,10 @@
 from PIL import Image
 from io import BytesIO
+from difflib import SequenceMatcher
 import pytesseract as tess
 import base64
 import cv2
+import Levenshtein
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -34,8 +36,7 @@ def verificacionRostro(dataURL: str):
     if not found:
         return False
 
-
-def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
+def ocr(imagen: str):
 
     imagenData: list[str] = imagen.split(',')[1]
 
@@ -47,40 +48,82 @@ def imagenOCR(imagen:str, nombre:str, apellido:str, numeroDocumento:str):
 
     lineas: list[str] = txt.splitlines()
 
-    print(lineas)
+    return lineas
 
-    informacionOCR = {}
 
-    numeros = '1234567890'
+def validacionOCR(dataOCR, dataUsuario):
 
-    for linea in lineas:
+    dataUsuario = dataUsuario.split(" ")
+
+    porcentajes = []
+    
+    for linea in dataOCR:
 
         linea = linea.upper()
         linea = linea.strip()
+        linea = linea.replace(",","").replace(".","")
 
-        if (linea.find(nombre) != -1):
-            nombreIndex = linea.find(nombre)
-            nombreSinLimpiar = linea[nombreIndex:]
-            nombreLimpio = limpiarData(nombreSinLimpiar, nombre)
-            informacionOCR['nombre'] = nombreLimpio
+        linea = linea.split(" ")
 
-        if (linea.find(apellido) != -1):
-            apellidoIndex = linea.find(apellido)
-            apellidoSinLimpiar = linea[apellidoIndex:]
-            apellidoLimpio = limpiarData(apellidoSinLimpiar, apellido)
-            informacionOCR['apellido'] = apellidoLimpio
+        for lineaElemento in linea:
+            for dataElemento in dataUsuario:
 
-        if (linea.find(numeroDocumento) != -1):
-            documentoArr = linea.split(' ')
-            documentoEncontrado = ''
+                if(len(lineaElemento) >=1):
+                    porcentaje = extraerPorcentaje(dataElemento, lineaElemento)
+                    similitud = Levenshtein.distance(dataElemento, lineaElemento)
+                    data = {
+                        "similitud": similitud,
+                        "porcentaje": porcentaje,
+                        "linea": lineaElemento
+                    }
 
-            for elemento in documentoArr:
-                if(elemento == numeroDocumento):
-                    documentoEncontrado = elemento
+                    porcentajes.append(data)
 
-            informacionOCR['numeroDocumento'] = documentoEncontrado
+    porcentajesOrdenados = ordenamiento(porcentajes)
 
-    return informacionOCR
+    data, porcentaje = busquedaResultado(porcentajesOrdenados, dataUsuario)
+
+    return data, porcentaje
+
+def ordenamiento(data):
+
+    listaOrdenada = sorted(data, key= lambda x:x['similitud'])
+
+    return listaOrdenada
+
+
+def extraerPorcentaje(valor1, valor2):
+    radio = SequenceMatcher(None, valor1, valor2).ratio()
+    porcentaje = radio * 100
+    return porcentaje
+
+def busquedaResultado(porcentajes, dataUsuario):
+
+    data = []
+
+    porcentajeAcumulado = 0
+
+    index = len(dataUsuario)
+
+    activado = True
+
+    vueltas = 0
+
+    while activado == True:
+        info = porcentajes[vueltas]
+        data.append(info['linea'])
+        porcentajeAcumulado = porcentajeAcumulado + (info['porcentaje'] / index)
+        vueltas += 1
+        if(vueltas >= index):
+            activado = False
+
+    data = ' '.join(data)
+    porcentajeAcumulado = round(porcentajeAcumulado)
+
+    if(porcentajeAcumulado <= 0):
+        data = 'no encontrado'
+
+    return data, porcentajeAcumulado
 
 
 def limpiarData(dataSinLimpiar: str, dataBase: str):
@@ -116,52 +159,20 @@ def validarOCR(infoDocumento, nombre:str, apellido:str, numeroDocumento:str):
 
     if ('nombre' in infoDocumento and len(nombreParam) >= 1):
         nombreOCR = infoDocumento['nombre']
-        coincidenciaNombre += porcetajeNombres(nombreParam, nombreOCR)
+        coincidenciaNombre += extraerPorcentaje(nombreParam, nombreOCR)
 
     if ('apellido' in infoDocumento and len(apellidoParam) >= 1):
         apellidoOCR = infoDocumento['apellido']
-        coincidenciaApellido += porcetajeNombres(apellidoParam, apellidoOCR)
+        coincidenciaApellido += extraerPorcentaje(apellidoParam, apellidoOCR)
 
 
     if ('numeroDocumento' in infoDocumento and len(numeroDocumentoParam) >= 1):
         numeroDocumentoOCR = infoDocumento['numeroDocumento']
-        coincidenciaDocumento += porcentajeDocumento(numeroDocumentoParam, numeroDocumentoOCR)
+        # coincidenciaDocumento += porcentajeDocumento(numeroDocumentoParam, numeroDocumentoOCR)
 
     return coincidenciaNombre, coincidenciaApellido, coincidenciaDocumento
 
 
-def porcetajeNombres(valorBase:str, valorRecolectado:str):
-
-    validacionMaxima = 100
-
-    porcentajeUnidad = validacionMaxima/len(valorBase)
-
-    porcentajeAcumulado = 0
-
-    for caracter, caracterComparar in zip(valorBase, valorRecolectado):
-        if (caracter == caracterComparar):
-            porcentajeAcumulado += porcentajeUnidad
-
-    porcentajeAcumulado = round(porcentajeAcumulado)
-
-    return porcentajeAcumulado
-
-
-def porcentajeDocumento(valorBase:str, valorRecolectado:str):
-
-    validacionMaxima = 100
-
-    porcentajeUnidad = validacionMaxima / len(valorBase)
-
-    porcentajeAcumulado = 0
-
-    for caracterBase, caracterRecolectado in zip(valorBase, valorRecolectado):
-        if (caracterBase == caracterRecolectado):
-            porcentajeAcumulado += porcentajeUnidad
-
-    porcentajeAcumulado = round(porcentajeAcumulado)
-
-    return porcentajeAcumulado
 
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
@@ -176,14 +187,13 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
 
     lineas: list[str] = txt.splitlines()
 
-
     infoHash = {
       "Cédula de ciudadanía": {
-          "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA"],
+          "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
           "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
       },
       "Cédula de extranjería": {
-          "anverso": ["Cédula de Extranjeria", 'MIGRANTE'],
+          "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
           "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
       }
     }
@@ -192,12 +202,36 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
 
     coincidencias = 0
 
+    porcentajes = []
+
     for linea in lineas:
 
         for palabra in ladoPalabras:
 
-            if (linea.find(palabra) != -1):
-                coincidencias = coincidencias + 1
+            linea = linea.upper()
+
+            palabra = palabra.upper()
+
+            if(len(linea) >=1):
+                    porcentaje = extraerPorcentaje(palabra, linea)
+                    similitud = Levenshtein.distance(palabra, linea)
+                    data = {
+                        "similitud": similitud,
+                        "porcentaje": porcentaje,
+                        "linea": linea
+                    }
+
+                    porcentajes.append(data)
+
+    ordenarPorcentajes = ordenamiento(porcentajes)
+
+    for orden in ordenarPorcentajes:
+        if orden['porcentaje'] >= 75:
+            coincidencias += 1
+
+    print(coincidencias)
+
+    print(ladoPalabras, lineas)
 
     if (coincidencias >= 1):
         return True

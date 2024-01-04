@@ -3,7 +3,7 @@ from flask_cors import CORS, cross_origin
 from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
 from utilidades import leerDataUrl, cv2Blob
-from ocr import imagenOCR, validarOCR, verificacionRostro, validarLadoDocumento
+from ocr import validarOCR, verificacionRostro, validarLadoDocumento, ocr, validacionOCR
 
 app = Flask(__name__)
 cors = CORS(app, resources={
@@ -19,11 +19,11 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "Benito",
-        "apellido": "Otero Carreira",
+        "nombre": "Paola",
+        "apellido": "Lopez Angarita",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "423105",
+        "documento": "1019083048",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
@@ -35,6 +35,13 @@ def obtenerFirmador(id):
 #rutas para el front
 @app.route('/ocr', methods=['POST'])
 def verificarDocumento():
+    
+    dataOCR = {
+      'numeroDocumentoOCR': 'no encontrado',
+      'nombreOCR': 'no encontrado',
+      'apellidoOCR': 'no encontrado'
+    }
+    
     documento = request.get_json()
 
     imagenPersona = documento['imagenPersona']
@@ -53,12 +60,6 @@ def verificarDocumento():
 
     validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
 
-    dataOCR = {
-      'numeroDocumentoOCR': 'no encontrado',
-      'nombreOCR': 'no encontrado',
-      'apellidoOCR': 'no encontrado'
-    }
-
     nombre = documento['nombre']
 
     nombre = nombre.upper()
@@ -71,29 +72,33 @@ def verificarDocumento():
 
     numeroDocumento = documento['documento']
 
-    documentoOCR = imagenOCR(imagenDocumento, nombre, apellido, numeroDocumento)
+    documentoOCR = ocr(imagenDocumento)
 
-    if ('numeroDocumento' in documentoOCR):
-        dataOCR['numeroDocumentoOCR'] = documentoOCR['numeroDocumento']
+    nombreOCR, porcentajeNombre = validacionOCR(documentoOCR, nombre)
+    apellidoOCR, porcentajeApellido = validacionOCR(documentoOCR, apellido)
+    numeroDocumentoOCR, porcentajeDocumento = validacionOCR(documentoOCR, numeroDocumento)
 
-    if ('nombre' in documentoOCR):
-        dataOCR['nombreOCR'] = documentoOCR['nombre']
+    # if ('numeroDocumento' in documentoOCR):
+    #     dataOCR['numeroDocumentoOCR'] = documentoOCR['numeroDocumento']
 
-    if ('apellido' in documentoOCR):
-        dataOCR['apellidoOCR'] = documentoOCR['apellido']
+    # if ('nombre' in documentoOCR):
+    #     dataOCR['nombreOCR'] = documentoOCR['nombre']
 
-    validacionNombre, validacionApellido, validacionDocumento = validarOCR(documentoOCR, nombre, apellido, numeroDocumento)
+    # if ('apellido' in documentoOCR):
+    #     dataOCR['apellidoOCR'] = documentoOCR['apellido']
+
+    # validacionNombre, validacionApellido, validacionDocumento = validarOCR(documentoOCR, nombre, apellido, numeroDocumento)
 
     return jsonify({
       'ocr': {
-          'nombreOCR': dataOCR['nombreOCR'],
-          'apellidoOCR': dataOCR['apellidoOCR'],
-          'documentoOCR': dataOCR['numeroDocumentoOCR']
+          'nombreOCR': nombreOCR,
+          'apellidoOCR': apellidoOCR,
+          'documentoOCR': numeroDocumentoOCR
       },
       'porcentajes': {
-          'porcentajeNombreOCR': validacionNombre,
-          'porcentajeApellidoOCR': validacionApellido,
-          'porcentajeDocumentoOCR': validacionDocumento
+          'porcentajeNombreOCR': porcentajeNombre,
+          'porcentajeApellidoOCR': porcentajeApellido,
+          'porcentajeDocumentoOCR': porcentajeDocumento
         },
       'rostro': buscarRostro,
       'ladoValido': validarLado
