@@ -5,9 +5,34 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
+from utilidades import leerDataUrl
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+pais = 'col'
+
+infoHash = {
+        "col": {
+            "Cédula de ciudadanía": {
+                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
+                "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
+            },
+            "Cédula de extranjería": {
+                "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
+                "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
+            }
+        },
+        "pty":{
+            "Cédula de ciudadanía": {
+                "anverso": ['REPUBLICA DE PANAMA','TRIBUNAL ELECTORAL'],
+                "reverso": ['TRIBUNAL', 'ELECTORAL']
+            },
+            "Cédula de extranjería": {
+                "anverso": [],
+                "reverso": []
+            }
+        }
+    }
 
 def verificacionRostro(dataURL: str):
 
@@ -36,23 +61,39 @@ def verificacionRostro(dataURL: str):
     if not found:
         return False
 
-def ocr(imagen: str):
+def ocr(imagen: str, parametro):
 
-    imagenData: list[str] = imagen.split(',')[1]
+    imagenData = leerDataUrl(imagen)
 
-    decoded: bytes = base64.b64decode(imagenData)
+    if(parametro == 'sencillo'):
+        print('sin preprocesado')
+        txt: str = tess.image_to_string(imagenData)
 
-    lerrImagen: Image = Image.open(BytesIO(decoded))
+        lineas: list[str] = txt.splitlines()
 
-    txt: str = tess.image_to_string(lerrImagen)
+        print(lineas)
 
-    lineas: list[str] = txt.splitlines()
+        return lineas
+    
+    if(parametro == 'preprocesado'):
+    
+        print('con preprocesado')
 
-    return lineas
+        gris = cv2.cvtColor(imagenData, cv2.COLOR_BGR2GRAY)
+        threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
+        opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
+
+        txt: str = tess.image_to_string(opened)
+
+        lineas: list[str] = txt.splitlines()
+
+        print(lineas)
+
+        return lineas
 
 
 def validacionOCR(dataOCR, dataUsuario):
-
     dataUsuario = dataUsuario.split(" ")
 
     porcentajes = []
@@ -61,8 +102,7 @@ def validacionOCR(dataOCR, dataUsuario):
 
         linea = linea.upper()
         linea = linea.strip()
-        linea = linea.replace(",","").replace(".","")
-
+        linea = linea.replace(",","").replace(".","").replace("-","")
         linea = linea.split(" ")
 
         for lineaElemento in linea:
@@ -98,6 +138,11 @@ def extraerPorcentaje(valor1, valor2):
     return porcentaje
 
 def busquedaResultado(porcentajes, dataUsuario):
+
+    if(len(porcentajes) <= 0):
+        return 'no encontrado', 0
+
+    print('separador', dataUsuario)
 
     data = []
 
@@ -172,7 +217,15 @@ def validarOCR(infoDocumento, nombre:str, apellido:str, numeroDocumento:str):
 
     return coincidenciaNombre, coincidenciaApellido, coincidenciaDocumento
 
+def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
 
+    print(porcentajePre, ocrPre ,porcentajeSencillo, ocrSencillo )
+
+    if(porcentajePre >= porcentajeSencillo):
+        return ocrPre, porcentajePre
+
+    if(porcentajeSencillo >= porcentajePre):
+        return ocrSencillo, porcentajeSencillo
 
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
@@ -187,18 +240,8 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
 
     lineas: list[str] = txt.splitlines()
 
-    infoHash = {
-      "Cédula de ciudadanía": {
-          "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
-          "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
-      },
-      "Cédula de extranjería": {
-          "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
-          "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
-      }
-    }
 
-    ladoPalabras = infoHash[tipoDocumento][ladoDocumento]
+    ladoPalabras = infoHash[pais][tipoDocumento][ladoDocumento]
 
     coincidencias = 0
 
@@ -228,10 +271,6 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
     for orden in ordenarPorcentajes:
         if orden['porcentaje'] >= 75:
             coincidencias += 1
-
-    print(coincidencias)
-
-    print(ladoPalabras, lineas)
 
     if (coincidencias >= 1):
         return True
