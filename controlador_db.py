@@ -91,7 +91,12 @@ def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:s
 
   except mariadb.Error as e:
     print("error = ", e)
+
+    with open('log.txt', "a") as file:
+        file.write(f"error = {e}")
+
     return f"error = {e}"
+
 
   finally:
     conn.commit()
@@ -122,6 +127,9 @@ def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo
 
   except mariadb.Error as e:
     print("error = ", e)
+
+    with open('log.txt') as f:
+      f.write(f"error = {e}\n")
     return f"error = {e}"
 
   finally:

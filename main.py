@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from reconocimiento import reconocerRostro, pruebaVida
+from reconocimiento import reconocerRostro, pruebaVida, prueba_reco, prueba_varia
 import controlador_db
-from utilidades import leerDataUrl, cv2Blob
+from utilidades import leerDataUrl, cv2Blob, recorteData
 from ocr import validarOCR, verificacionRostro, validarLadoDocumento, ocr, validacionOCR, comparacionOCR
 
 app = Flask(__name__)
@@ -19,8 +19,8 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "Rosemary mabel",
-        "apellido": "Plata sotillo de rios",
+        "nombre": "Sandra Paola",
+        "apellido": "Lopez Angarita",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
         "documento": "8339375",
@@ -31,6 +31,21 @@ def obtenerFirmador(id):
     }
 })
 
+
+@app.route('/prueba', methods=['POST'])
+def prueba():
+
+
+  data = request.get_json()
+
+  selfie = data['selfie']
+  documento = data['anverso']
+
+  reconocimeinto = prueba_reco(selfie, documento)
+
+  recon = prueba_varia(selfie, documento)
+
+  return reconocimeinto, recon
 
 #rutas para el front
 @app.route('/ocr', methods=['POST'])
@@ -250,6 +265,26 @@ def validacionIdentidadTipo3():
 
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
+
+  estadoVericacion = recorteData(estadoVericacion)
+  dispositivo = recorteData(dispositivo)
+  navegador = recorteData(navegador)
+  ipPublica = recorteData(ipPublica)
+  ipPrivada = recorteData(ipPrivada)
+  latitud = recorteData(latitud)
+  longitud = recorteData(longitud)
+  hora = recorteData(hora)
+  fecha = recorteData(fecha)
+  ocrNombre = recorteData(ocrNombre)
+  ocrApellido = recorteData(ocrApellido)
+  ocrDocumento = recorteData(ocrDocumento)
+  dataOCRNombre = recorteData(dataOCRNombre)
+  dataOCRApellido = recorteData(dataOCRApellido)
+  dataOCRDocumento = recorteData(dataOCRDocumento)
+
+
+  print(estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
+
   valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
   evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 

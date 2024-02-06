@@ -20,3 +20,11 @@ def cv2Blob(imagen):
   imagenBlob = imagenEncode.tobytes()
 
   return imagenBlob
+
+def recorteData(data):
+  if(len(data)>= 499):
+    nueva = data[0:498]
+    return nueva
+  
+  if(len(data) <= 498):
+    return data
