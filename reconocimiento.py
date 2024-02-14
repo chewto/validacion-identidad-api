@@ -168,32 +168,30 @@ def prueba_varia(imagenCara:str, imagenDocumento:str):
 #         return False, 'pendiente revision'
 
 def orientacionImagen(imgDocumento):
-    predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
-    gris = cv2.cvtColor(imgDocumento, cv2.COLOR_BGR2GRAY)
+    blobdocumento = cv2Blob(imgDocumento)
 
-    detector = dlib.get_frontal_face_detector()
-    
-    caras = detector(gris)
+    reconocido = False
 
-    print(len(caras))
+    orientado = False
 
-    if(len(caras) >= 1):
-        for cara in caras:
-            landmarks = predictor(gris, cara)
+    intentosOrientacion = 0
 
-            left_eye = (landmarks.part(36).x, landmarks.part(36).y)
-            right_eye = (landmarks.part(45).x, landmarks.part(45).y)
-            mouth = (landmarks.part(66).x, landmarks.part(66).y)
+    while orientado == False and intentosOrientacion <= 4:
+      reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
 
-            if mouth[1] < min(left_eye[1], right_eye[1]):
-                return True
-            else:
-                return False
+      if len(reconocerImagenComparar) <= 0:
+        print(False, 'girando imagen')
+        imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
+        intentosOrientacion = intentosOrientacion + 1
 
-    else:
-        return False
-    
+        
+        if (intentosOrientacion == 4 and orientado == False):
+          return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
+      else:
+        orientado = True
+        reconocerImagenComparar = reconocerImagenComparar[0]
+
 def reconocerRostro(imgPersona, imgDocumento):
 
     blobdocumento = cv2Blob(imgDocumento)
