@@ -169,7 +169,7 @@ def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idP
     conn.close()
 
 
-def agregarDocumento(columnas: tuple, tabla:str, valores: tuple):
+def insertTabla(columnas: tuple, tabla:str, valores: tuple):
 
   try:
     conn = mariadb.connect(

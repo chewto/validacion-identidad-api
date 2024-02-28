@@ -97,17 +97,32 @@ def reconocerRostro(imgPersona, imgDocumento):
     else:
         reconocerImagen = reconocerImagen[0]
 
-    
+    reconociendo = False
 
-    reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen, 0.8)
+    intentos = 0
 
-    reconocido = reconocido[0]
+    resultados = []
 
-    if reconocido:
-        return True, 'verificado', imagenOrientadaBlob
-    else:
-        return False, 'pendiente revision, no reconocido', imagenOrientadaBlob
+    while intentos <= 1 and reconociendo is False:
+        reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen, 0.8)
 
+        reconocido = reconocido[0]
+
+        intentos = intentos + 1
+
+        if reconocido == True:
+            reconociendo = True
+            return True, 'verificado', imagenOrientadaBlob
+
+        if reconocido == False:
+            imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_180)
+            _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
+            imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
+            reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
+            if(len(reconocerImagenComparar) == 0):
+                return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
+            else:
+                reconocerImagenComparar = reconocerImagenComparar[0]
 
 def pruebaVida(imagenBase, imagenComparacion):
    

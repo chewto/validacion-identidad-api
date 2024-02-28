@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from reconocimiento import reconocerRostro, pruebaVida, prueba_reco, prueba_varia
+from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
 from utilidades import leerDataUrl, cv2Blob, recorteData
 from ocr import validarOCR, verificacionRostro, validarLadoDocumento, ocr, validacionOCR, comparacionOCR
@@ -81,11 +81,13 @@ def prueba():
   selfie = data['selfie']
   documento = data['anverso']
 
-  reconocimeinto = prueba_reco(selfie, documento)
 
-  recon = prueba_varia(selfie, documento)
+  selfie = leerDataUrl(selfie)
+  documento = leerDataUrl(documento)
 
-  return reconocimeinto, recon
+  reconocer = reconocerRostro(selfie, documento)
+
+  return 'asda'
 
 
 @app.route('/frame', methods=['POST'])
@@ -363,45 +365,40 @@ def validacionIdentidadTipo3():
   dataOCRDocumento = recorteData(dataOCRDocumento)
 
 
-  evidenciasAdicionalesAdd = EvidenciasAdicionales(estado_verificacion=estadoVericacion, dispositivo=dispositivo, navegador=navegador, ip_publica=ipPublica, ip_privada=ipPrivada, latitud=latitud, longitud=longitud, hora=hora, fecha=fecha, validacion_nombre_ocr=ocrNombre, validacion_apellido_ocr=ocrApellido, validacion_documento_ocr=ocrDocumento, nombre_ocr=dataOCRNombre, apellido_ocr=dataOCRApellido, documento_ocr=dataOCRDocumento)
-  db.session.add(evidenciasAdicionalesAdd)
-  db.session.commit()
+  # evidenciasAdicionalesAdd = EvidenciasAdicionales(estado_verificacion=estadoVericacion, dispositivo=dispositivo, navegador=navegador, ip_publica=ipPublica, ip_privada=ipPrivada, latitud=latitud, longitud=longitud, hora=hora, fecha=fecha, validacion_nombre_ocr=ocrNombre, validacion_apellido_ocr=ocrApellido, validacion_documento_ocr=ocrDocumento, nombre_ocr=dataOCRNombre, apellido_ocr=dataOCRApellido, documento_ocr=dataOCRDocumento)
+  # db.session.add(evidenciasAdicionalesAdd)
+  # db.session.commit()
 
-  evidenciasUsuarioAdd = EvidenciasUsuario(anverso_documento=anversoOrientado, reverso_documento=reversoBlob, foto_usuario=fotoPersonaBlob, estado_verificacion='', tipo_documento='')
-  db.session.add(evidenciasUsuarioAdd)
-  db.session.commit()
+  # evidenciasUsuarioAdd = EvidenciasUsuario(anverso_documento=anversoOrientado, reverso_documento=reversoBlob, foto_usuario=fotoPersonaBlob, estado_verificacion='', tipo_documento='')
+  # db.session.add(evidenciasUsuarioAdd)
+  # db.session.commit()
 
-  evidenciasAdicionalesId = evidenciasAdicionalesAdd.id
-  evidenciasUsuarioId = evidenciasUsuarioAdd.id
+  # evidenciasAdicionalesId = evidenciasAdicionalesAdd.id
+  # evidenciasUsuarioId = evidenciasUsuarioAdd.id
 
-  validacionAdd = DocumentoUsuario(nombres=nombres, apellidos=apellidos, numero_documento=documento, tipo_documento=tipoDocumento, email=email, id_evidencias=evidenciasUsuarioId, id_evidencias_adicionales=evidenciasAdicionalesId, id_usuario_efirma=idUsuario)
-  db.session.add(validacionAdd)
-  db.session.commit()
+  # validacionAdd = DocumentoUsuario(nombres=nombres, apellidos=apellidos, numero_documento=documento, tipo_documento=tipoDocumento, email=email, id_evidencias=evidenciasUsuarioId, id_evidencias_adicionales=evidenciasAdicionalesId, id_usuario_efirma=idUsuario)
+  # db.session.add(validacionAdd)
+  # db.session.commit()
 
-  idValidacion = validacionAdd.id
+  # idValidacion = validacionAdd.id
 
   #creando documento_usuario
-  # columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
-  # tablaDocumento = 'documento_usuario'
-  # valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, 0, 0, idUsuario)
-  # documentoUsuario = controlador_db.agregarDocumento(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
 
-  # tablaActualizar = 'documento_usuario'
+  tablaActualizar = 'documento_usuario'
 
-  # #tabla evidencias 
-  # columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
-  # tablaEvidencias = 'evidencias_usuario'
-  # valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
-  # evidenciasUsuario = controlador_db.agregarDocumento(columnasEvidencias, tablaEvidencias, valoresEvidencias)
+  #tabla evidencias 
+  columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
+  tablaEvidencias = 'evidencias_usuario'
+  valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
+  idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
-  # #tabla evidencias adicionales
+  #tabla evidencias adicionales
 
-  # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
-  # tablaEvidenciasAdicionales = 'evidencias_adicionales'
-
-  # valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
-  # evidenciasAdicionales = controlador_db.agregarDocumento(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
+  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
+  idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
 
   # columnaIdEvidencias = 'id_evidencias'
@@ -410,6 +407,10 @@ def validacionIdentidadTipo3():
   # actualizarIdEvidencias = controlador_db.actualizarData(tablaDocumento,columnaIdEvidencias,evidenciasUsuario, documentoUsuario )
   # actualizarIdEvidenciasA = controlador_db.actualizarData(tablaDocumento,columnaIdEvidenciasA,evidenciasAdicionales, documentoUsuario )
 
+  columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
+  tablaDocumento = 'documento_usuario'
+  valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUsuario)
+  documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
   # #actualizar documento usuario
   # tipoDocumento = request.form.get('tipo_documento')
   # tipoDocumento = tipoDocumento.lower()
@@ -417,8 +418,9 @@ def validacionIdentidadTipo3():
   # columnaTipoDocumento = 'tipo_documento'
   # actualizarTipoDocumento = controlador_db.actualizarData(tablaActualizar, columnaTipoDocumento, tipoDocumento, documentoUsuario)
 
-  return jsonify({"idValidacion":idValidacion, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
+  #return jsonify({"idValidacion":idValidacion, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
 
+  return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
 
 @app.route('/validacion-identidad-tipo-1', methods=['POST'])
 def validacionIdentidadTipo1():
