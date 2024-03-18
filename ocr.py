@@ -5,7 +5,7 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from utilidades import leerDataUrl
+from utilidades import leerDataUrl, ordenamiento
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -66,18 +66,13 @@ def ocr(imagen: str, parametro):
     imagenData = leerDataUrl(imagen)
 
     if(parametro == 'sencillo'):
-        print('sin preprocesado')
         txt: str = tess.image_to_string(imagenData)
 
         lineas: list[str] = txt.splitlines()
 
-        print(lineas)
-
         return lineas
     
     if(parametro == 'preprocesado'):
-    
-        print('con preprocesado')
 
         gris = cv2.cvtColor(imagenData, cv2.COLOR_BGR2GRAY)
         threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
@@ -87,8 +82,6 @@ def ocr(imagen: str, parametro):
         txt: str = tess.image_to_string(opened)
 
         lineas: list[str] = txt.splitlines()
-
-        print(lineas)
 
         return lineas
 
@@ -125,12 +118,6 @@ def validacionOCR(dataOCR, dataUsuario):
 
     return data, porcentaje
 
-def ordenamiento(data):
-
-    listaOrdenada = sorted(data, key= lambda x:x['similitud'])
-
-    return listaOrdenada
-
 
 def extraerPorcentaje(valor1, valor2):
     radio = SequenceMatcher(None, valor1, valor2).ratio()
@@ -141,8 +128,6 @@ def busquedaResultado(porcentajes, dataUsuario):
 
     if(len(porcentajes) <= 0):
         return 'no encontrado', 0
-
-    print('separador', dataUsuario)
 
     data = []
 
@@ -218,8 +203,6 @@ def validarOCR(infoDocumento, nombre:str, apellido:str, numeroDocumento:str):
     return coincidenciaNombre, coincidenciaApellido, coincidenciaDocumento
 
 def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
-
-    print(porcentajePre, ocrPre ,porcentajeSencillo, ocrSencillo )
 
     if(porcentajePre >= porcentajeSencillo):
         return ocrPre, porcentajePre

@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
+import mariadb
 from reconocimiento import reconocerRostro, pruebaVida
 import controlador_db
-from utilidades import leerDataUrl, cv2Blob, recorteData
+from utilidades import leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
+import lector_codigo
 from ocr import validarOCR, verificacionRostro, validarLadoDocumento, ocr, validacionOCR, comparacionOCR
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, MetaData, Table, update
@@ -59,11 +61,11 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "Sandra Paola",
-        "apellido": "Lopez Angarita",
+        "nombre": "Maria Fernanda",
+        "apellido": "Cruz Enciso",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "8339375",
+        "documento": "1005321627",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
@@ -78,16 +80,11 @@ def prueba():
 
   data = request.get_json()
 
-  selfie = data['selfie']
-  documento = data['anverso']
+  documento = data['documento']
 
+  codigoBarrasData = lector_codigo.lectorCodigoBarras(documento)
 
-  selfie = leerDataUrl(selfie)
-  documento = leerDataUrl(documento)
-
-  reconocer = reconocerRostro(selfie, documento)
-
-  return 'asda'
+  return codigoBarrasData
 
 
 @app.route('/frame', methods=['POST'])
@@ -101,9 +98,9 @@ def frame():
   return 'a'
 
 #rutas para el front
-@app.route('/ocr', methods=['POST'])
-def verificarDocumento():
-    
+@app.route('/ocr-anverso', methods=['POST'])
+def verificarAnverso():
+
     dataOCR = {
       'numeroDocumentoOCR': 'no encontrado',
       'nombreOCR': 'no encontrado',
@@ -123,22 +120,20 @@ def verificarDocumento():
     documentoData = leerDataUrl(imagenDocumento)
 
     personaData = leerDataUrl(imagenPersona)
-
-    buscarRostro, a,b = reconocerRostro(personaData, documentoData)
-
-    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
-
+    
     nombre = documento['nombre']
 
-    nombre = nombre.upper()
-    nombre = nombre.strip()
+    nombre = normalizarTexto(nombre)
 
     apellido = documento['apellido']
 
-    apellido = apellido.upper()
-    apellido = apellido.strip()
+    apellido = normalizarTexto(apellido)
 
     numeroDocumento = documento['documento']
+
+    #buscarRostro, a,b = reconocerRostro(personaData, documentoData)
+
+    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
 
     documentoOCRSencillo = ocr(imagenDocumento, 'sencillo')
 
@@ -155,7 +150,7 @@ def verificarDocumento():
 
     nombreComparado, porcentajeNombreComparado = comparacionOCR(porcentajePre=porcentajeNombrePre, porcentajeSencillo=porcentajeNombre, ocrPre=nombrePreOCR, ocrSencillo=nombreOCR)
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
-    documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumento)
+    documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
     return jsonify({
       'ocr': {
@@ -168,8 +163,93 @@ def verificarDocumento():
           'porcentajeApellidoOCR': porcentajeApellidoComparado,
           'porcentajeDocumentoOCR': porcentajeDocumentoComparado
         },
-      'rostro': buscarRostro,
+      'rostro': True,
       'ladoValido': validarLado
+    })
+
+
+
+#rutas para el front
+@app.route('/ocr-reverso', methods=['POST'])
+def verificarReverso():
+
+  
+
+    dataOCR = {
+      'numeroDocumentoOCR': 'no encontrado',
+      'nombreOCR': 'no encontrado',
+      'apellidoOCR': 'no encontrado'
+    }
+    
+    documento = request.get_json()
+
+    imagenDocumento = documento['imagen']
+
+    ladoDocumento = documento['ladoDocumento']
+
+    tipoDocumento = documento['tipoDocumento']
+
+    documentoData = leerDataUrl(imagenDocumento)
+    
+    nombre = documento['nombre']
+
+    nombre = normalizarTexto(nombre)
+
+    apellido = documento['apellido']
+
+    apellido = normalizarTexto(apellido)
+
+    numeroDocumento = documento['documento']
+
+    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
+
+    return jsonify({
+        "codigoBarra":{
+          'reconocido': 'true',
+          'nombre':'true',
+          'apellido':'true',
+          'documento':'true'
+        },
+        'ladoValido': validarLado
+      })
+
+    codigoBarrasData = lector_codigo.lectorCodigoBarras(imagenDocumento, tipoDocumento)
+
+    if(codigoBarrasData is False):
+      return jsonify({
+        "codigoBarra":{
+          'reconocido': 'false',
+          'nombre': 'false',
+          'apellido':'false',
+          'documento':'false'
+        },
+        "ladoValido": validarLado
+      })
+
+    validacionNombre = lector_codigo.validarDataCodigo(nombre, f"{codigoBarrasData['primerNombre']}" + ' ' + f"{codigoBarrasData['segundoNombre']}")
+    validacionApellido = lector_codigo.validarDataCodigo(apellido, f"{codigoBarrasData['primerApellido']}" + ' ' + f"{codigoBarrasData['segundoApellido']}")
+    validacionDocumento = lector_codigo.validarDataCodigo(numeroDocumento, f"{codigoBarrasData['numeroDocumento']}")
+
+
+    if(tipoDocumento == 'Cédula de extranjería'):
+      return jsonify({
+        "codigoBarra":{
+          'reconocido': 'true',
+          'nombre':'true',
+          'apellido':'true',
+          'documento':'true'
+        },
+        'ladoValido': validarLado
+      })
+    if(tipoDocumento == 'Cédula de ciudadanía'):
+      return jsonify({
+        "codigoBarra":{
+          'reconocido': 'true',
+          'nombre':validacionNombre,
+          'apellido':validacionApellido,
+          'documento':validacionDocumento
+        },
+        'ladoValido': validarLado
       })
 
 
@@ -237,55 +317,80 @@ def obtenerEvidencias():
 
   return jsonify({'idEvidencias':idEvidencias, 'idEvidenciasAdicionales':idEvidenciasAdicionales, "tipo": tipo})
 
+@app.route('/cambiar-estado', methods=['POST'])
+def cambiarEstado():
+  id = request.args.get('id')
+  idValidacion = request.args.get('id_validacion')
+  nuevoEstado = request.args.get('nuevo_estado')
+
+  cambio = controlador_db.finalizarProceso(id, nuevoEstado, idValidacion)
+
+  return jsonify({'estado':'cambiado'})
 
 @app.route('/comprobar-proceso', methods=['GET'])
 def comprobacionProceso():
     id = request.args.get('id')
 
-    peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+    peticionProceso = controlador_db.comprobacionProceso(id)
 
-    if(peticionProceso):
-      return jsonify({"id":peticionProceso.id, "idProceso": peticionProceso.id_proceso, "estado": peticionProceso.estado})
+    if peticionProceso:
+        return jsonify({"id": peticionProceso[0], "idProceso": peticionProceso[1], "estado": peticionProceso[2], "idValidacion":peticionProceso[3]})
     else:
-      return jsonify({"estado": 'no iniciada'})
+        return jsonify({"estado": 'no iniciada'})
+
+    # peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+
+    # if(peticionProceso):
+    #   return jsonify({"id":peticionProceso.id, "idProceso": peticionProceso.id_proceso, "estado": peticionProceso.estado})
+    # else:
+    #   return jsonify({"estado": 'no iniciada'})
 
 
 @app.route('/iniciar-proceso', methods=['POST'])
 def inciarProceso():
     id = request.args.get('id')
 
-    peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+    inicioProceso = controlador_db.iniciarProceso(id, 'iniciado')
 
-    print(peticionProceso)
+    return jsonify({'id':inicioProceso[0], "idProceso": inicioProceso[1], "estado": inicioProceso[2], "idValido": inicioProceso[3]})
 
-    if(peticionProceso):
-      return jsonify({'estado':'el proceso ya esta iniciado'})
+    # peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+
+    # print(peticionProceso)
+
+    # if(peticionProceso):
+    #   return jsonify({'estado':'el proceso ya esta iniciado'})
     
-    if(peticionProceso is None):
-      inicioProceso = ComprobarProceso(id_proceso=id, estado='iniciado')
-      db.session.add(inicioProceso)
-      db.session.commit()
-      return jsonify({'estado':'proceso iniciado'})
+    # if(peticionProceso is None):
+    #   inicioProceso = ComprobarProceso(id_proceso=id, estado='iniciado')
+    #   db.session.add(inicioProceso)
+    #   db.session.commit()
+    #   return jsonify({'estado':'proceso iniciado'})
 
 @app.route('/finalizar-proceso', methods=['POST'])
 def finalizarProceso():
   id = request.args.get('id')
+  idValidacion = request.args.get('id_validacion')
 
-  peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+  finalizacion = controlador_db.finalizarProceso(id, 'finalizado', idValidacion)
 
-  print(peticionProceso)
+  return jsonify({'estado':'finalizado'})
 
-  if(peticionProceso):
-      stmt = (
-          update(comprobar_proceso_table)
-          .where(comprobar_proceso_table.c.id_proceso == id)
-          .values(estado="finalizado")
-      )
-      db.session.execute(stmt)  # Ejecutar la sentencia de actualización
-      db.session.commit()  # Confirmar los cambios en la base de datos
-      return jsonify({'estado':'finalizando'})
-  else:
-    return jsonify({'estado': 'no se finalizó la validación'})
+  # peticionProceso = ComprobarProceso().query.filter_by(id_proceso=id).first()
+
+  # print(peticionProceso)
+
+  # if(peticionProceso):
+  #     stmt = (
+  #         update(comprobar_proceso_table)
+  #         .where(comprobar_proceso_table.c.id_proceso == id)
+  #         .values(estado="finalizado")
+  #     )
+  #     db.session.execute(stmt)  # Ejecutar la sentencia de actualización
+  #     db.session.commit()  # Confirmar los cambios en la base de datos
+  #     return jsonify({'estado':'finalizando'})
+  # else:
+  #   return jsonify({'estado': 'no se finalizó la validación'})
 
 @app.route('/validacion-identidad-tipo-3', methods=['POST'])
 def validacionIdentidadTipo3():
@@ -327,6 +432,14 @@ def validacionIdentidadTipo3():
   dataOCRApellido = request.form.get('apellido_ocr')
   dataOCRDocumento = request.form.get('documento_ocr')
 
+  nombreCodigoBarras = request.form.get('nombre_CB')
+  apellidoCodigoBarras = request.form.get('apellido_CB')
+  documentoCodigoBarras = request.form.get('documento_CB')
+
+  nombreCodigoBarras = stringBool(nombreCodigoBarras)
+  apellidoCodigoBarras = stringBool(apellidoCodigoBarras)
+  documentoCodigoBarras =stringBool(documentoCodigoBarras)
+
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
   anversoData = leerDataUrl(anverso)
@@ -340,6 +453,12 @@ def validacionIdentidadTipo3():
   fotoPersonaBlob = cv2Blob(fotoPersonaData)
   reversoBlob = cv2Blob(reversoData)
 
+  elementosVerificacion = [True, nombreCodigoBarras, apellidoCodigoBarras, documentoCodigoBarras]
+
+  verificacionDirecta = all(elementosVerificacion)
+
+  if(verificacionDirecta is True):
+    estadoVericacion = 'Procesando Verificado'
 
   #normalizacion
   nombres = nombres.lower()

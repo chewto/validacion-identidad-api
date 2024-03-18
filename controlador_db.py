@@ -212,6 +212,103 @@ def insertTabla(columnas: tuple, tabla:str, valores: tuple):
     conn.close()
 
 
+def comprobacionProceso(id):
+
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = f"SELECT * FROM comprobacion_proceso WHERE id_proceso = {id}"
+    cursor.execute(queryInfo)
+
+    comprobacion = cursor.fetchone()
+
+    return comprobacion
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+    return f"error = {e}"
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def iniciarProceso(id, estado):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = f"INSERT INTO comprobacion_proceso (id_proceso, estado, id_validacion) VALUES ({id}, '{estado}', 0)"
+    cursor.execute(queryInfo)
+
+    idInsert = cursor.lastrowid
+
+    cursor.execute(f"SELECT * FROM comprobacion_proceso WHERE id = {idInsert}")
+    insertedData = cursor.fetchone()
+
+    return insertedData
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+    return f"error = {e}"
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def finalizarProceso(id, estado, idValidacion):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryUpdate = f"UPDATE comprobacion_proceso SET estado = '{estado}', id_validacion = {idValidacion} WHERE id_proceso = {id}"
+    cursor.execute(queryUpdate)
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+    return f"error = {e}"
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 # def obtenerUltimoId(tabla:str):
 #   try:
 #     conn = mariadb.connect(

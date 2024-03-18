@@ -1,7 +1,16 @@
+import random
+import string
+import uuid
 import cv2
 import numpy as np
 import base64
+import unicodedata
 
+def normalizarTexto(texto:str):
+  texto = texto.strip()
+  textoNormalizado = unicodedata.normalize('NFD', texto)
+  sinAcentos  = ''.join(c for c in textoNormalizado if unicodedata.category(c) != 'Mn')
+  return sinAcentos
 
 def leerDataUrl(imagen):
   imagenURL = imagen
@@ -13,6 +22,12 @@ def leerDataUrl(imagen):
   imagen = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
 
   return imagen
+
+def ordenamiento(data):
+
+    listaOrdenada = sorted(data, key= lambda x:x['similitud'])
+
+    return listaOrdenada
 
 
 def cv2Blob(imagen):
@@ -28,3 +43,16 @@ def recorteData(data):
   
   if(len(data) <= 498):
     return data
+  
+def generate_unique_code():
+    unique_id = str(uuid.uuid4()).split('-')[-1]  # Generate a unique identifier and extract a portion
+    random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))  # Generate 6 random characters
+    unique_code = unique_id + random_chars  # Combine the unique identifier and random characters
+    return unique_code
+
+
+def stringBool(string):
+  if(string == 'true'):
+      return True
+  if(string == 'false'):
+      return False
