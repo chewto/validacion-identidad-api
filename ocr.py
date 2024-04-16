@@ -7,7 +7,7 @@ import cv2
 import Levenshtein
 from utilidades import leerDataUrl, ordenamiento
 
-tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+#tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 pais = 'col'
 
@@ -20,6 +20,10 @@ infoHash = {
             "Cédula de extranjería": {
                 "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
                 "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
+            },
+            "Permiso de protección temporal": {
+                "anverso": [],
+                "reverso": []
             }
         },
         "pty":{

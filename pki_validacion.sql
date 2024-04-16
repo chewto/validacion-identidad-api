@@ -114,4 +114,11 @@ CREATE TABLE IF NOT EXISTS `evidencias_usuario` (
   `tipo_documento` varchar(50) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=106 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-evidencias_usuario
+
+CREATE TABLE IF NOT EXISTS `comprobacion_proceso` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `id_proceso` varchar(25),
+  `estado` varchar(25),
+  `id_validacion` varchar(50),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=106 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

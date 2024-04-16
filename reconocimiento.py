@@ -1,128 +1,71 @@
 import face_recognition
-import controlador_db
-from io import BytesIO
-import base64
 import numpy as np
 import cv2
 from utilidades import cv2Blob
-import dlib
-from PIL import Image
-from utilidades import leerDataUrl
 
 # def reconocerRostro(imgPersona, imgDocumento):
 
-
-#     cargarImg = face_recognition.load_image_file(imgPersona)
-#     reconocerImagen = face_recognition.face_encodings(cargarImg)
-#     if len(reconocerImagen) == 0:
-#         return False,'pendiente revision'
-#     else:
-#         reconocerImagen = reconocerImagen[0]
+#     blobdocumento = cv2Blob(imgDocumento)
 
 #     reconocido = False
 
-#     cargarImgComparar = face_recognition.load_image_file(imgDocumento)
-#     reconocerImagenComparar = face_recognition.face_encodings(cargarImgComparar)
+#     orientado = False
 
-#     if len(reconocerImagenComparar) == 0:
-#       return False, 'pendiente revision'
-#     else:
-#       reconocerImagenComparar = reconocerImagenComparar[0]
+#     intentosOrientacion = 0
 
-#     reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen)
+#     while orientado == False and intentosOrientacion <= 4:
+#       reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
 
-#     reconocido = reconocido[0]
-
-#     if reconocido:
-#         return True, 'verificado'
-#     else:
-#         return False, 'pendiente revision'
-
-def orientacionImagen(imgDocumento):
-
-    blobdocumento = cv2Blob(imgDocumento)
-
-    reconocido = False
-
-    orientado = False
-
-    intentosOrientacion = 0
-
-    while orientado == False and intentosOrientacion <= 4:
-      reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
-
-      if len(reconocerImagenComparar) <= 0:
-        print(False, 'girando imagen')
-        imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
-        intentosOrientacion = intentosOrientacion + 1
+#       if len(reconocerImagenComparar) <= 0:
+#         print(False, 'girando imagen')
+#         imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
+#         intentosOrientacion = intentosOrientacion + 1
 
         
-        if (intentosOrientacion == 4 and orientado == False):
-          return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
-      else:
-        orientado = True
-        reconocerImagenComparar = reconocerImagenComparar[0]
+#         if (intentosOrientacion == 4 and orientado == False):
+#           return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
+#       else:
+#         orientado = True
+#         reconocerImagenComparar = reconocerImagenComparar[0]
 
-def reconocerRostro(imgPersona, imgDocumento):
+#     _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
+#     imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
 
-    blobdocumento = cv2Blob(imgDocumento)
+#     reconocerImagen = face_recognition.face_encodings(imgPersona)
+#     if len(reconocerImagen) == 0:
+#         return False,'pendiente revision, ningun rostro reconocido', imagenOrientadaBlob
+#     else:
+#         reconocerImagen = reconocerImagen[0]
 
-    reconocido = False
+#     reconociendo = False
 
-    orientado = False
+#     intentos = 0
 
-    intentosOrientacion = 0
+#     resultados = []
 
-    while orientado == False and intentosOrientacion <= 4:
-      reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
+#     while intentos <= 1 and reconociendo is False:
+#         reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen, 0.8)
 
-      if len(reconocerImagenComparar) <= 0:
-        print(False, 'girando imagen')
-        imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
-        intentosOrientacion = intentosOrientacion + 1
+#         reconocido = reconocido[0]
 
-        
-        if (intentosOrientacion == 4 and orientado == False):
-          return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
-      else:
-        orientado = True
-        reconocerImagenComparar = reconocerImagenComparar[0]
+#         intentos = intentos + 1
 
-    _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
-    imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
+#         if reconocido == True:
+#             reconociendo = True
+#             return True, 'verificado', imagenOrientadaBlob
 
-    reconocerImagen = face_recognition.face_encodings(imgPersona)
-    if len(reconocerImagen) == 0:
-        return False,'pendiente revision, ningun rostro reconocido', imagenOrientadaBlob
-    else:
-        reconocerImagen = reconocerImagen[0]
+#         if reconocido == False:
+#             imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_180)
+#             _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
+#             imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
+#             reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
+#             if(len(reconocerImagenComparar) == 0):
+#                 return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
+#             else:
+#                 reconocerImagenComparar = reconocerImagenComparar[0]
 
-    reconociendo = False
 
-    intentos = 0
 
-    resultados = []
-
-    while intentos <= 1 and reconociendo is False:
-        reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen, 0.8)
-
-        reconocido = reconocido[0]
-
-        intentos = intentos + 1
-
-        if reconocido == True:
-            reconociendo = True
-            return True, 'verificado', imagenOrientadaBlob
-
-        if reconocido == False:
-            imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_180)
-            _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
-            imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
-            reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
-            if(len(reconocerImagenComparar) == 0):
-                return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
-            else:
-                reconocerImagenComparar = reconocerImagenComparar[0]
 
 def pruebaVida(imagenBase, imagenComparacion):
    
@@ -147,58 +90,70 @@ def pruebaVida(imagenBase, imagenComparacion):
     else:
         return comparacion, 0
 
+def reconocimiento(imgPersona, imgDocumento):
+
+    if(len(imgPersona) <= 0 or len(imgDocumento) <= 0):
+        return False
+
+    reconocimientos = []
+
+    for selfie in imgPersona:
+        for documento in imgDocumento:
+            comparacion = face_recognition.compare_faces([selfie], documento)
+            similitud = comparacion[0]
+
+            reconocimientos.append(similitud)
+
+    coincidencias = any(reconocimientos)
+
+    return coincidencias
+
+def orientacionImagen(imagen):
+
+    gray_image = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
 
 
+    carasAlmacenadas = []
+    carasValidas = []
 
-# def reconocerRostro(img, tabla):
+    encontrado = False
+    intentos = 0
 
-#     filas = controlador_db.obtenerTodos(tabla)
+    while intentos <= 4 and encontrado == False:
 
-#     cargarImg = face_recognition.load_image_file(img)
-#     reconocerImagen = face_recognition.face_encodings(cargarImg)
-#     if len(reconocerImagen) == 0:
-#         return 'no se encontro ninguna persona', False
-#     else:
-#         reconocerImagen = reconocerImagen[0]
+        clasificadorOjos = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_eye.xml"
+        )
 
-#     reconocido = False
-#     nombre = ''
-#     vueltas = 0
+        face_classifier = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
+        )
 
-#     nombres = []
-#     imagenes = []
+        carasDetectadas = face_classifier.detectMultiScale(
+            gray_image, scaleFactor=1.1, minNeighbors=7, minSize=(50, 50)
+        )
 
-#     for row in filas:
-#         b = io.BytesIO(row[1])
-#         imagenes.append(b)
-#         # nombre = row[1]
-#         # apellido = row[2]
-#         # nombreCompleto = f"{nombre} {apellido}"
-#         # nombres.append(nombreCompleto)
+        if(len(carasDetectadas) <= 0):
+            intentos = intentos + 1
+            gray_image = cv2.rotate(gray_image,cv2.ROTATE_90_CLOCKWISE)
+            imagen = cv2.rotate(imagen,cv2.ROTATE_90_CLOCKWISE )
 
-#     dbData = [imagen for imagen in imagenes]
+        if(len(carasDetectadas) >= 1):
+            encontrado = True
+            for (x, y, w, h) in carasDetectadas:
+                roi_gray = gray_image[y:y+h, x:x+w]
 
-#     while ((not reconocido) and (vueltas < len(dbData))):
-#         imagenComparar = imagenes[vueltas]
+                ojos = clasificadorOjos.detectMultiScale(roi_gray)
 
-#         # nombreUsuario = nombres[vueltas]
+                if(len(ojos) >= 1):
+                    carasAlmacenadas.append(imagen)
 
+        if(len(carasAlmacenadas) <= 0 and intentos >= 4):
+            return imagen, carasValidas
 
-#         cargarImgComparar = face_recognition.load_image_file(imagenComparar)
-#         reconocerImagenComparar = face_recognition.face_encodings(cargarImgComparar)
+    for cara in carasAlmacenadas:
+        testEncodings = face_recognition.face_encodings(cara)
+        if(len(testEncodings) >= 1):
+            carasValidas.append(testEncodings[0])
 
-#         if len(reconocerImagenComparar) == 0:
-#             return 'no se ha reconocido a una persona'
-#         else:
-#             reconocerImagenComparar = reconocerImagenComparar[0]
-
-#         reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen)
-
-#         reconocido = reconocido[0]
-
-#         vueltas+= 1
-
-#     if reconocido:
-#         return 'reconocido', True
-#     else:
-#         return 'no reconocido', False
+    return imagen, carasValidas

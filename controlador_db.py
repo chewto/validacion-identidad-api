@@ -3,12 +3,6 @@ import base64
 import socket
 import requests
 
-# passwordDB = '30265611'
-# nombreDB = 'pki_validacion'
-# hostDB = '93.93.119.219'
-# portDB = 3306
-# userDB = 'administrador'
-
 passwordDB = '30265611'
 nombreDB = 'pki_validacion'
 hostDB = 'localhost'
@@ -212,12 +206,14 @@ def insertTabla(columnas: tuple, tabla:str, valores: tuple):
     conn.close()
 
 
-def comprobacionProceso(id):
+def comprobarProceso(id):
 
   try:
     conn = mariadb.connect(
+      # user=userDB,
       user=userDB,
       password=passwordDB,
+      # host=hostDB,
       host=hostDB,
       port=portDB,
       database=nombreDB
@@ -228,113 +224,21 @@ def comprobacionProceso(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f"SELECT * FROM comprobacion_proceso WHERE id_proceso = {id}"
+    queryInfo = f'SELECT count(ea.estado_verificacion) FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación") and id_usuario_efirma={id}'
     cursor.execute(queryInfo)
 
-    comprobacion = cursor.fetchone()
+    comprobacion = cursor.fetchall()
 
-    return comprobacion
+    if(len(comprobacion) >= 1):
+      return comprobacion[-1]
+    else:
+      return None
 
   except mariadb.Error as e:
 
     print("error =", e)
-    return f"error = {e}"
 
   finally:
     conn.commit()
     cursor.close()
     conn.close()
-
-def iniciarProceso(id, estado):
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-    queryInfo = f"INSERT INTO comprobacion_proceso (id_proceso, estado, id_validacion) VALUES ({id}, '{estado}', 0)"
-    cursor.execute(queryInfo)
-
-    idInsert = cursor.lastrowid
-
-    cursor.execute(f"SELECT * FROM comprobacion_proceso WHERE id = {idInsert}")
-    insertedData = cursor.fetchone()
-
-    return insertedData
-
-  except mariadb.Error as e:
-
-    print("error =", e)
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def finalizarProceso(id, estado, idValidacion):
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-    queryUpdate = f"UPDATE comprobacion_proceso SET estado = '{estado}', id_validacion = {idValidacion} WHERE id_proceso = {id}"
-    cursor.execute(queryUpdate)
-
-  except mariadb.Error as e:
-
-    print("error =", e)
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-# def obtenerUltimoId(tabla:str):
-#   try:
-#     conn = mariadb.connect(
-#       user='root',
-#       password=passwordDB,
-#       host=hostDB,
-#       port=portDB,
-#       database='pki_validacion_identidad'
-#     )
-#   except mariadb.Error as e:
-#     return f"error en la query, error = {e}"
-
-#   try:
-#     cursor = conn.cursor()
-
-#     query:str = f'select last_insert_id() from {tabla}'
-
-#     cursor.execute(query)
-
-#     id = cursor.fetchone()
-
-#     return id
-#   except mariadb.Error as e:
-#     return f"error = {e}"
-
-#   finally:
-#     conn.commit()
-#     cursor.close()
-#     conn.close()
