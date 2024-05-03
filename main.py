@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 import mariadb
-from reconocimiento import pruebaVida, orientacionImagen, reconocimiento
+from reconocimiento import obtencionEncodings,pruebaVida, orientacionImagen, reconocimiento
 import controlador_db
 from utilidades import leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
 import lector_codigo
@@ -22,31 +22,17 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "Maria Fernanda",
-        "apellido": "Cruz Enciso",
+        "nombre": "erika paola",
+        "apellido": "Cruz luengas",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "1005321627",
+        "documento": "1014233022",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
         "fechaCreacion": "2023-10-07T11:13:52-05:00"
     }
 })
-
-
-# @app.route('/prueba', methods=['POST'])
-# def prueba():
-
-
-#   data = request.get_json()
-
-#   documento = data['documento']
-
-#   codigoBarrasData = lector_codigo.lectorCodigoBarras(documento)
-
-#   return codigoBarrasData
-
 
 @app.route('/prueba', methods=['POST'])
 def frame():
@@ -110,16 +96,22 @@ def verificarAnverso():
 
     numeroDocumento = documento['documento']
 
-    _, personaEncodings = orientacionImagen(personaData)
-    _, documentoEncodings = orientacionImagen(documentoData)
+    selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
+    documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
-    coincidencia = reconocimiento(personaEncodings, documentoEncodings)
+    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
+    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
 
-    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
+    totalValidacionLado = validarLadoPre + validarLadoSencillo
 
-    documentoOCRSencillo = ocr(imagenDocumento, 'sencillo')
+    ladoValido = False
 
-    documentoOCRPre = ocr(imagenDocumento, 'preprocesado')
+    if(totalValidacionLado >=1):
+      ladoValido = True
+
+    documentoOCRSencillo = ocr(documentoOrientado, 'sencillo')
+
+    documentoOCRPre = ocr(documentoOrientado, 'preprocesado')
 
     #ocr sencillo
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
@@ -134,6 +126,26 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
+    coincidencia = False
+
+    if(len(carasImagenPersona) >= 1 and len(carasImagenDocumento) >= 1):
+      coincidencia = True
+
+    print(totalValidacionLado)
+
+    print({'ocr': {
+          'nombreOCR': nombreComparado,
+          'apellidoOCR': apellidoComparado,
+          'documentoOCR': documentoComparado
+      },
+      'porcentajes': {
+          'porcentajeNombreOCR': porcentajeNombreComparado,
+          'porcentajeApellidoOCR': porcentajeApellidoComparado,
+          'porcentajeDocumentoOCR': porcentajeDocumentoComparado
+        },
+      'rostro': coincidencia,
+      'ladoValido': ladoValido})
+
     return jsonify({
       'ocr': {
           'nombreOCR': nombreComparado,
@@ -146,7 +158,7 @@ def verificarAnverso():
           'porcentajeDocumentoOCR': porcentajeDocumentoComparado
         },
       'rostro': coincidencia,
-      'ladoValido': validarLado
+      'ladoValido': ladoValido
     })
 
 
@@ -183,7 +195,15 @@ def verificarReverso():
 
     numeroDocumento = documento['documento']
 
-    validarLado = validarLadoDocumento(tipoDocumento, ladoDocumento, imagenDocumento)
+    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=True)
+    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
+
+    totalValidacion = validarLadoPre + validarLadoSencillo
+
+    ladoValido = False
+
+    if(totalValidacion >= 1):
+      ladoValido = True
 
     return jsonify({
         "codigoBarra":{
@@ -192,7 +212,7 @@ def verificarReverso():
           'apellido':'false',
           'documento':'false'
         },
-        'ladoValido': validarLado
+        'ladoValido': ladoValido
       })
 
     codigoBarrasData = lector_codigo.lectorCodigoBarras(imagenDocumento, tipoDocumento)
@@ -383,7 +403,10 @@ def validacionIdentidadTipo3():
   anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
-  coincidencia = reconocimiento(selfieValida, documentoValido)
+  documentoEncodings = obtencionEncodings(documentoValido)
+  selfieEncodings = obtencionEncodings(selfieValida)
+
+  coincidencia = reconocimiento(selfieEncodings, documentoEncodings)
 
   estadoVericacion = ''
 
@@ -433,26 +456,6 @@ def validacionIdentidadTipo3():
   dataOCRDocumento = recorteData(dataOCRDocumento)
 
 
-  # evidenciasAdicionalesAdd = EvidenciasAdicionales(estado_verificacion=estadoVericacion, dispositivo=dispositivo, navegador=navegador, ip_publica=ipPublica, ip_privada=ipPrivada, latitud=latitud, longitud=longitud, hora=hora, fecha=fecha, validacion_nombre_ocr=ocrNombre, validacion_apellido_ocr=ocrApellido, validacion_documento_ocr=ocrDocumento, nombre_ocr=dataOCRNombre, apellido_ocr=dataOCRApellido, documento_ocr=dataOCRDocumento)
-  # db.session.add(evidenciasAdicionalesAdd)
-  # db.session.commit()
-
-  # evidenciasUsuarioAdd = EvidenciasUsuario(anverso_documento=anversoOrientado, reverso_documento=reversoBlob, foto_usuario=fotoPersonaBlob, estado_verificacion='', tipo_documento='')
-  # db.session.add(evidenciasUsuarioAdd)
-  # db.session.commit()
-
-  # evidenciasAdicionalesId = evidenciasAdicionalesAdd.id
-  # evidenciasUsuarioId = evidenciasUsuarioAdd.id
-
-  # validacionAdd = DocumentoUsuario(nombres=nombres, apellidos=apellidos, numero_documento=documento, tipo_documento=tipoDocumento, email=email, id_evidencias=evidenciasUsuarioId, id_evidencias_adicionales=evidenciasAdicionalesId, id_usuario_efirma=idUsuario)
-  # db.session.add(validacionAdd)
-  # db.session.commit()
-
-  # idValidacion = validacionAdd.id
-
-  #creando documento_usuario
-
-
   tablaActualizar = 'documento_usuario'
 
   #tabla evidencias 
@@ -467,13 +470,6 @@ def validacionIdentidadTipo3():
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
   valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
-
-
-  # columnaIdEvidencias = 'id_evidencias'
-  # columnaIdEvidenciasA = 'id_evidencias_adicionales'
-
-  # actualizarIdEvidencias = controlador_db.actualizarData(tablaDocumento,columnaIdEvidencias,evidenciasUsuario, documentoUsuario )
-  # actualizarIdEvidenciasA = controlador_db.actualizarData(tablaDocumento,columnaIdEvidenciasA,evidenciasAdicionales, documentoUsuario )
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
   tablaDocumento = 'documento_usuario'

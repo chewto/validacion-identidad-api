@@ -7,7 +7,7 @@ import cv2
 import Levenshtein
 from utilidades import leerDataUrl, ordenamiento
 
-#tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 pais = 'col'
 
@@ -21,9 +21,13 @@ infoHash = {
                 "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
                 "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
             },
-            "Permiso de protección temporal": {
+            "Permiso por protección temporal": {
                 "anverso": [],
                 "reverso": []
+            },
+            "Pasaporte":{
+                "anverso":['REPUBLICA DE COLOMBIA', 'PASAPORTE', 'PASSPORT'],
+                "reverso":[]
             }
         },
         "pty":{
@@ -67,10 +71,9 @@ def verificacionRostro(dataURL: str):
 
 def ocr(imagen: str, parametro):
 
-    imagenData = leerDataUrl(imagen)
 
     if(parametro == 'sencillo'):
-        txt: str = tess.image_to_string(imagenData)
+        txt: str = tess.image_to_string(imagen)
 
         lineas: list[str] = txt.splitlines()
 
@@ -78,7 +81,7 @@ def ocr(imagen: str, parametro):
     
     if(parametro == 'preprocesado'):
 
-        gris = cv2.cvtColor(imagenData, cv2.COLOR_BGR2GRAY)
+        gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
         threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
         opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
@@ -215,18 +218,16 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
         return ocrSencillo, porcentajeSencillo
 
 
-def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
+def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
-    imagenData: list[str] = imagen.split(',')[1]
 
-    decoded: bytes = base64.b64decode(imagenData)
+    lineas = []
 
-    lerrImagen: Image = Image.open(BytesIO(decoded))
+    if(preprocesado):
+        lineas = ocr(imagen=imagen, parametro='preprocesado')
 
-    txt: str = tess.image_to_string(lerrImagen)
-
-    lineas: list[str] = txt.splitlines()
-
+    if(preprocesado == False):
+        lineas = ocr(imagen=imagen, parametro='sencillo')
 
     ladoPalabras = infoHash[pais][tipoDocumento][ladoDocumento]
 
@@ -259,7 +260,4 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str):
         if orden['porcentaje'] >= 75:
             coincidencias += 1
 
-    if (coincidencias >= 1):
-        return True
-    else:
-        return False
+    return coincidencias

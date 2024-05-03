@@ -108,13 +108,25 @@ def reconocimiento(imgPersona, imgDocumento):
 
     return coincidencias
 
+def obtencionEncodings(encodings: list):
+
+    carasValidas = []
+
+    if(len(encodings) <= 0):
+        return []
+
+    for cara in encodings:
+        testEncodings = face_recognition.face_encodings(cara)
+        if(len(testEncodings) >= 1):
+            carasValidas.append(testEncodings[0])
+
+    return carasValidas
+
 def orientacionImagen(imagen):
 
     gray_image = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
 
-
     carasAlmacenadas = []
-    carasValidas = []
 
     encontrado = False
     intentos = 0
@@ -149,11 +161,6 @@ def orientacionImagen(imagen):
                     carasAlmacenadas.append(imagen)
 
         if(len(carasAlmacenadas) <= 0 and intentos >= 4):
-            return imagen, carasValidas
+            return imagen, carasAlmacenadas
 
-    for cara in carasAlmacenadas:
-        testEncodings = face_recognition.face_encodings(cara)
-        if(len(testEncodings) >= 1):
-            carasValidas.append(testEncodings[0])
-
-    return imagen, carasValidas
+    return imagen, carasAlmacenadas

@@ -1,4 +1,5 @@
 absl-py==2.0.0
+aspose-barcode-for-python-via-net==24.1
 attrs==23.1.0
 bidict==0.22.1
 blinker==1.6.3
@@ -37,7 +38,6 @@ numpy==1.26.1
 opencv-contrib-python==4.8.1.78
 opencv-python==4.8.1.78
 packaging==23.2
-pdf417decoder==1.0.8
 Pillow==10.1.0
 protobuf==3.20.3
 pycparser==2.21
@@ -49,7 +49,6 @@ python-Levenshtein==0.23.0
 python-socketio==5.10.0
 rapidfuzz==3.5.2
 requests==2.31.0
-simple-websocket==1.0.0
 six==1.16.0
 sounddevice==0.4.6
 SQLAlchemy==2.0.25
