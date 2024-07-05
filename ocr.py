@@ -18,8 +18,8 @@ infoHash = {
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
             },
             "Cédula de extranjería": {
-                "anverso": ["Cedula de Extranjeria", 'MIGRANTE'],
-                "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co"]
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'MIGRANTE', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
+                "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
             },
             "Permiso por protección temporal": {
                 "anverso": [],
@@ -220,7 +220,6 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
-
     lineas = []
 
     if(preprocesado):
@@ -235,7 +234,18 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, pre
 
     porcentajes = []
 
+    lineasLimpias = []
+
     for linea in lineas:
+        if(len(linea) >= 1):
+            nuevaLinea = linea.split(" ")
+
+            for elementoNuevaLinea in nuevaLinea:
+
+                if(len(elementoNuevaLinea) >= 2):
+                    lineasLimpias.append(elementoNuevaLinea)
+
+    for linea in lineasLimpias:
 
         for palabra in ladoPalabras:
 
@@ -261,3 +271,35 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, pre
             coincidencias += 1
 
     return coincidencias
+
+
+def busquedaData(ocr,nombre, apellido, documento):
+
+    data = []
+
+    documentoEncontrado = []
+
+    nombreEncontrado = []
+
+    for linea in ocr:
+        if(len(linea) >= 1):
+            nuevaLinea = linea.split(" ")
+
+            for elementoNuevaLinea in nuevaLinea:
+
+                if(len(elementoNuevaLinea) >= 2 and elementoNuevaLinea.find("<") != -1):
+                    data.append(elementoNuevaLinea)
+
+    for info in data:
+        if(info.find(nombre) != -1):
+            divisionNombre = info.split("<")
+            for linea in divisionNombre:
+                if(len(linea) >=1):
+                    nombreEncontrado.append(linea)
+        if(info.find(documento) != -1):
+            divisionNombre = info.split("<")
+            for linea in divisionNombre:
+                if(len(linea) >=1):
+                    documentoEncontrado.append(linea)
+
+    

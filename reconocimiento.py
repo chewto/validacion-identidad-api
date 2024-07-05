@@ -2,6 +2,93 @@ import face_recognition
 import numpy as np
 import cv2
 from utilidades import cv2Blob
+from PIL import Image
+import base64
+import io
+
+
+def obtenerFrames(video_path):
+    dataURL = ""
+    framesCapturados = []
+    cap = cv2.VideoCapture(video_path)
+    contadorFrames = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if contadorFrames % 10 == 0:
+            frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            framesCapturados.append(frameGris)
+        if(contadorFrames == 1):
+            frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pilIMG = Image.fromarray(frameRGB)
+            buff = io.BytesIO()
+            pilIMG.save(buff, format="JPEG")
+            imgStr = base64.b64encode(buff.getvalue())
+            dataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
+
+        contadorFrames += 1
+
+    cap.release()
+    return dataURL,framesCapturados
+
+def deteccionRostro(frames):
+
+    rostrosComparacion = []
+
+    rostroReferencia = {
+
+    }
+
+    contador = 1
+
+    for frame in frames:
+
+        clasificadorCaras = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
+        )
+
+        carasDetectadas = clasificadorCaras.detectMultiScale(
+            frame, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
+        )
+
+        if(len(carasDetectadas) >= 1):
+            for(x,y,w,h) in carasDetectadas:
+                if(contador == 1):
+                    rostroReferencia['X'] = x
+                    rostroReferencia['Y'] = y
+                
+                if(contador >= 2):
+                    rostro = {
+                        "X": x,
+                        "Y": y
+                    }
+                    rostrosComparacion.append(rostro)
+
+        contador+= 1
+
+    return rostroReferencia, rostrosComparacion
+
+def determinarMovimiento(rostroReferencia, rostros):
+
+    if(len(rostroReferencia) <= 0  and len(rostros) <= 0):
+        return False
+
+    resultados = []
+
+    for rostro in rostros:
+
+        for key in rostro:
+
+            resultado = rostroReferencia.get(key) - rostro.get(key)
+            if(resultado <= -1 or resultado >=1):
+                    resultados.append(True)
+            if(resultado == 0):
+                    resultados.append(False)
+
+    pruebaMovimiento = any(resultados)
+
+    return pruebaMovimiento
 
 # def reconocerRostro(imgPersona, imgDocumento):
 

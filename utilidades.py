@@ -56,3 +56,10 @@ def stringBool(string):
       return True
   if(string == 'false'):
       return False
+
+
+def leerFileStorage(archivo):
+
+  with open(archivo, 'rb') as archivoOpen:
+    data = archivoOpen.read()
+  return data

@@ -3,11 +3,80 @@ import base64
 import socket
 import requests
 
-passwordDB = '30265611'
-nombreDB = 'pki_validacion'
-hostDB = 'localhost'
-portDB = 3306
-userDB = 'root'
+credencialesDB = {
+  "desarrollo":{
+    "password":'30265611',
+    "nombre":'pki_validacion',
+    "host":'localhost',
+    "port":3306,
+    "user":'root'
+  },
+  "libertador":{
+    "password":'30265611',
+    "nombre":'pki_validacion',
+    "host":'93.93.119.219',
+    "port":3306,
+    "user":'administrador'
+  },
+  "eFirmaPanama":{
+    "password":'30265611BOC',
+    "nombre":'pki_validacion',
+    "host":'74.208.221.227',
+    "port":3306,
+    "user":'administrador'
+  },
+  "eFirmaCO":{
+    "password":'30265611',
+    "nombre":'pki_validacion',
+    "host":'216.225.195.14',
+    "port":3306,
+    "user":'administrador'
+  }
+}
+
+credencialesDBEntidad = {
+  "desarrollo":{
+    "password":'30265611',
+    "nombre":'pki_firma_electronica',
+    "host":'localhost',
+    "port":3306,
+    "user":'root'
+  },
+  "libertador":{
+    "password":'30265611',
+    "nombre":'pki_firma_electronica',
+    "host":'93.93.119.219',
+    "port":3306,
+    "user":'administrador'
+  },
+  "eFirmaPanama":{
+    "password":'30265611BOC',
+    "nombre":'pki_firma_electronica',
+    "host":'74.208.221.227',
+    "port":3306,
+    "user":'administrador'
+  },
+  "eFirmaCO":{
+    "password":'30265611',
+    "nombre":'pki_firma_electronica',
+    "host":'216.225.195.14',
+    "port":3306,
+    "user":'administrador'
+  }
+}
+
+
+passwordDB = credencialesDB["eFirmaPanama"]["password"]
+nombreDB = credencialesDB["eFirmaPanama"]["nombre"]
+hostDB = credencialesDB["eFirmaPanama"]["host"]
+portDB = credencialesDB["eFirmaPanama"]["port"]
+userDB = credencialesDB["eFirmaPanama"]["user"]
+
+passwordDBEntidad = credencialesDBEntidad["eFirmaPanama"]["password"]
+nombreDBEntidad = credencialesDBEntidad["eFirmaPanama"]["nombre"]
+hostDBEntidad = credencialesDBEntidad["eFirmaPanama"]["host"]
+portDBEntidad = credencialesDBEntidad["eFirmaPanama"]["port"]
+userDBEntidad = credencialesDBEntidad["eFirmaPanama"]["user"]
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -210,10 +279,8 @@ def comprobarProceso(id):
 
   try:
     conn = mariadb.connect(
-      # user=userDB,
       user=userDB,
       password=passwordDB,
-      # host=hostDB,
       host=hostDB,
       port=portDB,
       database=nombreDB
@@ -233,6 +300,43 @@ def comprobarProceso(id):
       return comprobacion[-1]
     else:
       return None
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def obtenerEntidad(id):
+
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = f'SELECT fe.usuario_id,usu.entity_id from pki_firma_electronica.firma_electronica_pki as fe INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id=fi.firma_electronica_id INNER JOIN usuarios.usuarios usu ON usu.id=fe.usuario_id WHERE fi.id={id}'
+
+    cursor.execute(queryInfo)
+
+    entidad = cursor.fetchone()
+
+    if(entidad):
+      return entidad[0], entidad[1]
+    else:
+      return 0, 0
+
 
   except mariadb.Error as e:
 

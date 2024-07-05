@@ -1,13 +1,17 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 import mariadb
-from reconocimiento import obtencionEncodings,pruebaVida, orientacionImagen, reconocimiento
+from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento, obtenerFrames, deteccionRostro, determinarMovimiento
 import controlador_db
-from utilidades import leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
+from utilidades import leerFileStorage, leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
 import lector_codigo
-from ocr import validarOCR, verificacionRostro, validarLadoDocumento, ocr, validacionOCR, comparacionOCR
+from ocr import busquedaData,validarLadoDocumento, ocr, validacionOCR, comparacionOCR
+import os
+
 
 app = Flask(__name__)
+
+carpetaPruebaVida = "./evidencias-vida"
 
 cors = CORS(app, resources={
   r"/*":{
@@ -22,11 +26,11 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "erika paola",
-        "apellido": "Cruz luengas",
+        "nombre": "Benito",
+        "apellido": "Otero Carreira",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
-        "documento": "1014233022",
+        "documento": "423105",
         "evidenciasCargadas": False,
         "enlaceTemporal": "nhxNYeTyF8",
         "ordenFirma": 1,
@@ -37,28 +41,9 @@ def obtenerFirmador(id):
 @app.route('/prueba', methods=['POST'])
 def frame():
 
-  prueba = request.form.get('foto')
-  documento = request.form.get('documento')
+  video = request.files.get("video")
 
-  prueba = leerDataUrl(prueba)
-  documento = leerDataUrl(documento)
-
-  imagenOriginal, carasValidas = orientacionImagen(prueba)
-  documentoOriginal, documentoValido = orientacionImagen(documento)
-
-  probando = reconocimiento([], [])
-
-  print(probando)
-
-  if(len(carasValidas) <= 0):
-    return 'no hay validas'
-  
-  if(len(carasValidas) >= 1):
-    probando = reconocimiento(carasValidas, documentoValido)
-    return 'asdasdasdasd'
-
-
-  # reconocer = comparar(carasEncontradas, documento)
+  video.save(f"{carpetaPruebaVida}/a")
 
   return 'a'
 
@@ -131,21 +116,6 @@ def verificarAnverso():
     if(len(carasImagenPersona) >= 1 and len(carasImagenDocumento) >= 1):
       coincidencia = True
 
-    print(totalValidacionLado)
-
-    print({'ocr': {
-          'nombreOCR': nombreComparado,
-          'apellidoOCR': apellidoComparado,
-          'documentoOCR': documentoComparado
-      },
-      'porcentajes': {
-          'porcentajeNombreOCR': porcentajeNombreComparado,
-          'porcentajeApellidoOCR': porcentajeApellidoComparado,
-          'porcentajeDocumentoOCR': porcentajeDocumentoComparado
-        },
-      'rostro': coincidencia,
-      'ladoValido': ladoValido})
-
     return jsonify({
       'ocr': {
           'nombreOCR': nombreComparado,
@@ -195,6 +165,15 @@ def verificarReverso():
 
     numeroDocumento = documento['documento']
 
+    # documentoOCRSencillo = ocr(documentoData, 'sencillo')
+
+    # documentoOCRPre = ocr(documentoData, 'preprocesado')
+
+    # busquedaSencillo = busquedaData(documentoOCRSencillo, nombre, apellido, numeroDocumento)
+    # busquedaPre = busquedaData(documentoOCRPre, nombre, apellido, numeroDocumento)
+
+
+    # print(busquedaSencillo, busquedaPre)
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
 
@@ -255,53 +234,57 @@ def verificarReverso():
       })
 
 
-@app.route('/validacion-vida', methods=['POST'])
-def validacionVida():
+@app.route('/prueba-vida', methods=['POST'])
+def pruebaVida():
 
-  data = request.get_json()
+  id = request.args.get("id")
 
-  imagenes = data['imagenes']
+  formato = "webm"
 
-  imagenBaseContador = 0
-  imagenComaparacionContador = 1
+  video = request.files.get("video")
 
-  porcentaje = 0
+  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
 
-  while imagenBaseContador <= 7 and imagenComaparacionContador <= 8:
+  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
 
-    print(f"vuelta: {imagenComaparacionContador}")
-    imagenBase = imagenes[imagenBaseContador]
-    imagenComparacion = imagenes[imagenComaparacionContador]
+  pathUsuario = f"{pathEntidad}/{usuarioId}"
 
-    imagenBaseData = leerDataUrl(imagenBase)
-    imagenComparacionData = leerDataUrl(imagenComparacion)
+  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
 
-    comparacion = pruebaVida(imagenBaseData, imagenComparacionData)
+  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
 
-    coincidencia = comparacion[0]
+  creadoEntidad = False
+  creadoUsuario = False
 
-    resultado = comparacion[1]
+  if(not existenciaCarpetaEntidad):
+    os.mkdir(pathEntidad)
+    creadoEntidad = True
 
-    porcentaje = porcentaje + resultado
+  if(not existenciaCarpetaUsuario):
+    os.mkdir(pathUsuario)
+    creadoUsuario = True
 
-    print(comparacion)
-    print(f'{porcentaje}%')
+  pathPrueba = ""
 
-    imagenBaseContador = imagenBaseContador + 1
-    imagenComaparacionContador = imagenComaparacionContador + 1
+  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
+    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}-prueba.{formato}"
+    
+    video.save(pathPrueba)
 
+  dataURL, frames = obtenerFrames(pathPrueba)
 
-  return jsonify({'porcentajePruebaVida':porcentaje})
+  rostroReferencia, rostrosComparacion = deteccionRostro(frames)
 
+  movimientoDetectado = determinarMovimiento(rostroReferencia, rostrosComparacion)
+
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":f"{movimientoDetectado}", "preview":dataURL})
 
 @app.route('/obtener-usuario', methods=['GET'])
 def obtenerUsuario():
+
   id = request.args.get('id')
 
-
   usuario = controlador_db.obtenerUsuario('documento_usuario',id)
-
-  print(usuario)
 
   return jsonify({'dato':usuario})
 
@@ -333,27 +316,19 @@ def comprobacionProceso():
         return jsonify({"validaciones": 0})
 
 
-# @app.route('/comprobacion-firma', methods=['GET'])
-# def comprobacionFirma():
-#   idUsuarioEFirma = request.args.get('idUsuarioEFirma')
-
-#   comprobacion = controlador_db.comprobarFirma(idUsuarioEFirma)
-
-#   if comprobacion:
-#     return jsonify({
-#       "estado":comprobacion[1],
-#       "idFirmaElectronica":comprobacion[0]
-#     })
-#   else:
-#     return jsonify({"firma":'no encontrada'})
 
 @app.route('/validacion-identidad-tipo-3', methods=['POST'])
 def validacionIdentidadTipo3():
+
 
   id = request.args.get('id')
   idUsuario = request.args.get('idUsuario')
   idUsuario = int(idUsuario)
   tipo = request.args.get('tipo')
+
+  idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
+  idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
+  movimiento = request.form.get('movimiento_prueba_vida')
 
   #documento usuario
   nombres = request.form.get('nombres')
@@ -466,9 +441,9 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
