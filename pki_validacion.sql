@@ -70,3 +70,55 @@ CREATE TABLE IF NOT EXISTS `evidencias_usuario` (
 /*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;
+
+CREATE TABLE IF NOT EXISTS `documento_usuario` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `nombres` varchar(50) NOT NULL,
+  `apellidos` varchar(50) NOT NULL,
+  `numero_documento` varchar(50) NOT NULL,
+  `tipo_documento` varchar(50) NOT NULL,
+  `email` varchar(50) NOT NULL,
+  `id_evidencias` int(11) NOT NULL,
+  `id_evidencias_adicionales` int(11) NOT NULL,
+  `id_usuario_efirma` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `evidencias_adicionales` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `estado_verificacion` VARCHAR(250) NOT NULL,
+  `dispositivo` VARCHAR(250) NOT NULL,
+  `navegador` VARCHAR(250) NOT NULL,
+  `ip_privada` varchar(25) NOT NULL,
+  `latitud` varchar(50) NOT NULL,
+  `longitud` varchar(50) NOT NULL,
+  `hora` varchar(50) NOT NULL,
+  `fecha` varchar(50) NOT NULL,
+  `ip_publica` varchar(25) NOT NULL,
+  `validacion_nombre_ocr` int NOT NULL,
+  `validacion_apellido_ocr` int NOT NULL,
+  `validacion_documento_ocr` int NOT NULL,
+  `nombre_ocr` VARCHAR(75) NOT NULL,
+  `apellido_ocr` VARCHAR(75) NOT NULL,
+  `documento_ocr` VARCHAR(75) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=92 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+CREATE TABLE IF NOT EXISTS `evidencias_usuario` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `anverso_documento` mediumblob NOT NULL,
+  `reverso_documento` mediumblob NOT NULL,
+  `foto_usuario` mediumblob NOT NULL,
+  `estado_verificacion` varchar(10) NOT NULL,
+  `tipo_documento` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=106 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `comprobacion_proceso` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `id_proceso` varchar(25),
+  `estado` varchar(25),
+  `id_validacion` varchar(50),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=106 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
