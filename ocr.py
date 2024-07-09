@@ -5,7 +5,7 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from utilidades import leerDataUrl, ordenamiento
+from utilidades import readDataURL, ordenamiento
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 

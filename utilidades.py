@@ -6,13 +6,17 @@ import numpy as np
 import base64
 import unicodedata
 
-def normalizarTexto(texto:str):
+def textNormalize(texto:str):
   texto = texto.strip()
   textoNormalizado = unicodedata.normalize('NFD', texto)
   sinAcentos  = ''.join(c for c in textoNormalizado if unicodedata.category(c) != 'Mn')
   return sinAcentos
 
-def leerDataUrl(imagen):
+def readDataURL(imagen):
+
+  if(len(imagen) <= 0):
+    return ''
+
   imagenURL = imagen
 
   imagenData = base64.b64decode(imagenURL.split(",")[1])

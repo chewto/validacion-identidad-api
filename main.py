@@ -1,15 +1,18 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin
-import mariadb
-from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento, obtenerFrames, deteccionRostro, determinarMovimiento
+from flask_cors import CORS
+from reconocimiento import extractFaces,obtencionEncodings, orientacionImagen, reconocimiento, getFrames, faceDetection, movementDetection
 import controlador_db
-from utilidades import leerFileStorage, leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
+from utilidades import leerFileStorage, readDataURL, cv2Blob, recorteData, textNormalize, stringBool
 import lector_codigo
 from ocr import busquedaData,validarLadoDocumento, ocr, validacionOCR, comparacionOCR
 import os
-
+import base64
+import numpy as np
+from routes.ocr_bp import ocrBp
 
 app = Flask(__name__)
+
+app.register_blueprint(ocrBp)
 
 carpetaPruebaVida = "./evidencias-vida"
 
@@ -19,6 +22,10 @@ cors = CORS(app, resources={
   }
 })
 app.config['CORS_HEADER'] = 'Content-type'
+
+
+
+
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -41,22 +48,19 @@ def obtenerFirmador(id):
 @app.route('/prueba', methods=['POST'])
 def frame():
 
-  video = request.files.get("video")
+  res = request.get_json()
 
-  video.save(f"{carpetaPruebaVida}/a")
+  selfie = res['selfie']
 
-  return 'a'
+  ndArray = readDataURL(selfie)
+  antiSpoofingtest = extractFaces(ndArray=ndArray, anti_spoofing=True)
+
+  return jsonify({"result": antiSpoofingtest})
 
 #rutas para el front
 @app.route('/ocr-anverso', methods=['POST'])
 def verificarAnverso():
 
-    dataOCR = {
-      'numeroDocumentoOCR': 'no encontrado',
-      'nombreOCR': 'no encontrado',
-      'apellidoOCR': 'no encontrado'
-    }
-    
     documento = request.get_json()
 
     imagenPersona = documento['imagenPersona']
@@ -67,22 +71,29 @@ def verificarAnverso():
 
     tipoDocumento = documento['tipoDocumento']
 
-    documentoData = leerDataUrl(imagenDocumento)
+    documentoData = readDataURL(imagenDocumento)
 
-    personaData = leerDataUrl(imagenPersona)
-    
+    personaData = readDataURL(imagenPersona)
+
     nombre = documento['nombre']
 
-    nombre = normalizarTexto(nombre)
+    nombre = textNormalize(nombre)
 
     apellido = documento['apellido']
 
-    apellido = normalizarTexto(apellido)
+    apellido = textNormalize(apellido)
 
     numeroDocumento = documento['documento']
 
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
+
+
+    selfieResult = extractFaces(selfieOrientada)
+
+    print(selfieResult)
+
+    #ocr
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
@@ -98,7 +109,6 @@ def verificarAnverso():
 
     documentoOCRPre = ocr(documentoOrientado, 'preprocesado')
 
-    #ocr sencillo
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
     numeroDocumentoOCR, porcentajeDocumento = validacionOCR(documentoOCRSencillo, numeroDocumento)
@@ -153,15 +163,15 @@ def verificarReverso():
 
     tipoDocumento = documento['tipoDocumento']
 
-    documentoData = leerDataUrl(imagenDocumento)
+    documentoData = readDataURL(imagenDocumento)
     
     nombre = documento['nombre']
 
-    nombre = normalizarTexto(nombre)
+    nombre = textNormalize(nombre)
 
     apellido = documento['apellido']
 
-    apellido = normalizarTexto(apellido)
+    apellido = textNormalize(apellido)
 
     numeroDocumento = documento['documento']
 
@@ -271,13 +281,16 @@ def pruebaVida():
     
     video.save(pathPrueba)
 
-  dataURL, frames = obtenerFrames(pathPrueba)
+  frames = getFrames(pathPrueba)
 
-  rostroReferencia, rostrosComparacion = deteccionRostro(frames)
+  photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
-  movimientoDetectado = determinarMovimiento(rostroReferencia, rostrosComparacion)
+  photoAccess = readDataURL(photoDataURL)
+  result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":f"{movimientoDetectado}", "preview":dataURL})
+  movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
+
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result})
 
 @app.route('/obtener-usuario', methods=['GET'])
 def obtenerUsuario():
@@ -371,9 +384,9 @@ def validacionIdentidadTipo3():
   documentoCodigoBarras =stringBool(documentoCodigoBarras)
 
   #leer data url
-  fotoPersonaData = leerDataUrl(fotoPersona)
-  anversoData = leerDataUrl(anverso)
-  reversoData = leerDataUrl(reverso)
+  fotoPersonaData = readDataURL(fotoPersona)
+  anversoData = readDataURL(anverso)
+  reversoData = readDataURL(reverso)
 
   anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
@@ -496,9 +509,9 @@ def validacionIdentidadTipo3():
 #   dataOCRDocumento = request.form.get('documento_ocr')
 
 #   #leer data url
-#   fotoPersonaData = leerDataUrl(fotoPersona)
-#   anversoData = leerDataUrl(anverso)
-#   reversoData = leerDataUrl(reverso)
+#   fotoPersonaData = readDataURL(fotoPersona)
+#   anversoData = readDataURL(anverso)
+#   reversoData = readDataURL(reverso)
 
 #   reconocer = reconocerRostro(fotoPersonaData, anversoData)
 #   coincidencia = reconocer[0]

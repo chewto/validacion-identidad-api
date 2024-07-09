@@ -5,9 +5,53 @@ from utilidades import cv2Blob
 from PIL import Image
 import base64
 import io
+from deepface import DeepFace
 
 
-def obtenerFrames(video_path):
+def extractFaces(imageArray, anti_spoofing:bool):
+
+    faces = []
+
+    try:
+
+        antiSpoofing = DeepFace.extract_faces(
+            img_path=imageArray,
+            detector_backend='opencv',
+            anti_spoofing=anti_spoofing
+        )
+
+        for detectedFaces in antiSpoofing:
+            data = {
+                "x": detectedFaces['facial_area']['x'],
+                "y": detectedFaces['facial_area']['y'],
+                "w": detectedFaces['facial_area']['w'],
+                "h": detectedFaces['facial_area']['h']
+            }
+            if(anti_spoofing== True):
+                data["isReal"] = detectedFaces['is_real']
+        
+            faces.append(data)
+
+    except Exception as error:
+        
+        data = {
+            "x":0,
+            "y":0,
+            "w":0,
+            "h":0
+        }
+        if(anti_spoofing):
+            data["isReal"] = False
+
+        faces.append(data)
+
+    finally:
+        return faces
+
+#viejos reconocimientos
+
+
+def getFrames(video_path):
     dataURL = ""
     framesCapturados = []
     cap = cv2.VideoCapture(video_path)
@@ -19,26 +63,28 @@ def obtenerFrames(video_path):
         if contadorFrames % 10 == 0:
             frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             framesCapturados.append(frameGris)
-        if(contadorFrames == 1):
-            frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pilIMG = Image.fromarray(frameRGB)
-            buff = io.BytesIO()
-            pilIMG.save(buff, format="JPEG")
-            imgStr = base64.b64encode(buff.getvalue())
-            dataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
+        # if(contadorFrames == 1):
+        #     frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        #     pilIMG = Image.fromarray(frameRGB)
+        #     buff = io.BytesIO()
+        #     pilIMG.save(buff, format="JPEG")
+        #     imgStr = base64.b64encode(buff.getvalue())
+        #     dataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
 
         contadorFrames += 1
 
     cap.release()
-    return dataURL,framesCapturados
+    return framesCapturados
 
-def deteccionRostro(frames):
+def faceDetection(frames):
 
     rostrosComparacion = []
 
     rostroReferencia = {
 
     }
+
+    imageDataURL = ''
 
     contador = 1
 
@@ -57,6 +103,13 @@ def deteccionRostro(frames):
                 if(contador == 1):
                     rostroReferencia['X'] = x
                     rostroReferencia['Y'] = y
+
+                    frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pilIMG = Image.fromarray(frameRGB)
+                    buff = io.BytesIO()
+                    pilIMG.save(buff, format="JPEG")
+                    imgStr = base64.b64encode(buff.getvalue())
+                    imageDataURL += "data:image/jpeg;base64," + imgStr.decode("utf-8")
                 
                 if(contador >= 2):
                     rostro = {
@@ -67,11 +120,13 @@ def deteccionRostro(frames):
 
         contador+= 1
 
-    return rostroReferencia, rostrosComparacion
+    return imageDataURL, rostroReferencia, rostrosComparacion
 
-def determinarMovimiento(rostroReferencia, rostros):
+def movementDetection(rostroReferencia, rostros):
 
-    if(len(rostroReferencia) <= 0  and len(rostros) <= 0):
+    print(rostros, rostroReferencia)
+
+    if(len(rostroReferencia) <= 0  or len(rostros) <= 0):
         return False
 
     resultados = []
@@ -89,69 +144,6 @@ def determinarMovimiento(rostroReferencia, rostros):
     pruebaMovimiento = any(resultados)
 
     return pruebaMovimiento
-
-# def reconocerRostro(imgPersona, imgDocumento):
-
-#     blobdocumento = cv2Blob(imgDocumento)
-
-#     reconocido = False
-
-#     orientado = False
-
-#     intentosOrientacion = 0
-
-#     while orientado == False and intentosOrientacion <= 4:
-#       reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
-
-#       if len(reconocerImagenComparar) <= 0:
-#         print(False, 'girando imagen')
-#         imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_90_CLOCKWISE)
-#         intentosOrientacion = intentosOrientacion + 1
-
-        
-#         if (intentosOrientacion == 4 and orientado == False):
-#           return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
-#       else:
-#         orientado = True
-#         reconocerImagenComparar = reconocerImagenComparar[0]
-
-#     _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
-#     imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
-
-#     reconocerImagen = face_recognition.face_encodings(imgPersona)
-#     if len(reconocerImagen) == 0:
-#         return False,'pendiente revision, ningun rostro reconocido', imagenOrientadaBlob
-#     else:
-#         reconocerImagen = reconocerImagen[0]
-
-#     reconociendo = False
-
-#     intentos = 0
-
-#     resultados = []
-
-#     while intentos <= 1 and reconociendo is False:
-#         reconocido = face_recognition.compare_faces([reconocerImagenComparar], reconocerImagen, 0.8)
-
-#         reconocido = reconocido[0]
-
-#         intentos = intentos + 1
-
-#         if reconocido == True:
-#             reconociendo = True
-#             return True, 'verificado', imagenOrientadaBlob
-
-#         if reconocido == False:
-#             imgDocumento = cv2.rotate(imgDocumento, cv2.ROTATE_180)
-#             _, imagenOrientadaBlob = cv2.imencode('.jpg',imgDocumento)
-#             imagenOrientadaBlob = imagenOrientadaBlob.tobytes()
-#             reconocerImagenComparar = face_recognition.face_encodings(imgDocumento)
-#             if(len(reconocerImagenComparar) == 0):
-#                 return False, 'pendiente revision, no hay un rostro en el documento', blobdocumento
-#             else:
-#                 reconocerImagenComparar = reconocerImagenComparar[0]
-
-
 
 
 def pruebaVida(imagenBase, imagenComparacion):
