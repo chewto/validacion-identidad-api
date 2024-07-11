@@ -6,6 +6,8 @@ import base64
 import io
 from deepface import DeepFace
 
+haarscascade_frontal_face = './haarscascades/haarcascade_frontalface_alt.xml'
+haarscascade_eye = './haarscascades/haarcascade_eye.xml'
 
 def extractFaces(imageArray, anti_spoofing:bool):
 
@@ -90,7 +92,7 @@ def faceDetection(frames):
     for frame in frames:
 
         clasificadorCaras = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
+            cv2.data.haarcascades + haarscascade_frontal_face
         )
 
         carasDetectadas = clasificadorCaras.detectMultiScale(
@@ -212,11 +214,11 @@ def orientacionImagen(imagen):
     while intentos <= 4 and encontrado == False:
 
         clasificadorOjos = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_eye.xml"
+            cv2.data.haarcascades + haarscascade_eye
         )
 
         face_classifier = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
+            cv2.data.haarcascades + haarscascade_frontal_face
         )
 
         carasDetectadas = face_classifier.detectMultiScale(
