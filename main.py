@@ -20,43 +20,9 @@ cors = CORS(app, resources={
 })
 app.config['CORS_HEADER'] = 'Content-type'
 
-@app.route('/obtener-firmador/<id>', methods=['GET'])
-def obtenerFirmador(id):
-  return jsonify({
-    "dato": {
-        "id": 11,
-        "firmaElectronicaId": 11,
-        "nombre": "Benito",
-        "apellido": "Otero Carreira",
-        "correo": "jesuselozada@gmail.com",
-        "tipoDocumento": "CEDULA",
-        "documento": "423105",
-        "evidenciasCargadas": False,
-        "enlaceTemporal": "nhxNYeTyF8",
-        "ordenFirma": 1,
-        "fechaCreacion": "2023-10-07T11:13:52-05:00"
-    }
-})
-
-@app.route('/prueba', methods=['POST'])
-def frame():
-
-  video = request.files.get("video")
-
-  video.save(f"{carpetaPruebaVida}/a")
-
-  return 'a'
-
-#rutas para el front
 @app.route('/ocr-anverso', methods=['POST'])
 def verificarAnverso():
 
-    dataOCR = {
-      'numeroDocumentoOCR': 'no encontrado',
-      'nombreOCR': 'no encontrado',
-      'apellidoOCR': 'no encontrado'
-    }
-    
     documento = request.get_json()
 
     imagenPersona = documento['imagenPersona']
@@ -137,14 +103,6 @@ def verificarAnverso():
 @app.route('/ocr-reverso', methods=['POST'])
 def verificarReverso():
 
-  
-
-    dataOCR = {
-      'numeroDocumentoOCR': 'no encontrado',
-      'nombreOCR': 'no encontrado',
-      'apellidoOCR': 'no encontrado'
-    }
-    
     documento = request.get_json()
 
     imagenDocumento = documento['imagen']
