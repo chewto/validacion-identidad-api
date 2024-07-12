@@ -22,6 +22,15 @@ cors = CORS(app, resources={
 })
 app.config['CORS_HEADER'] = 'Content-type'
 
+@app.route('/cbs/get-session', methods=['POST'])
+def test():
+
+  data = request.get_json()
+
+  print(data)
+
+  return 'test'
+
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
   return jsonify({
