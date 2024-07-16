@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
+from eKYC_request import postRequest
 from utilidades import readDataURL
 import os
 from blueprints.ocr_bp import ocr_bp
@@ -22,14 +23,55 @@ cors = CORS(app, resources={
 })
 app.config['CORS_HEADER'] = 'Content-type'
 
+
 @app.route('/cbs/get-session', methods=['POST'])
 def test():
 
   data = request.get_json()
 
-  print(data)
+  dataVideoReq = {
+    "login": "honducert_ekyctest",
+    "password":"CW9R)(!L-7q8jYBp"
+  }
 
-  return 'test'
+  urlVideoToken = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
+
+  videoRes = postRequest(url=urlVideoToken,data=dataVideoReq, headers={})
+
+  token = videoRes['adminToken']
+
+  sessionHeader = {
+    'Authorization': f"Bearer {token}"
+  }
+
+  dataSession = {
+    "externalId": "0132456",
+    "userClientIP": "8.8.8.8",
+    "latitude": "22.1462027",
+    "longitude": "113.56829379999999",
+    "userAgentHeader": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+  }
+
+  sessionURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/standalone/create_session'
+
+  print(sessionHeader)
+
+  sessionRes = postRequest(url=sessionURL , data=dataSession,headers=sessionHeader)
+
+  print(videoRes,sessionRes)
+
+  return jsonify({
+    "status": "200", 
+    "message": "Session created", 
+    "action": "create_session_response", 
+    "riuSessionId": sessionRes['riuSessionId'], 
+    "callToken": sessionRes['callToken'], 
+    "adminToken": videoRes['adminToken'], 
+    "mediaServerUrl": sessionRes['mediaServerUrl'], 
+    "riuCoreUrl": sessionRes['riuCoreUrl']  
+  })
+
+
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
