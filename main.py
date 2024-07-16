@@ -1,3 +1,5 @@
+import subprocess
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 import mariadb
@@ -24,7 +26,6 @@ def health():
 
   if(request.method == 'GET'):
     return jsonify({'activo': True})
-
 
 @app.route('/ocr-anverso', methods=['POST'])
 def verificarAnverso():
@@ -235,13 +236,13 @@ def pruebaVida():
     
     video.save(pathPrueba)
 
-  dataURL, frames = obtenerFrames(pathPrueba)
+  frames = obtenerFrames(pathPrueba)
 
-  rostroReferencia, rostrosComparacion = deteccionRostro(frames)
+  dataURL, rostroReferencia, rostrosComparacion = deteccionRostro(frames)
 
   movimientoDetectado = determinarMovimiento(rostroReferencia, rostrosComparacion)
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":f"{movimientoDetectado}", "preview":dataURL})
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "preview":dataURL})
 
 @app.route('/obtener-usuario', methods=['GET'])
 def obtenerUsuario():
@@ -501,4 +502,10 @@ def metodoNoPermitido(e):
   return jsonify({"mensaje": "metodo no permitido", "metodoUsado": request.method}), 405
 
 if __name__ == "__main__":
-  app.run(debug=True,host="0.0.0.0", port=4000)
+  try:
+    app.run(debug=True,host="0.0.0.0", port=4000)
+  finally:
+    print('reactivando')
+    time.sleep(2)
+    comando = 'python main.py'
+    resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)

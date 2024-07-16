@@ -8,7 +8,6 @@ import io
 
 
 def obtenerFrames(video_path):
-    dataURL = ""
     framesCapturados = []
     cap = cv2.VideoCapture(video_path)
     contadorFrames = 0
@@ -17,13 +16,12 @@ def obtenerFrames(video_path):
         if not ret:
             break
         if contadorFrames % 10 == 0:
-            frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            framesCapturados.append(frameGris)
+            framesCapturados.append(frame)
 
         contadorFrames += 1
 
     cap.release()
-    return dataURL,framesCapturados
+    return framesCapturados
 
 def deteccionRostro(frames):
 
@@ -33,16 +31,20 @@ def deteccionRostro(frames):
 
     }
 
+    imageDataURL = ''
+
     contador = 1
 
     for frame in frames:
+
+        frameGray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         clasificadorCaras = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
         )
 
         carasDetectadas = clasificadorCaras.detectMultiScale(
-            frame, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
+            frameGray, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
         )
 
         if(len(carasDetectadas) >= 1):
@@ -67,7 +69,7 @@ def deteccionRostro(frames):
 
         contador+= 1
 
-    return rostroReferencia, rostrosComparacion
+    return imageDataURL, rostroReferencia, rostrosComparacion
 
 def determinarMovimiento(rostroReferencia, rostros):
 

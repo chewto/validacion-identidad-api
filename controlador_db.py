@@ -65,18 +65,20 @@ credencialesDBEntidad = {
   }
 }
 
+pais = 'desarrollo'
+paisEntidad = 'eFirmaPanama'
 
-passwordDB = credencialesDB["eFirmaPanama"]["password"]
-nombreDB = credencialesDB["eFirmaPanama"]["nombre"]
-hostDB = credencialesDB["eFirmaPanama"]["host"]
-portDB = credencialesDB["eFirmaPanama"]["port"]
-userDB = credencialesDB["eFirmaPanama"]["user"]
+passwordDB = credencialesDB[pais]["password"]
+nombreDB = credencialesDB[pais]["nombre"]
+hostDB = credencialesDB[pais]["host"]
+portDB = credencialesDB[pais]["port"]
+userDB = credencialesDB[pais]["user"]
 
-passwordDBEntidad = credencialesDBEntidad["eFirmaPanama"]["password"]
-nombreDBEntidad = credencialesDBEntidad["eFirmaPanama"]["nombre"]
-hostDBEntidad = credencialesDBEntidad["eFirmaPanama"]["host"]
-portDBEntidad = credencialesDBEntidad["eFirmaPanama"]["port"]
-userDBEntidad = credencialesDBEntidad["eFirmaPanama"]["user"]
+passwordDBEntidad = credencialesDBEntidad[paisEntidad]["password"]
+nombreDBEntidad = credencialesDBEntidad[paisEntidad]["nombre"]
+hostDBEntidad = credencialesDBEntidad[paisEntidad]["host"]
+portDBEntidad = credencialesDBEntidad[paisEntidad]["port"]
+userDBEntidad = credencialesDBEntidad[paisEntidad]["user"]
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
