@@ -19,13 +19,6 @@ def obtenerFrames(video_path):
         if contadorFrames % 10 == 0:
             frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             framesCapturados.append(frameGris)
-        if(contadorFrames == 1):
-            frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pilIMG = Image.fromarray(frameRGB)
-            buff = io.BytesIO()
-            pilIMG.save(buff, format="JPEG")
-            imgStr = base64.b64encode(buff.getvalue())
-            dataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
 
         contadorFrames += 1
 
