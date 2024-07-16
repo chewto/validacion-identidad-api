@@ -8,7 +8,6 @@ import lector_codigo
 from ocr import busquedaData,validarLadoDocumento, ocr, validacionOCR, comparacionOCR
 import os
 
-
 app = Flask(__name__)
 
 carpetaPruebaVida = "./evidencias-vida"
@@ -19,6 +18,13 @@ cors = CORS(app, resources={
   }
 })
 app.config['CORS_HEADER'] = 'Content-type'
+
+@app.route('/health', methods=['GET'])
+def health():
+
+  if(request.method == 'GET'):
+    return jsonify({'activo': True})
+
 
 @app.route('/ocr-anverso', methods=['POST'])
 def verificarAnverso():
@@ -490,5 +496,9 @@ def validacionIdentidadTipo3():
 
 #   return jsonify({"coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
   
+@app.errorhandler(405)
+def metodoNoPermitido(e):
+  return jsonify({"mensaje": "metodo no permitido", "metodoUsado": request.method}), 405
+
 if __name__ == "__main__":
   app.run(debug=True,host="0.0.0.0", port=4000)
