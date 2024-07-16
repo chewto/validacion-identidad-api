@@ -57,6 +57,13 @@ def deteccionRostro(frames):
                 if(contador == 1):
                     rostroReferencia['X'] = x
                     rostroReferencia['Y'] = y
+
+                    frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pilIMG = Image.fromarray(frameRGB)
+                    buff = io.BytesIO()
+                    pilIMG.save(buff, format="JPEG")
+                    imgStr = base64.b64encode(buff.getvalue())
+                    imageDataURL += "data:image/jpeg;base64," + imgStr.decode("utf-8")
                 
                 if(contador >= 2):
                     rostro = {
