@@ -1,3 +1,4 @@
+import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
@@ -8,6 +9,7 @@ import os
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
 import subprocess
+import json
 
 app = Flask(__name__)
 
@@ -24,14 +26,45 @@ cors = CORS(app, resources={
 app.config['CORS_HEADER'] = 'Content-type'
 
 
+@app.route('/data', methods=['POST'])
+def receptorData():
+
+  data = request.get_json()
+
+  print(data)
+
+  return 'test'
+
+@app.route('/test', methods=['POST'])
+def testaa():
+
+  data = request.get_json()
+
+  print(data)
+
+  return 'test'
+
+@app.route('/decode', methods=['POST'])
+def decoder():
+
+  data = request.get_json()
+  
+  b64 = data['data']
+
+  decodedData = base64.b64decode(b64)
+  decodedStringData = decodedData.decode("utf-8")
+  dataDict = json.loads(decodedStringData)
+
+  return jsonify(dataDict)
+
 @app.route('/cbs/get-session', methods=['POST'])
 def test():
 
   data = request.get_json()
 
   dataVideoReq = {
-    "login": "honducert_ekyctest",
-    "password":"CW9R)(!L-7q8jYBp"
+    "login": "clinpays_ekyctest",
+    "password":"zdU62r{Z._9jYQNa"
   }
 
   urlVideoToken = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
@@ -70,7 +103,6 @@ def test():
     "mediaServerUrl": sessionRes['mediaServerUrl'], 
     "riuCoreUrl": sessionRes['riuCoreUrl']  
   })
-
 
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
