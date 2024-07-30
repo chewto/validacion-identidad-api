@@ -5,6 +5,23 @@ import cv2
 import numpy as np
 import base64
 import unicodedata
+import re
+
+browserPatterns = {
+    "Chrome": r"Chrome\/([\d\.]+)",
+    "Firefox": r"Firefox\/([\d\.]+)",
+    "Safari": r"Version\/([\d\.]+).*Safari",
+    "Edge": r"Edg\/([\d\.]+)",
+    "Opera": r"OPR\/([\d\.]+)"
+}
+
+def getBrowser(userAgent):
+    for browser, pattern in browserPatterns.items():
+        match = re.search(pattern, userAgent)
+        if match:
+            return f"{browser} {match.group(1)}"
+    return "navegador desconocido"
+
 
 def textNormalize(texto:str):
   texto = texto.strip()

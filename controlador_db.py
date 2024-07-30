@@ -66,17 +66,17 @@ credencialesDBEntidad = {
 }
 
 
-passwordDB = credencialesDB["eFirmaPanama"]["password"]
-nombreDB = credencialesDB["eFirmaPanama"]["nombre"]
-hostDB = credencialesDB["eFirmaPanama"]["host"]
-portDB = credencialesDB["eFirmaPanama"]["port"]
-userDB = credencialesDB["eFirmaPanama"]["user"]
+passwordDB = credencialesDB["desarrollo"]["password"]
+nombreDB = credencialesDB["desarrollo"]["nombre"]
+hostDB = credencialesDB["desarrollo"]["host"]
+portDB = credencialesDB["desarrollo"]["port"]
+userDB = credencialesDB["desarrollo"]["user"]
 
-passwordDBEntidad = credencialesDBEntidad["eFirmaPanama"]["password"]
-nombreDBEntidad = credencialesDBEntidad["eFirmaPanama"]["nombre"]
-hostDBEntidad = credencialesDBEntidad["eFirmaPanama"]["host"]
-portDBEntidad = credencialesDBEntidad["eFirmaPanama"]["port"]
-userDBEntidad = credencialesDBEntidad["eFirmaPanama"]["user"]
+passwordDBEntidad = credencialesDBEntidad["desarrollo"]["password"]
+nombreDBEntidad = credencialesDBEntidad["desarrollo"]["nombre"]
+hostDBEntidad = credencialesDBEntidad["desarrollo"]["host"]
+portDBEntidad = credencialesDBEntidad["desarrollo"]["port"]
+userDBEntidad = credencialesDBEntidad["desarrollo"]["user"]
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -88,7 +88,40 @@ def obtenerIpPublica():
 
   return ip
 
-def obtenerUsuario(tabla,id):
+
+def selectData(query, *values):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return ()
+  
+  try:
+    cursor = conn.cursor()
+
+    cursor.execute(query, (values))
+
+    data = cursor.fetchone()
+
+    return data
+
+  except mariadb.Error as e:
+    print(e)
+    return ()
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def getUser(tabla,id):
   
   conn = mariadb.connect(
     user=userDB,
@@ -116,8 +149,7 @@ def obtenerUsuario(tabla,id):
 
   return usuarioDiccionario
 
-
-def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
+def insertTabla(columns: tuple, table:str, values: tuple):
 
   try:
     conn = mariadb.connect(
@@ -128,137 +160,23 @@ def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:s
       database=nombreDB
     )
   except mariadb.Error as e:
-    return f"error en la query, error = {e}"
+    print(f"error en la query, error = {e}")
+    return 0
 
   try:
     cursor = conn.cursor()
 
-    columnasStr:str = ','.join(columnas)
+    columnasStr:str = ','.join(columns)
     placeHolder:list = []
 
-    for columna in columnas:
-      placeHolder.append('?')
-
-    placeHolderStr:str = ','.join(placeHolder)
-
-    queryEvidencias = f"INSERT INTO {tabla}({columnasStr}) VALUES ({placeHolderStr})"
-    cursor.execute(queryEvidencias, valores)
-
-    evidenciasID = cursor.lastrowid
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {evidenciasID} WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return evidenciasID
-
-
-  except mariadb.Error as e:
-    print("error = ", e)
-
-    with open('log.txt', "a") as file:
-        file.write(f"error = {e}")
-
-    return f"error = {e}"
-
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = '{valorNuevo}' WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return 'actualizada data'
-
-  except mariadb.Error as e:
-    print("error = ", e)
-
-    with open('log.txt') as f:
-      f.write(f"error = {e}\n")
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {valorNuevo} WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return 'actualizada data'
-
-  except mariadb.Error as e:
-    print("error = ", e)
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-def insertTabla(columnas: tuple, tabla:str, valores: tuple):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-    columnasStr:str = ','.join(columnas)
-    placeHolder:list = []
-
-    for columna in columnas:
+    for columna in columns:
       placeHolder.append('?')
 
     placeHolderStr:str = ','.join(placeHolder)
 
 
-    queryInfo = f"INSERT INTO {tabla} ({columnasStr}) VALUES ({placeHolderStr})"
-    cursor.execute(queryInfo,valores)
+    query = f"INSERT INTO {table} ({columnasStr}) VALUES ({placeHolderStr})"
+    cursor.execute(query,values)
 
     documentoUsuarioID = cursor.lastrowid
 
@@ -267,13 +185,12 @@ def insertTabla(columnas: tuple, tabla:str, valores: tuple):
   except mariadb.Error as e:
 
     print("error =", e)
-    return f"error = {e}"
+    return 0
 
   finally:
     conn.commit()
     cursor.close()
     conn.close()
-
 
 def comprobarProceso(id):
 
@@ -286,7 +203,8 @@ def comprobarProceso(id):
       database=nombreDB
     )
   except mariadb.Error as e:
-    return f"error en la query, error = {e}"
+    print(f"error en la query, error = {e}")
+    return None
 
   try:
     cursor = conn.cursor()
@@ -302,8 +220,8 @@ def comprobarProceso(id):
       return None
 
   except mariadb.Error as e:
-
     print("error =", e)
+    return None
 
   finally:
     conn.commit()

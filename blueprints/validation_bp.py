@@ -1,18 +1,141 @@
-from flask import Blueprint, request, jsonify
+import base64
+from flask import Blueprint, json, request, jsonify
 
 import controlador_db
 from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento
-from utilidades import cv2Blob, readDataURL, recorteData, stringBool
+from utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
+from eKYC import ekycData, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
-@validation_bp.route('/type-3', methods=['POST'])
-def validacionIdentidadTipo3():
+@validation_bp.route('/data-validation', methods=['POST'])
+def validationData():
 
-  id = request.args.get('id')
+  userSignId = request.args.get('id')
+
+  externalId = "0132456"
+
+  reqJson = request.get_json()
+
+  userCoords = reqJson['coords'].split(',')
+
+  userLatitude = userCoords[0]
+  
+  userLongitude = userCoords[1]
+
+  userIp = reqJson['ip']
+
+  userDevice = reqJson['userDevice']
+
+  userBrowser = getBrowser(userDevice)
+
+  callDate = reqJson['date']
+
+  callHour = reqJson['hour']
+
+  callId = reqJson['callId']
+
+  privateIp = controlador_db.obtenerIpPrivada()
+
+  validationRawData = controlador_db.selectData('SELECT id, callId FROM validacion_raw WHERE callId = ?', callId)
+
+  signData = getRequest(url=f"https://libertador.pkiservices.co/fe-back/api/Firmador/{userSignId}")
+
+  extractData = signData['dato']
+
+  userSignData = {
+    "nombre": extractData['nombre'],
+    "apellido": extractData['apellido'],
+    "correo": extractData['correo'],
+    "tipoDocumento": extractData['tipoDocumento'],
+    "documento": extractData['documento']
+  }
+
+  if(validationRawData):
+
+    validationRawId = validationRawData[0]
+    validationRawCallId = validationRawData[1]
+
+    return jsonify({
+      "callId": validationRawCallId,
+      "id":validationRawId
+    }), 200
+
+  adminToken = getAdminToken()
+
+  selfie = getValidationMedia(callId=callId, externalId=externalId, mediaType='FACE', auth=adminToken)
+
+  front_ID = getValidationMedia(callId=callId, externalId=externalId, mediaType='ID_FRONT', auth=adminToken)
+
+  back_ID = getValidationMedia(callId=callId, externalId=externalId, mediaType='ID_BACK', auth=adminToken)
+
+  validationInfo = getValidationMedia(callId=callId, externalId=externalId, mediaType='VALIDATION_INFO', auth=adminToken)
+
+  validationCheck = getValidationMedia(callId=callId, externalId=externalId, mediaType='VALIDATION_CHECK', auth=adminToken)
+
+  eKYCValidation = ekycData(validationInfo, userSignData)
+
+  tableColumns = ('selfie','anverso_documento','reverso_documento','info_validacion','check_validacion','callId')
+  insertValues = (selfie, front_ID, back_ID, validationInfo, validationCheck, callId)
+
+  insertDataId = controlador_db.insertTabla(columns=tableColumns, table='validacion_raw', values=insertValues)
+
+  userEvidenceColumns = ('anverso_documento', 'reverso_documento', 'foto_usuario','estado_verificacion', 'tipo_documento')
+  userEvidenceValues = (front_ID, back_ID, selfie, '', '')
+
+  insertUserEvidenceId = controlador_db.insertTabla(columns=userEvidenceColumns, table='evidencias_usuario', values=userEvidenceValues)
+
+  userAditionalsColumns = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_privada','latitud','longitud','hora','fecha','ip_publica','validacion_nombre_ocr','validacion_apellido_ocr','validacion_documento_ocr', 'nombre_ocr','apellido_ocr','documento_ocr', 'id_carpeta_entidad','id_carpeta_usuario','validacion_vida','proveedor_validacion')
+  userAditionalsValues = (eKYCValidation['faceResult'], userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, eKYCValidation['name']['ocrPercent'], eKYCValidation['surname']['ocrPercent'],eKYCValidation['document']['ocrPercent'], eKYCValidation['name']['ocrData'],eKYCValidation['surname']['ocrData'],eKYCValidation['document']['ocrData'], 0, 0, '', f'lleida {callId}')
+  
+  insertUserAditionalsId = controlador_db.insertTabla(columns=userAditionalsColumns, table='evidencias_adicionales', values=userAditionalsValues)
+  
+  userValidationColumns = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
+  userValidationValues = (userSignData['nombre'], userSignData['apellido'], userSignData['documento'], userSignData['tipoDocumento'], userSignData['correo'], insertUserEvidenceId, insertUserAditionalsId, int(userSignId))
+
+  insertUserValidationId = controlador_db.insertTabla(columns=userValidationColumns, table='documento_usuario', values=userValidationValues)
+
+  return jsonify({
+    "validationRawDataId": insertDataId,
+    "userValidationId": insertUserValidationId
+  }), 200
+
+@validation_bp.route('/cbs/get-session', methods=['POST'])
+def createSession():
+
+  data = request.get_json()
+
+  token = getVideoToken()
+
+  sessionHeader = {
+    'Authorization': f"Bearer {token}"
+  }
+
+  data = {
+    "externalId": "0132456",
+    "userClientIP": "8.8.8.8",
+    "latitude": "22.1462027",
+    "longitude": "113.56829379999999",
+    "userAgentHeader": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+  }
+
+  sessionRes = getSession(sessionData=data, sessionHeaders=sessionHeader)
+
+  return jsonify({
+    "status": "200",
+    "message": "Session created",
+    "action": "create_session_response",
+    "riuSessionId": sessionRes['riuSessionId'],
+    "callToken": sessionRes['callToken'],
+    "adminToken": token,
+    "mediaServerUrl": sessionRes['mediaServerUrl'],
+    "riuCoreUrl": sessionRes['riuCoreUrl']
+  })
+
+@validation_bp.route('/type-3', methods=['POST'])
+def validationType3():
   idUsuario = request.args.get('idUsuario')
   idUsuario = int(idUsuario)
-  tipo = request.args.get('tipo')
 
   idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
   idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
@@ -123,9 +246,9 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario, 'validacion propietaria')
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')

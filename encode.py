@@ -1,8 +1,92 @@
-import base64
+import json
 
-data = "eyJmYWNlX200Ijp7ImltYWdlMl9kYXRhIjp7ImZhY2VfbGFuZG1hcmtzIjp7ImV5ZV9yaWdodF9pbm5lciI6eyJ4IjozNDMuMSwieSI6MjM3LjN9LCJ1bmRlcl9saXBfYm90dG9tIjp7IngiOjMwNy40LCJ5IjozNzJ9LCJleWVfbGVmdF9ib3R0b20iOnsieCI6MjY0LjMsInkiOjIzNy44fSwicHVwaWxfcmlnaHQiOnsieCI6MzU4LjIsInkiOjIzNC45fSwiZXllX2xlZnRfaW5uZXIiOnsieCI6MjgwLjYsInkiOjIzMy42fSwiZXllX3JpZ2h0X3RvcCI6eyJ4IjozNTgsInkiOjIyOS4zfSwidW5kZXJfbGlwX3RvcCI6eyJ4IjozMDcuNSwieSI6MzU0Ljd9LCJleWVicm93X3JpZ2h0X2lubmVyIjp7IngiOjMzMC40LCJ5IjoyMDUuOX0sImV5ZWJyb3dfbGVmdF9pbm5lciI6eyJ4IjoyOTguNywieSI6MjA0LjZ9LCJub3NlX3JpZ2h0X2FsYXJfdG9wIjp7IngiOjMzMi43LCJ5IjoyNzguOX0sIm5vc2VfcmlnaHRfYWxhcl9vdXRfdGlwIjp7IngiOjM0MSwieSI6MzAzLjF9LCJleWVicm93X3JpZ2h0X291dGVyIjp7IngiOjM4OC45LCJ5IjoyMTMuNn0sIm5vc2VfdGlwIjp7IngiOjMxMS43LCJ5IjoyOTV9LCJub3NlX3Jvb3RfcmlnaHQiOnsieCI6MzI0LjYsInkiOjIzOS4yfSwibm9zZV9yb290X2xlZnQiOnsieCI6Mjk3LjMsInkiOjIzOH0sImV5ZV9sZWZ0X3RvcCI6eyJ4IjoyNjUuOSwieSI6MjIzLjV9LCJleWVfcmlnaHRfb3V0ZXIiOnsieCI6MzczLjgsInkiOjIzNy40fSwibm9zZV9sZWZ0X2FsYXJfb3V0X3RpcCI6eyJ4IjoyNzYuNSwieSI6Mjk4LjV9LCJub3NlX2xlZnRfYWxhcl90b3AiOnsieCI6Mjg3LjQsInkiOjI3Ny44fSwiZXllX2xlZnRfb3V0ZXIiOnsieCI6MjQ5LjMsInkiOjIzMC41fSwidXBwZXJfbGlwX2JvdHRvbSI6eyJ4IjozMDcuOCwieSI6MzQ4LjR9LCJ1cHBlcl9saXBfdG9wIjp7IngiOjMwOC4zLCJ5IjozMzcuNX0sIm1vdXRoX2xlZnQiOnsieCI6MjY0LjYsInkiOjM0Ny4zfSwiZXllYnJvd19sZWZ0X291dGVyIjp7IngiOjIyNy43LCJ5IjoyMDYuN30sIm1vdXRoX3JpZ2h0Ijp7IngiOjM0My42LCJ5IjozNTMuM30sInB1cGlsX2xlZnQiOnsieCI6MjY1LjYsInkiOjIyOS4yfSwiZXllX3JpZ2h0X2JvdHRvbSI6eyJ4IjozNTguOCwieSI6MjQzLjF9fSwiZmFjZV9yZWN0YW5nbGUiOnsidG9wIjoxNzMsImhlaWdodCI6MjMzLCJ3aWR0aCI6MjMzLCJsZWZ0IjoxOTJ9LCJmYWNlX2F0dHJpYnV0ZXMiOnsibm9pc2UiOnsibm9pc2VfbGV2ZWwiOiJsb3ciLCJ2YWx1ZSI6MC4wOH0sImFjY2Vzc29yaWVzIjpbXSwiaGVhZF9wb3NlIjp7InBpdGNoIjotOS45LCJyb2xsIjo1LjcsInlhdyI6LTQuOX0sImdsYXNzZXMiOiJOb0dsYXNzZXMiLCJvY2NsdXNpb24iOnsiZm9yZWhlYWRfb2NjbHVkZWQiOjAsIm1vdXRoX29jY2x1ZGVkIjowLCJleWVfb2NjbHVkZWQiOjB9LCJibHVyIjp7InZhbHVlIjowLjQ0LCJibHVyX2xldmVsIjoibWVkaXVtIn0sImV4cG9zdXJlIjp7ImV4cG9zdXJlX2xldmVsIjoiZ29vZEV4cG9zdXJlIiwidmFsdWUiOjAuNjV9fX0sImltYWdlMV9kYXRhIjp7ImZhY2VfbGFuZG1hcmtzIjp7ImV5ZV9yaWdodF9pbm5lciI6eyJ4IjoyMzYuOCwieSI6MTk2LjR9LCJ1bmRlcl9saXBfYm90dG9tIjp7IngiOjIxMSwieSI6MzI5fSwiZXllX2xlZnRfYm90dG9tIjp7IngiOjE1Ny45LCJ5IjoyMDEuOH0sInB1cGlsX3JpZ2h0Ijp7IngiOjI1MC4zLCJ5IjoxOTUuNH0sImV5ZV9sZWZ0X2lubmVyIjp7IngiOjE3Mi4zLCJ5IjoxOTYuNH0sImV5ZV9yaWdodF90b3AiOnsieCI6MjUyLjMsInkiOjE5MX0sInVuZGVyX2xpcF90b3AiOnsieCI6MjEwLjEsInkiOjMxNS41fSwiZXllYnJvd19yaWdodF9pbm5lciI6eyJ4IjoyMjMuMiwieSI6MTcxLjd9LCJleWVicm93X2xlZnRfaW5uZXIiOnsieCI6MTg2LjMsInkiOjE3MC41fSwibm9zZV9yaWdodF9hbGFyX3RvcCI6eyJ4IjoyMjUuNCwieSI6MjM0LjZ9LCJub3NlX3JpZ2h0X2FsYXJfb3V0X3RpcCI6eyJ4IjoyMzkuOCwieSI6MjU0Ljd9LCJleWVicm93X3JpZ2h0X291dGVyIjp7IngiOjI4NS44LCJ5IjoxNjcuN30sIm5vc2VfdGlwIjp7IngiOjIwNywieSI6MjUwLjV9LCJub3NlX3Jvb3RfcmlnaHQiOnsieCI6MjE2LjgsInkiOjIwMS41fSwibm9zZV9yb290X2xlZnQiOnsieCI6MTkwLCJ5IjoyMDEuM30sImV5ZV9sZWZ0X3RvcCI6eyJ4IjoxNTguMiwieSI6MTkyLjF9LCJleWVfcmlnaHRfb3V0ZXIiOnsieCI6MjY0LjksInkiOjE5Ny42fSwibm9zZV9sZWZ0X2FsYXJfb3V0X3RpcCI6eyJ4IjoxNzMuNSwieSI6MjUzLjV9LCJub3NlX2xlZnRfYWxhcl90b3AiOnsieCI6MTg2LjMsInkiOjIzNC4yfSwiZXllX2xlZnRfb3V0ZXIiOnsieCI6MTQzLjYsInkiOjE5N30sInVwcGVyX2xpcF9ib3R0b20iOnsieCI6MjA4LjgsInkiOjMwNn0sInVwcGVyX2xpcF90b3AiOnsieCI6MjA4LjYsInkiOjI5NC4yfSwibW91dGhfbGVmdCI6eyJ4IjoxNzAuOSwieSI6MzEwLjF9LCJleWVicm93X2xlZnRfb3V0ZXIiOnsieCI6MTIwLjksInkiOjE2OS42fSwibW91dGhfcmlnaHQiOnsieCI6MjQ4LjcsInkiOjMxMX0sInB1cGlsX2xlZnQiOnsieCI6MTU3LCJ5IjoxOTUuN30sImV5ZV9yaWdodF9ib3R0b20iOnsieCI6MjUxLjYsInkiOjIwMS4xfX0sImZhY2VfcmVjdGFuZ2xlIjp7InRvcCI6MTM2LCJoZWlnaHQiOjIyOSwid2lkdGgiOjIyOSwibGVmdCI6OTJ9LCJmYWNlX2F0dHJpYnV0ZXMiOnsibm9pc2UiOnsibm9pc2VfbGV2ZWwiOiJtZWRpdW0iLCJ2YWx1ZSI6MC4zM30sImFjY2Vzc29yaWVzIjpbXSwiaGVhZF9wb3NlIjp7InBpdGNoIjo3LjEsInJvbGwiOi0wLjgsInlhdyI6NC41fSwiZ2xhc3NlcyI6Ik5vR2xhc3NlcyIsIm9jY2x1c2lvbiI6eyJmb3JlaGVhZF9vY2NsdWRlZCI6MCwibW91dGhfb2NjbHVkZWQiOjAsImV5ZV9vY2NsdWRlZCI6MH0sImJsdXIiOnsidmFsdWUiOjAuODIsImJsdXJfbGV2ZWwiOiJoaWdoIn0sImV4cG9zdXJlIjp7ImV4cG9zdXJlX2xldmVsIjoidW5kZXJFeHBvc3VyZSIsInZhbHVlIjowfX19LCJzdGFuZGFyZF9maWVsZHMiOnsidGVzdF9mYWNlX3JlY29nbml0aW9uX3JhdGlvIjowLjgyNTY2fSwiY29uZmlkZW5jZSI6eyJpc19pZGVudGljYWwiOjAsImNvbmZpZGVuY2UiOjAuODI1NjZ9fSwidmFsaWRhdGlvbl9tMiI6eyJ0ZXN0X3NpZGVfY29ycmVzcG9uZGVuY2UiOiJGQUlMIiwidGVzdF9nbG9iYWxfYXV0aGVudGljaXR5X3JhdGlvIjowLjk5LCJ0ZXN0X2dsb2JhbF9hdXRoZW50aWNpdHlfdmFsdWUiOiJPSyIsInRlc3RfaW1hZ2VfZm9jdXMiOiJGQUlMIiwidGVzdF9kYXRlX29mX2V4cGlyeSI6Ik9LIiwic3RhbmRhcmRfZmllbGRzIjp7InRlc3RfZ2xvYmFsX2F1dGhlbnRpY2l0eV92YWx1ZSI6Ik9LIiwidGVzdF9zaWRlX2NvcnJlc3BvbmRlbmNlIjoiRkFJTCIsInRlc3RfZGF0ZV9vZl9iaXJ0aCI6Ik9LIiwidGVzdF9nbG9iYWxfYXV0aGVudGljaXR5X3JhdGlvIjowLjk5LCJ0ZXN0X2RhdGVfb2ZfZXhwaXJ5IjoiT0sifX0sIm9jcl9tMiI6eyJzdXJuYW1lX3ZpeiI6IkxBQSIsImRhdGVfb2ZfZXhwaXJ5IjoiMzAvMDYvMjAzMyIsIm1hcml0YWxfc3RhdHVzX3ZpeiI6IlNPTFRFUk8iLCJyZW1haW5kZXJfdGVybV92aXoiOiIxMDciLCJkYXRlX29mX2JpcnRoX3ZpeiI6IjE1LzAzLzIwMDIiLCJkYXRlX29mX2lzc3VlIjoiMDUvMDQvMjAyMyIsInllYXJzX3NpbmNlX2lzc3VlX3ZpeiI6IjEiLCJkb2N1bWVudF90eXBlc19jYW5kaWRhdGVzIjpbeyJtcnoiOjAsInllYXIiOiIyMDEwIiwidHlwZSI6MTIsImNvdW50cnlfbmFtZSI6IlZlbmV6dWVsYSwgQm9saXZhcmlhbiBSZXB1YmxpYyBvZiIsInByb2JhYmlsaXR5IjowLjcxMTU3NTM4ODkwODM4NiwiaWNhb19jb2RlIjoiVkVOIiwibmFtZSI6IlZlbmV6dWVsYSwgQm9saXZhcmlhbiBSZXB1YmxpYyBvZiAtIElkIENhcmQgKDIwMTApIn1dLCJhZ2VfYXRfaXNzdWVfdml6IjoiMjEiLCJpc3N1aW5nX3N0YXRlX25hbWVfdml6IjoiVmVuZXp1ZWxhLCBCb2xpdmFyaWFuIFJlcHVibGljIG9mIiwiZGF0ZV9vZl9iaXJ0aCI6IjE1LzAzLzIwMDIiLCJpc3N1aW5nX3N0YXRlX2NvZGUiOiJWRU4iLCJzdXJuYW1lIjoiTEFBIiwic3VybmFtZV9hbmRfZ2l2ZW5fbmFtZXNfdml6IjoiTEFBIEpFU1VTIEVOUklRVUUiLCJkYXRlX29mX2V4cGlyeV92aXoiOiIzMC8wNi8yMDMzIiwicmVtYWluZGVyX3Rlcm0iOiIxMDciLCJnaXZlbl9uYW1lc192aXoiOiJKRVNVUyBFTlJJUVVFIiwic3RhbmRhcmRfZmllbGRzIjp7InN1cm5hbWVfdml6IjpbIkxBQSJdLCJkYXRlX29mX2V4cGlyeSI6IjIwMzMtMDYtMzAiLCJkYXRlX29mX2JpcnRoX3ZpeiI6IjIwMDItMDMtMTUiLCJkb2N1bWVudF9pbmZvIjpbeyJ0eXBlIjoxMiwiaWNhb19jb2RlIjoiVkVOIiwiZGVzY3JpcHRpb24iOiJJZGVudGl0eUNhcmQifV0sImRhdGVfb2ZfYmlydGgiOiIyMDAyLTAzLTE1Iiwic3VybmFtZSI6WyJMQUEiXSwiaXNzdWluZ19zdGF0ZV9jb2RlIjoiVkVOIiwibmFtZSI6IkpFU1VTIEVOUklRVUUiLCJkb2N1bWVudF9udW1iZXJfdml6IjoiVjIwMjY1NjExIiwiaXNzdWluZ19zdGF0ZV9jb2RlX3ZpeiI6IlZFTiIsIm5hbWVfdml6IjoiSkVTVVMgRU5SSVFVRSIsImRhdGVfb2ZfZXhwaXJ5X3ZpeiI6IjIwMzMtMDYtMzAiLCJkb2N1bWVudF9udW1iZXIiOiJWMjAyNjU2MTEiLCJzaWRlc19udW1iZXIiOiIyIn0sImlzc3Vpbmdfc3RhdGVfbmFtZSI6IlZlbmV6dWVsYSwgQm9saXZhcmlhbiBSZXB1YmxpYyBvZiIsInllYXJzX3NpbmNlX2lzc3VlIjoiMSIsImFnZV92aXoiOiIyMiIsIm1hcml0YWxfc3RhdHVzIjoiU09MVEVSTyIsImRhdGVfb2ZfaXNzdWVfdml6IjoiMDUvMDQvMjAyMyIsImRvY3VtZW50X251bWJlcl92aXoiOiJWMjAyNjU2MTEiLCJpc3N1aW5nX3N0YXRlX2NvZGVfdml6IjoiVkVOIiwiYWdlIjoiMjIiLCJkb2N1bWVudF9udW1iZXIiOiJWMjAyNjU2MTEiLCJzdXJuYW1lX2FuZF9naXZlbl9uYW1lcyI6IkxBQSBKRVNVUyBFTlJJUVVFIiwiYWdlX2F0X2lzc3VlIjoiMjEiLCJnaXZlbl9uYW1lcyI6IkpFU1VTIEVOUklRVUUiLCJzaWRlc19udW1iZXIiOiIyIn19"
+from ocr import extraerPorcentaje
 
-decodedData = base64.b64decode(data)
-decodedStringData = decodedData.decode("utf-8")
+validationDataRaw = '{"validation_m2":{"standard_fields":{"test_date_of_expiry":"OK","test_side_correspondence":"FAIL","test_global_authenticity_ratio":0.99,"test_global_authenticity_value":"OK"},"test_date_of_expiry":"OK","test_side_correspondence":"FAIL","test_image_focus":"FAIL","test_global_authenticity_value":"OK","test_image_glares":"OK","test_global_authenticity_ratio":0.99},"ocr_m2":{"standard_fields":{"surname":["LCZADASALAR"],"date_of_expiry_viz":"2033-06-30","issuing_state_code_viz":"VEN","surname_viz":["LCZADASALAR"],"document_info":[{"icao_code":"VEN","description":"IdentityCard","type":12}],"name":"JESUS ENRIDUE","issuing_state_code":"VEN","document_number_viz":"V30205611","name_viz":"JESUS ENRIDUE","document_number":"V30205611","date_of_expiry":"2033-06-30","sides_number":"2"},"date_of_issue":"05/06/2023","years_since_issue_viz":"1","remainder_term_viz":"107","issuing_state_name_viz":"Venezuela, Bolivarian Republic of","given_names_viz":"JESUS ENRIDUE","surname_and_given_names":"LCZADASALAR JESUS ENRIDUE","remainder_term":"107","document_number":"V30205611","issuing_state_code":"VEN","sides_number":"2","surname_and_given_names_viz":"LCZADASALAR JESUS ENRIDUE","issuing_state_name":"Venezuela, Bolivarian Republic of","date_of_birth":"13/032002 OLTERO","surname":"LCZADASALAR","years_since_issue":"1","given_names":"JESUS ENRIDUE","date_of_expiry_viz":"30/06/2033","issuing_state_code_viz":"VEN","date_of_issue_viz":"05/06/2023","surname_viz":"LCZADASALAR","date_of_birth_viz":"13/032002 OLTERO","date_of_expiry":"30/06/2033","document_number_viz":"V30205611","document_types_candidates":[{"icao_code":"VEN","type":12,"year":"2010","name":"Venezuela, Bolivarian Republic of - Id Card (2010)","probability":0.711756348609924,"mrz":0,"country_name":"Venezuela, Bolivarian Republic of"}]},"face_m4":{"standard_fields":{"test_face_recognition_ratio":0.82465},"confidence":{"is_identical":0,"confidence":0.82465},"image2_data":{"face_attributes":{"noise":{"noise_level":"low","value":0.27},"blur":{"blur_level":"medium","value":0.34},"head_pose":{"pitch":-4,"roll":2.5,"yaw":-1},"accessories":[{"confidence":1,"type":"glasses"}],"occlusion":{"eye_occluded":0,"mouth_occluded":0,"forehead_occluded":0},"exposure":{"exposure_level":"goodExposure","value":0.34},"glasses":"ReadingGlasses"},"face_rectangle":{"width":231,"left":185,"height":231,"top":144},"face_landmarks":{"eye_right_outer":{"x":365.7,"y":206.1},"eyebrow_right_inner":{"x":318.8,"y":175.3},"eye_left_inner":{"x":266.5,"y":204.9},"under_lip_top":{"x":302,"y":328.6},"eye_left_top":{"x":251.8,"y":197.7},"eyebrow_right_outer":{"x":385.2,"y":179.2},"eyebrow_left_inner":{"x":282,"y":172},"nose_root_left":{"x":288.7,"y":206.7},"nose_root_right":{"x":318.4,"y":206.7},"upper_lip_top":{"x":303.3,"y":303.3},"pupil_left":{"x":252.7,"y":203.9},"eyebrow_left_outer":{"x":210.8,"y":184.4},"nose_left_alar_out_tip":{"x":270.8,"y":269.4},"mouth_left":{"x":257.3,"y":318},"upper_lip_bottom":{"x":302.9,"y":312.6},"nose_left_alar_top":{"x":281.6,"y":244.3},"nose_right_alar_out_tip":{"x":333.7,"y":268.7},"nose_tip":{"x":303.8,"y":261.3},"mouth_right":{"x":339.4,"y":319},"eye_right_top":{"x":350.8,"y":198.9},"eye_right_inner":{"x":336.6,"y":205.9},"nose_right_alar_top":{"x":323.4,"y":243.4},"pupil_right":{"x":348.5,"y":204.7},"eye_left_outer":{"x":237.8,"y":204.3},"under_lip_bottom":{"x":302.3,"y":343.2},"eye_left_bottom":{"x":251.4,"y":209.9},"eye_right_bottom":{"x":350.5,"y":211.5}}},"image1_data":{"face_attributes":{"noise":{"noise_level":"medium","value":0.67},"blur":{"blur_level":"high","value":1},"head_pose":{"pitch":1,"roll":2.9,"yaw":-0.8},"accessories":[],"occlusion":{"eye_occluded":0,"mouth_occluded":0,"forehead_occluded":0},"exposure":{"exposure_level":"goodExposure","value":0.51},"glasses":"NoGlasses"},"face_rectangle":{"width":221,"left":97,"height":221,"top":135},"face_landmarks":{"eye_right_outer":{"x":266.1,"y":194.7},"eyebrow_right_inner":{"x":230.8,"y":167.2},"eye_left_inner":{"x":173.9,"y":193.9},"under_lip_top":{"x":209,"y":308.6},"eye_left_top":{"x":158.7,"y":188.2},"eyebrow_right_outer":{"x":287.1,"y":171},"eyebrow_left_inner":{"x":192.1,"y":168.2},"nose_root_left":{"x":192.2,"y":197.3},"nose_root_right":{"x":220.2,"y":197.4},"upper_lip_top":{"x":207.3,"y":289.7},"pupil_left":{"x":160.6,"y":193.1},"eyebrow_left_outer":{"x":123,"y":176.3},"nose_left_alar_out_tip":{"x":177,"y":254},"mouth_left":{"x":170.1,"y":304.9},"upper_lip_bottom":{"x":207.5,"y":298.1},"nose_left_alar_top":{"x":188,"y":234},"nose_right_alar_out_tip":{"x":237.8,"y":252.2},"nose_tip":{"x":211,"y":245.9},"mouth_right":{"x":243.9,"y":303.3},"eye_right_top":{"x":252.4,"y":188.2},"eye_right_inner":{"x":237.9,"y":193.5},"nose_right_alar_top":{"x":229.3,"y":234},"pupil_right":{"x":252,"y":192.4},"eye_left_outer":{"x":142.8,"y":194.2},"under_lip_bottom":{"x":209.6,"y":321.9},"eye_left_bottom":{"x":158.1,"y":201},"eye_right_bottom":{"x":252.6,"y":199.8}}}}}'
 
-print(decodedStringData)
+dataDict = json.loads(validationDataRaw)
+
+data = {
+
+}
+
+face = dataDict['face_m4']['standard_fields']
+
+ocr = dataDict['ocr_m2']['standard_fields']
+
+validationExtra = dataDict['validation_m2']['standard_fields']
+
+if('test_face_recognition_ratio' in face):
+
+  data['faceData'] = 'Verificado' if face['test_face_recognition_ratio'] >= 0.5 else 'Pendiente revisión'
+else:
+  data['faceData'] = 'Pendiente revisión'
+
+if('name' in ocr):
+
+  OCRname:str = ocr['name']
+  OCRname = OCRname.lower()
+
+  name = 'Jesus enrique'
+  name = name.lower()
+
+  coincidence = extraerPorcentaje(OCRname, name)
+
+  data['name'] = {
+    "ocrData": OCRname,
+    "ocrPercent": coincidence
+  }
+
+else:
+  data['name'] = {
+    "ocrData": '',
+    "ocrPercent": 0
+  }
+
+if('surname' in ocr):
+
+  OCRsurnames = ocr['surname']
+
+  normalizeSurname = ''
+
+  if(len(OCRsurnames) >= 1):
+    for surname in OCRsurnames:
+      surnameLower:str = surname.lower()
+      normalizeSurname += f"{surnameLower} "
+
+  OCRsurname = normalizeSurname.strip()
+
+  surname = 'Lozada Salazar'
+  surnama = surname.lower()
+
+  coincidence = extraerPorcentaje(OCRsurname,surname)
+
+  data['surname'] = {
+    "ocrData": OCRsurname,
+    "ocrPercent": coincidence
+  }
+
+else:
+  data['surname'] = ''
+
+if('document_number' in ocr):
+  OCRdocument = ocr['document_number']
+  document = '30265611'
+
+  coincidence = extraerPorcentaje(OCRdocument, document)
+
+  data['document'] = {
+    'ocrData': OCRdocument,
+    'ocrPercent': coincidence
+  }
+else:
+  data['document'] = ''
+
+if('test_global_authenticity_value' in validationExtra):
+  aunthenticity = validationExtra['test_global_authenticity_value']
+
+  data['authenticity'] = aunthenticity
+else:
+  data['authenticity'] = ''
+
+print(data)

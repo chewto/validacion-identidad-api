@@ -1,15 +1,11 @@
-import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
-from eKYC_request import postRequest
 from utilidades import readDataURL
 import os
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
-import subprocess
-import json
 
 app = Flask(__name__)
 
@@ -24,86 +20,6 @@ cors = CORS(app, resources={
   }
 })
 app.config['CORS_HEADER'] = 'Content-type'
-
-
-@app.route('/data', methods=['POST'])
-def receptorData():
-
-  data = request.get_json()
-
-  print(data)
-
-  return 'test'
-
-@app.route('/test', methods=['POST'])
-def testaa():
-
-  data = request.get_json()
-
-  print(data)
-
-  return 'test'
-
-@app.route('/decode', methods=['POST'])
-def decoder():
-
-  data = request.get_json()
-  
-  b64 = data['data']
-
-  decodedData = base64.b64decode(b64)
-  decodedStringData = decodedData.decode("utf-8")
-  dataDict = json.loads(decodedStringData)
-
-  return jsonify(dataDict)
-
-@app.route('/cbs/get-session', methods=['POST'])
-def test():
-
-  data = request.get_json()
-
-  dataVideoReq = {
-    "login": "clinpays_ekyctest",
-    "password":"zdU62r{Z._9jYQNa"
-  }
-
-  urlVideoToken = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
-
-  videoRes = postRequest(url=urlVideoToken,data=dataVideoReq, headers={})
-
-  token = videoRes['adminToken']
-
-  sessionHeader = {
-    'Authorization': f"Bearer {token}"
-  }
-
-  dataSession = {
-    "externalId": "0132456",
-    "userClientIP": "8.8.8.8",
-    "latitude": "22.1462027",
-    "longitude": "113.56829379999999",
-    "userAgentHeader": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
-  }
-
-  sessionURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/standalone/create_session'
-
-  print(sessionHeader)
-
-  sessionRes = postRequest(url=sessionURL , data=dataSession,headers=sessionHeader)
-
-  print(videoRes,sessionRes)
-
-  return jsonify({
-    "status": "200", 
-    "message": "Session created", 
-    "action": "create_session_response", 
-    "riuSessionId": sessionRes['riuSessionId'], 
-    "callToken": sessionRes['callToken'], 
-    "adminToken": videoRes['adminToken'], 
-    "mediaServerUrl": sessionRes['mediaServerUrl'], 
-    "riuCoreUrl": sessionRes['riuCoreUrl']  
-  })
-
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -136,8 +52,8 @@ def frame():
   return jsonify({"result": antiSpoofingtest})
 
 
-@app.route('/prueba-vida', methods=['POST'])
-def pruebaVida():
+@app.route('/user-media', methods=['POST'])
+def antiSpoofing():
 
   id = request.args.get("id")
 
@@ -185,13 +101,13 @@ def pruebaVida():
   return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result})
 
 @app.route('/obtener-usuario', methods=['GET'])
-def obtenerUsuario():
+def getUser():
 
   id = request.args.get('id')
 
-  usuario = controlador_db.obtenerUsuario('documento_usuario',id)
+  user = controlador_db.getUser('documento_usuario',id)
 
-  return jsonify({'dato':usuario})
+  return jsonify({'user':user})
 
 
 @app.route('/obtener-evidencias', methods=['GET'])
@@ -200,7 +116,7 @@ def obtenerEvidencias():
   id = request.args.get('id')
   tipo = request.args.get('tipo')
 
-  usuario = controlador_db.obtenerUsuario('documento_usuario', id)
+  usuario = controlador_db.getUser('documento_usuario', id)
 
   idEvidencias = usuario[6]
   idEvidenciasAdicionales = usuario[7]
