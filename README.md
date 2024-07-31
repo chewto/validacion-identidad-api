@@ -2,9 +2,9 @@
 
 ## Rutas ocr
 
-### /ocr-anverso
+### **/ocr-anverso**
 
-metodo http: POST
+**metodo http: POST**
 
 la ruta ocr-anverso, realiza una validacion de la parte frontal de los documentos enviados a la ruta en cuestion. 
 
