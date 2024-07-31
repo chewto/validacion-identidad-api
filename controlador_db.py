@@ -203,25 +203,30 @@ def comprobarProceso(id):
       database=nombreDB
     )
   except mariadb.Error as e:
-    print(f"error en la query, error = {e}")
-    return None
+    return f"error en la query, error = {e}"
 
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT count(ea.estado_verificacion) FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación") and id_usuario_efirma={id}'
+    queryInfo = f'SELECT count(ea.estado_verificacion), ea.estado_verificacion FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación" OR ea.estado_verificacion="se requiere nueva validación") and id_usuario_efirma = {id}'
     cursor.execute(queryInfo)
 
-    comprobacion = cursor.fetchall()
+    comprobacion = cursor.fetchone()
 
-    if(len(comprobacion) >= 1):
-      return comprobacion[-1]
+    if(comprobacion):
+      return {
+        "validaciones": comprobacion[0],
+        "estado": comprobacion[1]
+      }
     else:
-      return None
+      return {
+        "validaciones": 0,
+        "estado": ''
+      }
 
   except mariadb.Error as e:
+
     print("error =", e)
-    return None
 
   finally:
     conn.commit()

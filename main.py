@@ -130,11 +130,9 @@ def comprobacionProceso():
     peticionProceso = controlador_db.comprobarProceso(idUsuarioEFirma)
 
     if peticionProceso:
-        return jsonify({
-          "validaciones":peticionProceso[0]
-        })
+        return jsonify(peticionProceso)
     else:
-        return jsonify({"validaciones": 0})
+        return jsonify({"validaciones": 0, "estado":""})
 
 @app.route('/', methods=['GET'])
 def health():
