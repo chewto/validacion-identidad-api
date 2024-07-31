@@ -65,8 +65,8 @@ credencialesDBEntidad = {
   }
 }
 
-pais = 'desarrollo'
-paisEntidad = 'eFirmaPanama'
+pais = 'libertador'
+paisEntidad = 'libertador'
 
 passwordDB = credencialesDB[pais]["password"]
 nombreDB = credencialesDB[pais]["nombre"]
@@ -293,15 +293,21 @@ def comprobarProceso(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT count(ea.estado_verificacion) FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación") and id_usuario_efirma={id}'
+    queryInfo = f'SELECT count(ea.estado_verificacion), ea.estado_verificacion FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación" OR ea.estado_verificacion="se requiere nueva validación") and id_usuario_efirma = {id}'
     cursor.execute(queryInfo)
 
-    comprobacion = cursor.fetchall()
+    comprobacion = cursor.fetchone()
 
-    if(len(comprobacion) >= 1):
-      return comprobacion[-1]
+    if(comprobacion):
+      return {
+        "validaciones": comprobacion[0],
+        "estado": comprobacion[1]
+      }
     else:
-      return None
+      return {
+        "validaciones": 0,
+        "estado": ''
+      }
 
   except mariadb.Error as e:
 
