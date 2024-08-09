@@ -65,18 +65,20 @@ credencialesDBEntidad = {
   }
 }
 
+credenciales = 'desarrollo'
 
-passwordDB = credencialesDB["desarrollo"]["password"]
-nombreDB = credencialesDB["desarrollo"]["nombre"]
-hostDB = credencialesDB["desarrollo"]["host"]
-portDB = credencialesDB["desarrollo"]["port"]
-userDB = credencialesDB["desarrollo"]["user"]
 
-passwordDBEntidad = credencialesDBEntidad["desarrollo"]["password"]
-nombreDBEntidad = credencialesDBEntidad["desarrollo"]["nombre"]
-hostDBEntidad = credencialesDBEntidad["desarrollo"]["host"]
-portDBEntidad = credencialesDBEntidad["desarrollo"]["port"]
-userDBEntidad = credencialesDBEntidad["desarrollo"]["user"]
+passwordDB = credencialesDB[credenciales]["password"]
+nombreDB = credencialesDB[credenciales]["nombre"]
+hostDB = credencialesDB[credenciales]["host"]
+portDB = credencialesDB[credenciales]["port"]
+userDB = credencialesDB[credenciales]["user"]
+
+passwordDBEntidad = credencialesDBEntidad[credenciales]["password"]
+nombreDBEntidad = credencialesDBEntidad[credenciales]["nombre"]
+hostDBEntidad = credencialesDBEntidad[credenciales]["host"]
+portDBEntidad = credencialesDBEntidad[credenciales]["port"]
+userDBEntidad = credencialesDBEntidad[credenciales]["user"]
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -105,7 +107,7 @@ def selectData(query, *values):
   try:
     cursor = conn.cursor()
 
-    cursor.execute(query, (values))
+    cursor.execute(query, values)
 
     data = cursor.fetchone()
 
@@ -244,7 +246,8 @@ def obtenerEntidad(id):
       database=nombreDBEntidad
     )
   except mariadb.Error as e:
-    return f"error en la query, error = {e}"
+    print(e)
+    return 0,0
 
   try:
     cursor = conn.cursor()
@@ -262,8 +265,8 @@ def obtenerEntidad(id):
 
 
   except mariadb.Error as e:
-
-    print("error =", e)
+    print(e)
+    return 0,0
 
   finally:
     conn.commit()

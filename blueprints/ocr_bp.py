@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 
 from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento
-from reconocimiento import extractFaces, orientacionImagen
+from reconocimiento import extractFaces, orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
@@ -43,10 +43,7 @@ def verificarAnverso():
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
-
-    selfieResult = extractFaces(selfieOrientada)
-
-    print(selfieResult)
+    verifyDocument = verifyFaces(selfieOrientada, documentoOrientado)
 
     #ocr
 
@@ -76,7 +73,7 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
-    coincidencia = False
+    # coincidencia = False
 
     if(len(carasImagenPersona) >= 1 and len(carasImagenDocumento) >= 1):
       coincidencia = True
@@ -92,7 +89,7 @@ def verificarAnverso():
           'porcentajeApellidoOCR': porcentajeApellidoComparado,
           'porcentajeDocumentoOCR': porcentajeDocumentoComparado
         },
-      'rostro': coincidencia,
+      'rostro': verifyDocument,
       'ladoValido': ladoValido
     })
 

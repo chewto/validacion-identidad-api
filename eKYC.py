@@ -5,8 +5,8 @@ import json
 from ocr import extraerPorcentaje
 
 user = {
-    "login": "clinpays_ekyctest",
-    "password":"zdU62r{Z._9jYQNa"
+    "login": "honducert_ekyctest",
+    "password":"CW9R)(!L-7q8jYBp"
 }
 
 videoURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
@@ -122,8 +122,6 @@ def getSession(sessionData, sessionHeaders):
 
 def ekycData(validationDataRaw, userSignData):
 
-  print(len(validationDataRaw), validationDataRaw)
-
   if(len(validationDataRaw) <= 28):
     return {
       "faceResult": 'Pendiente revision',
@@ -177,7 +175,7 @@ def ekycData(validationDataRaw, userSignData):
 
   else:
     data['name'] = {
-      "ocrData": '',
+      "ocrData": 'no encontrado',
       "ocrPercent": 0
     }
 
@@ -206,7 +204,7 @@ def ekycData(validationDataRaw, userSignData):
 
   else:
     data['surname'] =   {
-      "ocrData": '',
+      "ocrData": 'no encontrado',
       "ocrPercent": 0
     }
 
@@ -223,7 +221,7 @@ def ekycData(validationDataRaw, userSignData):
     }
   else:
     data['document'] = {
-      "ocrData": '',
+      "ocrData": 'no encontrado',
       "ocrPercent": 0
     }
 
@@ -233,6 +231,6 @@ def ekycData(validationDataRaw, userSignData):
 
     data['authenticity'] = aunthenticity
   else:
-    data['authenticity'] = ''
+    data['authenticity'] = '!OK'
 
   return data

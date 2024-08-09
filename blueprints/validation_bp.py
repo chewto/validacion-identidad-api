@@ -1,6 +1,4 @@
-import base64
-from flask import Blueprint, json, request, jsonify
-
+from flask import Blueprint, request, jsonify
 import controlador_db
 from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento
 from utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
@@ -8,10 +6,22 @@ from eKYC import ekycData, getAdminToken, getSession, getValidationMedia, getVid
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
+@validation_bp.route('/validation-provider', methods=['GET'])
+def validationProvider():
+
+  entityId = request.args.get('entityId')
+
+  selectProvider = controlador_db.selectData('SELECT * FROM entidad WHERE id = ?',(entityId))
+
+  validationProvider = selectProvider[2]
+
+  return jsonify({"provider": validationProvider})
+
+
 @validation_bp.route('/data-validation', methods=['POST'])
 def validationData():
 
-  userSignId = request.args.get('id')
+  userSignId = request.args.get('efirmaId')
 
   externalId = "0132456"
 
@@ -20,7 +30,7 @@ def validationData():
   userCoords = reqJson['coords'].split(',')
 
   userLatitude = userCoords[0]
-  
+
   userLongitude = userCoords[1]
 
   userIp = reqJson['ip']
@@ -37,19 +47,32 @@ def validationData():
 
   privateIp = controlador_db.obtenerIpPrivada()
 
-  validationRawData = controlador_db.selectData('SELECT id, callId FROM validacion_raw WHERE callId = ?', callId)
+  validationRawData = controlador_db.selectData('SELECT id, callId FROM validacion_raw WHERE callId = ?', (callId))
 
   signData = getRequest(url=f"https://libertador.pkiservices.co/fe-back/api/Firmador/{userSignId}")
 
-  extractData = signData['dato']
+  extractData = {
+  }
 
   userSignData = {
-    "nombre": extractData['nombre'],
-    "apellido": extractData['apellido'],
-    "correo": extractData['correo'],
-    "tipoDocumento": extractData['tipoDocumento'],
-    "documento": extractData['documento']
+    "nombre": "",
+    "apellido": "",
+    "correo": "",
+    "tipoDocumento": "",
+    "documento": ""
   }
+
+  if('dato' in signData):
+
+    extractData = signData['dato']
+
+    userSignData = {
+      "nombre": extractData['nombre'],
+      "apellido": extractData['apellido'],
+      "correo": extractData['correo'],
+      "tipoDocumento": extractData['tipoDocumento'],
+      "documento": extractData['documento']
+    }
 
   if(validationRawData):
 
@@ -86,12 +109,12 @@ def validationData():
   insertUserEvidenceId = controlador_db.insertTabla(columns=userEvidenceColumns, table='evidencias_usuario', values=userEvidenceValues)
 
   userAditionalsColumns = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_privada','latitud','longitud','hora','fecha','ip_publica','validacion_nombre_ocr','validacion_apellido_ocr','validacion_documento_ocr', 'nombre_ocr','apellido_ocr','documento_ocr', 'id_carpeta_entidad','id_carpeta_usuario','validacion_vida','proveedor_validacion')
-  userAditionalsValues = (eKYCValidation['faceResult'], userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, eKYCValidation['name']['ocrPercent'], eKYCValidation['surname']['ocrPercent'],eKYCValidation['document']['ocrPercent'], eKYCValidation['name']['ocrData'],eKYCValidation['surname']['ocrData'],eKYCValidation['document']['ocrData'], 0, 0, '', f'lleida {callId}')
+  userAditionalsValues = (eKYCValidation['faceResult'], userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, eKYCValidation['name']['ocrPercent'], eKYCValidation['surname']['ocrPercent'],eKYCValidation['document']['ocrPercent'], eKYCValidation['name']['ocrData'],eKYCValidation['surname']['ocrData'],eKYCValidation['document']['ocrData'], 0, 0, eKYCValidation['authenticity'], f'lleida {callId}')
   
   insertUserAditionalsId = controlador_db.insertTabla(columns=userAditionalsColumns, table='evidencias_adicionales', values=userAditionalsValues)
   
   userValidationColumns = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
-  userValidationValues = (userSignData['nombre'], userSignData['apellido'], userSignData['documento'], userSignData['tipoDocumento'], userSignData['correo'], insertUserEvidenceId, insertUserAditionalsId, int(userSignId))
+  userValidationValues = (userSignData['nombre'].lower(), userSignData['apellido'].lower(), userSignData['documento'], userSignData['tipoDocumento'].lower(), userSignData['correo'], insertUserEvidenceId, insertUserAditionalsId, int(userSignId))
 
   insertUserValidationId = controlador_db.insertTabla(columns=userValidationColumns, table='documento_usuario', values=userValidationValues)
 
@@ -248,7 +271,7 @@ def validationType3():
 
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario, 'validacion propietaria')
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma')
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')

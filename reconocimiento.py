@@ -6,8 +6,8 @@ import base64
 import io
 from deepface import DeepFace
 
-haarscascade_frontal_face = './haarscascades/haarcascade_frontalface_alt.xml'
-haarscascade_eye = './haarscascades/haarcascade_eye.xml'
+haarscascade_frontal_face = 'haarcascade_frontalface_alt.xml'
+haarscascade_eye = 'haarcascade_eye.xml'
 
 def extractFaces(imageArray, anti_spoofing:bool):
 
@@ -49,6 +49,18 @@ def extractFaces(imageArray, anti_spoofing:bool):
     finally:
         return faces
 
+def verifyFaces(imageArray1, imageArray2):
+
+    verifyFaces = DeepFace.verify(
+        img1_path=imageArray1,
+        img2_path=imageArray2,
+        model_name='Facenet512'
+    )
+
+    verified = verifyFaces['verified']
+
+    return verified
+
 #viejos reconocimientos
 
 
@@ -62,15 +74,8 @@ def getFrames(video_path):
         if not ret:
             break
         if contadorFrames % 10 == 0:
-            frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            framesCapturados.append(frameGris)
-        # if(contadorFrames == 1):
-        #     frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        #     pilIMG = Image.fromarray(frameRGB)
-        #     buff = io.BytesIO()
-        #     pilIMG.save(buff, format="JPEG")
-        #     imgStr = base64.b64encode(buff.getvalue())
-        #     dataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
+            # frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            framesCapturados.append(frame)
 
         contadorFrames += 1
 
@@ -91,12 +96,14 @@ def faceDetection(frames):
 
     for frame in frames:
 
+        frameGray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
         clasificadorCaras = cv2.CascadeClassifier(
             cv2.data.haarcascades + haarscascade_frontal_face
         )
 
         carasDetectadas = clasificadorCaras.detectMultiScale(
-            frame, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
+            frameGray, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
         )
 
         if(len(carasDetectadas) >= 1):
@@ -125,10 +132,8 @@ def faceDetection(frames):
 
 def movementDetection(rostroReferencia, rostros):
 
-    print(rostros, rostroReferencia)
-
     if(len(rostroReferencia) <= 0  or len(rostros) <= 0):
-        return False
+        return '!OK'
 
     resultados = []
 
@@ -144,7 +149,10 @@ def movementDetection(rostroReferencia, rostros):
 
     pruebaMovimiento = any(resultados)
 
-    return pruebaMovimiento
+    if(pruebaMovimiento):
+        return 'OK'
+    else:
+        return '!OK'
 
 
 def pruebaVida(imagenBase, imagenComparacion):

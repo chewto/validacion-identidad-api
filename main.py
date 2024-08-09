@@ -9,17 +9,19 @@ from blueprints.validation_bp import validation_bp
 
 app = Flask(__name__)
 
-app.register_blueprint(ocr_bp)
-app.register_blueprint(validation_bp)
-
 carpetaPruebaVida = "./evidencias-vida"
 
-cors = CORS(app, resources={
+CORS(app, resources={
   r"/*":{
     "origins":"*"
   }
-})
+}, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
+
+CORS(app, resources={r"/validation/*": {"origins": "https://localhost"}})
+
+app.register_blueprint(ocr_bp)
+app.register_blueprint(validation_bp)
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -52,7 +54,7 @@ def frame():
   return jsonify({"result": antiSpoofingtest})
 
 
-@app.route('/user-media', methods=['POST'])
+@app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
 
   id = request.args.get("id")
