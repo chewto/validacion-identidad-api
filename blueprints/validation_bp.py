@@ -11,9 +11,9 @@ def validationProvider():
 
   entityId = request.args.get('entityId')
 
-  selectProvider = controlador_db.selectData('SELECT * FROM entidad WHERE id = ?',(entityId))
+  selectProvider = controlador_db.selectProvider(id=entityId)
 
-  validationProvider = selectProvider[2]
+  validationProvider = selectProvider
 
   return jsonify({"provider": validationProvider})
 
@@ -47,7 +47,7 @@ def validationData():
 
   privateIp = controlador_db.obtenerIpPrivada()
 
-  validationRawData = controlador_db.selectData('SELECT id, callId FROM validacion_raw WHERE callId = ?', (callId))
+  validationRawData = controlador_db.selectData('SELECT id, callId FROM validacion_raw WHERE callId = ?', (callId,))
 
   signData = getRequest(url=f"https://libertador.pkiservices.co/fe-back/api/Firmador/{userSignId}")
 

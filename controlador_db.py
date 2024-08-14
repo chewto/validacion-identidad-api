@@ -19,11 +19,11 @@ credencialesDB = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_validacion',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -50,11 +50,11 @@ credencialesDBEntidad = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -65,7 +65,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'desarrollo'
+credenciales = 'eFirmaPanama'
 
 
 passwordDB = credencialesDB[credenciales]["password"]
@@ -267,6 +267,49 @@ def obtenerEntidad(id):
   except mariadb.Error as e:
     print(e)
     return 0,0
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def selectProvider(id):
+  
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    print(e)
+    return 'EFIRMA'
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = "SELECT ent.nombre_entidad, ent.validacion FROM pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
+
+    cursor.execute(queryInfo, (id,))
+
+    entidad = cursor.fetchone()
+
+    if(entidad != None):
+
+      if(entidad[1] == None):
+        return 'EFIRMA'
+      
+      return entidad[1]
+
+    else:
+      return 'EFIRMA'
+
+
+  except mariadb.Error as e:
+    print(e)
+    return 'EFIRMA'
 
   finally:
     conn.commit()
