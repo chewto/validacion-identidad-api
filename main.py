@@ -2,12 +2,11 @@ import subprocess
 import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-import mariadb
 from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento, obtenerFrames, deteccionRostro, determinarMovimiento
 import controlador_db
-from utilidades import leerFileStorage, leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
-import lector_codigo
-from ocr import busquedaData,validarLadoDocumento, ocr, validacionOCR, comparacionOCR
+from utilidades import boolString, leerFileStorage, leerDataUrl, cv2Blob, recorteData, normalizarTexto, stringBool
+from barcode import isValid, uploadBarcodeFile, readBarcode, barcodeDTO
+from ocr import busquedaData, extraerPorcentaje,validarLadoDocumento, ocr, validacionOCR, comparacionOCR
 import os
 
 app = Flask(__name__)
@@ -106,6 +105,46 @@ def verificarAnverso():
       'ladoValido': ladoValido
     })
 
+@app.route("/test-route", methods=["POST"])
+def test():
+
+  data = request.get_json()
+
+  documentReverso = data['reverso']
+
+  uploadedBarcodeFile = uploadBarcodeFile(documentReverso, fileName="reverso.jpeg")
+
+  if(uploadedBarcodeFile == None):
+    return {
+        "codigoAFIS": '',
+        "huella": '',
+        "numeroDocumento": '',
+        "primerNombre": '',
+        "segundoNombre": '',
+        "primerApellido": '',
+        "segundoApellido": '',
+        "genero": '',
+        "anhoNacimiento": '',
+        "mesNacimiento": '',
+        "diaNacimiento": '',
+        "codigoMunicipio": '',
+        "codigoDepartamento": '',
+        "tipoSangre": ''
+    }
+
+  barcodeData = readBarcode(uploadedBarcodeFile)
+
+  organizedData = barcodeDTO(barcodeData)
+
+  name = organizedData['primerNombre']
+  lastName = organizedData['primerApellido']
+  document = organizedData['numeroDocumento']
+
+  existName = isValid('MARA', name)
+  existLastname = isValid('CRZ', lastName)
+  existDocument = isValid('100531627', document)
+
+  return jsonify({"name":existName, "lastName":existLastname, "document":existDocument})
 
 
 #rutas para el front
@@ -119,6 +158,8 @@ def verificarReverso():
     ladoDocumento = documento['ladoDocumento']
 
     tipoDocumento = documento['tipoDocumento']
+
+    lecturaCodigoBarras = documento['lectura']
 
     documentoData = leerDataUrl(imagenDocumento)
     
@@ -151,7 +192,25 @@ def verificarReverso():
     if(totalValidacion >= 1):
       ladoValido = True
 
-    return jsonify({
+    if((lecturaCodigoBarras == False) or
+      (lecturaCodigoBarras == True and (tipoDocumento == "Pasaporte"))
+      ):
+
+      return jsonify({
+          "codigoBarra":{
+            'reconocido': 'false',
+            'nombre':'false',
+            'apellido':'false',
+            'documento':'false'
+          },
+          'ladoValido': ladoValido
+        })
+
+    uploadedBarcodeFile = uploadBarcodeFile(imagenDocumento, fileName="reverso.jpeg")
+
+    if(uploadedBarcodeFile == None):
+
+      return jsonify({
         "codigoBarra":{
           'reconocido': 'false',
           'nombre':'false',
@@ -161,44 +220,31 @@ def verificarReverso():
         'ladoValido': ladoValido
       })
 
-    codigoBarrasData = lector_codigo.lectorCodigoBarras(imagenDocumento, tipoDocumento)
+    barcodeData = readBarcode(uploadedBarcodeFile)
 
-    if(codigoBarrasData is False):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'false',
-          'nombre': 'false',
-          'apellido':'false',
-          'documento':'false'
-        },
-        "ladoValido": validarLado
-      })
+    organizedData = barcodeDTO(barcodeData)
 
-    validacionNombre = lector_codigo.validarDataCodigo(nombre, f"{codigoBarrasData['primerNombre']}" + ' ' + f"{codigoBarrasData['segundoNombre']}")
-    validacionApellido = lector_codigo.validarDataCodigo(apellido, f"{codigoBarrasData['primerApellido']}" + ' ' + f"{codigoBarrasData['segundoApellido']}")
-    validacionDocumento = lector_codigo.validarDataCodigo(numeroDocumento, f"{codigoBarrasData['numeroDocumento']}")
+    bcName = organizedData['primerNombre']
+    bcLastName = organizedData['primerApellido']
+    bcDocument = organizedData['numeroDocumento']
 
+    existName = isValid(bcName,nombre)
+    existLastname = isValid(bcLastName,apellido)
+    existDocument = isValid(bcDocument,numeroDocumento)
 
-    if(tipoDocumento == 'Cédula de extranjería'):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'true',
-          'nombre':'true',
-          'apellido':'true',
-          'documento':'true'
-        },
-        'ladoValido': validarLado
-      })
-    if(tipoDocumento == 'Cédula de ciudadanía'):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'true',
-          'nombre':validacionNombre,
-          'apellido':validacionApellido,
-          'documento':validacionDocumento
-        },
-        'ladoValido': validarLado
-      })
+    existName = boolString(existName)
+    existLastname = boolString(existLastname)
+    existDocument = boolString(existDocument)
+
+    return jsonify({
+      "codigoBarra":{
+        'reconocido': 'true',
+        'nombre':existName,
+        'apellido':existLastname,
+        'documento':existDocument
+      },
+      'ladoValido': ladoValido
+    })
 
 
 @app.route('/prueba-vida', methods=['POST'])
@@ -278,7 +324,7 @@ def comprobacionProceso():
     if peticionProceso:
         return jsonify(peticionProceso)
     else:
-        return jsonify({"validaciones": 0, "estado":""})
+        return jsonify({"estado":""})
 
 @app.route('/validacion-identidad-tipo-3', methods=['POST'])
 def validacionIdentidadTipo3():
@@ -325,10 +371,12 @@ def validacionIdentidadTipo3():
   dataOCRApellido = request.form.get('apellido_ocr')
   dataOCRDocumento = request.form.get('documento_ocr')
 
+  reconocidoCodigoBarras = request.form.get("reconocido_CB")
   nombreCodigoBarras = request.form.get('nombre_CB')
   apellidoCodigoBarras = request.form.get('apellido_CB')
   documentoCodigoBarras = request.form.get('documento_CB')
 
+  reconocidoCodigoBarras = stringBool(reconocidoCodigoBarras)
   nombreCodigoBarras = stringBool(nombreCodigoBarras)
   apellidoCodigoBarras = stringBool(apellidoCodigoBarras)
   documentoCodigoBarras =stringBool(documentoCodigoBarras)
@@ -352,12 +400,6 @@ def validacionIdentidadTipo3():
     estadoVericacion = 'Procesando segunda validación'
   else:
     estadoVericacion = 'Iniciando segunda validación'
-
-  # reconocer = reconocerRostro(fotoPersonaData, anversoData)
-  # coincidencia = reconocer[0]
-  # estadoVericacion = reconocer[1]
-  # anversoOrientado = reconocer[2]
-
 
   anversoOrientado = cv2Blob(anversoOrientado)
   fotoPersonaBlob = cv2Blob(selfie)
@@ -404,9 +446,12 @@ def validacionIdentidadTipo3():
 
   #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario')
+  # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario')
+  # tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  # valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario)
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'reconocido_cb', 'nombre_cb', 'apellido_cb', 'documento_cb')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario)
+  valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, reconocidoCodigoBarras, nombreCodigoBarras, apellidoCodigoBarras, documentoCodigoBarras)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
@@ -424,77 +469,6 @@ def validacionIdentidadTipo3():
 
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
 
-# @app.route('/validacion-identidad-tipo-1', methods=['POST'])
-# def validacionIdentidadTipo1():
-
-#   id = request.args.get('id')
-#   idUsuario = request.args.get('idUsuario')
-#   tipo = request.args.get('tipo')
-
-#   dispositivo = request.form.get('dispositivo')
-#   navegador = request.form.get('navegador')
-#   latitud = request.form.get('latitud')
-#   longitud = request.form.get('longitud')
-#   hora = request.form.get('hora')
-#   fecha = request.form.get('fecha')
-
-#   ipPrivada = controlador_db.obtenerIpPrivada()
-#   # ipPublica = controlador_db.obtenerIpPublica()
-#   ipPublica = request.form.get('ip')
-
-#   tablaActualizar = 'documento_usuario'
-
-#   #evidencias usuario
-#   fotoPersona = request.form.get('foto_persona')
-#   anverso = request.form.get('anverso')
-#   reverso = request.form.get('reverso')
-
-#   #validacion del ocr
-#   ocrNombre = request.form.get('porcentaje_nombre_ocr')
-#   ocrApellido = request.form.get('porcentaje_apellido_ocr')
-#   ocrDocumento = request.form.get('porcentaje_documento_ocr')
-
-#   dataOCRNombre = request.form.get('nombre_ocr')
-#   dataOCRApellido = request.form.get('apellido_ocr')
-#   dataOCRDocumento = request.form.get('documento_ocr')
-
-#   #leer data url
-#   fotoPersonaData = leerDataUrl(fotoPersona)
-#   anversoData = leerDataUrl(anverso)
-#   reversoData = leerDataUrl(reverso)
-
-#   reconocer = reconocerRostro(fotoPersonaData, anversoData)
-#   coincidencia = reconocer[0]
-#   estadoVericacion = reconocer[1]
-#   anversoOrientado = reconocer[2]
-
-#   fotoPersonaBlob = cv2Blob(fotoPersonaData)
-#   reversoBlob = cv2Blob(reversoData)
-
-
-#   columnasEvidencias = ('anverso_documento','reverso_documento','foto_usuario','estado_verificacion','tipo_documento')
-#   tablaEvidencias = 'evidencias_usuario'
-#   valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
-#   columnaActualizarEvidencias = 'id_evidencias'
-#   evidencias = controlador_db.agregarEvidencias(columnasEvidencias, tablaEvidencias,valoresEvidencias,tablaActualizar,columnaActualizarEvidencias, id)
-
-#   #tabla evidencias adicionales
-
-#   columnasEvidenciasAdicionales = ('estado_verificacion','dispositivo','navegador','ip_publica', 'ip_privada','latitud','longitud','hora','fecha',  'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr')
-#   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-#   valoresEvidenciasAdicionales = (estadoVericacion, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento)
-#   columnaActualizarEvidenciasAdicionales = 'id_evidencias_adicionales'
-#   evidenciasAdicionales = controlador_db.agregarEvidencias(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales,valoresEvidenciasAdicionales,tablaActualizar,columnaActualizarEvidenciasAdicionales, id)
-
-#   #actualizar documento usuario
-#   tipoDocumento = request.form.get('tipo_documento')
-#   tipoDocumento = tipoDocumento.lower()
-
-#   columnaTipoDocumento = 'tipo_documento'
-#   actualizarTipoDocumento = controlador_db.actualizarTipoDocumento(tablaActualizar, columnaTipoDocumento, tipoDocumento, id)
-
-#   return jsonify({"coincidenciaDocumentoRostro":coincidencia, "estadoVerificacion":estadoVericacion})
-  
 @app.errorhandler(405)
 def metodoNoPermitido(e):
   return jsonify({"mensaje": "metodo no permitido", "metodoUsado": request.method}), 405
@@ -504,6 +478,6 @@ if __name__ == "__main__":
     app.run(debug=True,host="0.0.0.0", port=4000)
   finally:
     print('reactivando')
-    time.sleep(2)
-    comando = 'python main.py'
-    resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
+    # time.sleep(2)
+    # comando = 'python main.py'
+    # resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)

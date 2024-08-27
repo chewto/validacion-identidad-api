@@ -65,8 +65,8 @@ credencialesDBEntidad = {
   }
 }
 
-pais = 'libertador'
-paisEntidad = 'libertador'
+pais = 'desarrollo'
+paisEntidad = 'desarrollo'
 
 passwordDB = credencialesDB[pais]["password"]
 nombreDB = credencialesDB[pais]["nombre"]
@@ -293,19 +293,23 @@ def comprobarProceso(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT count(ea.estado_verificacion), ea.estado_verificacion FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación" OR ea.estado_verificacion="se requiere nueva validación") and id_usuario_efirma = {id}'
+    queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
+FROM documento_usuario AS doc
+INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+WHERE id_usuario_efirma = {id}
+ORDER BY ev.id DESC
+LIMIT 1;
+"""
     cursor.execute(queryInfo)
 
     comprobacion = cursor.fetchone()
 
     if(comprobacion):
       return {
-        "validaciones": comprobacion[0],
         "estado": comprobacion[1]
       }
     else:
       return {
-        "validaciones": 0,
         "estado": ''
       }
 
@@ -349,6 +353,49 @@ def obtenerEntidad(id):
   except mariadb.Error as e:
 
     print("error =", e)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def selectProvider(id):
+  
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    print(e)
+    return False
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = "SELECT ent.nombre_entidad, ent.validacion FROM pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
+
+    cursor.execute(queryInfo, (id,))
+
+    entidad = cursor.fetchone()
+
+    if(entidad != None):
+
+      if(entidad[1] == None):
+        return False
+      
+      return True
+
+    else:
+      return False
+
+
+  except mariadb.Error as e:
+    print(e)
+    return False
 
   finally:
     conn.commit()

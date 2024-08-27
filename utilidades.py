@@ -57,6 +57,12 @@ def stringBool(string):
   if(string == 'false'):
       return False
 
+def boolString(bool):
+   if(bool):
+      return 'true'
+   else:
+      return 'false'
+
 
 def leerFileStorage(archivo):
 

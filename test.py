@@ -1,9 +1,9 @@
 import os
-import requests # pip install requests
+import requests
 
 # The authentication key (API Key).
 # Get your own by registering at https://app.pdf.co
-API_KEY = "markarredondo@yopmail.com_2pId7bE0nB7ik5YoRM828t6uciwdsGS9TTHe3Y2LDi7uKdN9eziz9XGZb2JwPha2"
+API_KEY = "thierryarsenalhenry@yopmail.com_xBF2tLZ4Q1CRQbMtX8BOAXLFLnqFZ6iy66lWvQrRIGUBHVvNOCCqCibQlFyAwQRY"
 
 # Base URL for PDF.co Web API requests
 BASE_URL = "https://api.pdf.co/v1"
@@ -83,6 +83,7 @@ def uploadFile(fileName):
 
             # 2. UPLOAD FILE TO CLOUD.
             with open(fileName, 'rb') as file:
+                print(file)
                 requests.put(uploadUrl, data=file, headers={ "x-api-key": API_KEY, "content-type": "application/octet-stream" })
 
             return uploadedFileUrl
