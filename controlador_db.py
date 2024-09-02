@@ -19,11 +19,11 @@ credencialesDB = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_validacion',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -50,11 +50,11 @@ credencialesDBEntidad = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -65,8 +65,8 @@ credencialesDBEntidad = {
   }
 }
 
-pais = 'desarrollo'
-paisEntidad = 'desarrollo'
+pais = 'eFirmaPanama'
+paisEntidad = 'eFirmaPanama'
 
 passwordDB = credencialesDB[pais]["password"]
 nombreDB = credencialesDB[pais]["nombre"]
@@ -371,7 +371,7 @@ def selectProvider(id):
     )
   except mariadb.Error as e:
     print(e)
-    return False
+    return 'EFIRMA'
 
   try:
     cursor = conn.cursor()
@@ -385,17 +385,17 @@ def selectProvider(id):
     if(entidad != None):
 
       if(entidad[1] == None):
-        return False
+        return 'EFIRMA'
       
-      return True
+      return entidad[1]
 
     else:
-      return False
+      return 'EFIRMA'
 
 
   except mariadb.Error as e:
     print(e)
-    return False
+    return 'EFIRMA'
 
   finally:
     conn.commit()

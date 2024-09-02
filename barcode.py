@@ -101,8 +101,41 @@ def validateBarcode(documentDataUrl, fileName):
 
 def barcodeDTO(barcodeData):
 
+  if(barcodeData == None):
+    return {
+      "codigoAFIS": '',
+      "huella": '',
+      "numeroDocumento": '',
+      "primerNombre": '',
+      "segundoNombre": '',
+      "primerApellido": '',
+      "segundoApellido": '',
+      "genero": '',
+      "anhoNacimiento": '',
+      "mesNacimiento": '',
+      "diaNacimiento": '',
+      "codigoMunicipio": '',
+      "codigoDepartamento": '',
+      "tipoSangre": ''
+  }
+
   if(len(barcodeData) <= 0):
-    return ''
+    return {
+      "codigoAFIS": '',
+      "huella": '',
+      "numeroDocumento": '',
+      "primerNombre": '',
+      "segundoNombre": '',
+      "primerApellido": '',
+      "segundoApellido": '',
+      "genero": '',
+      "anhoNacimiento": '',
+      "mesNacimiento": '',
+      "diaNacimiento": '',
+      "codigoMunicipio": '',
+      "codigoDepartamento": '',
+      "tipoSangre": ''
+  }
 
   codigoAFIS = barcodeData[2:10]
 

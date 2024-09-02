@@ -22,7 +22,7 @@ app.config['CORS_HEADER'] = 'Content-type'
 
 
 
-@app.route('/health', methods=['GET'])
+@app.route('/', methods=['GET'])
 def health():
 
   if(request.method == 'GET'):
@@ -192,8 +192,8 @@ def verificarReverso():
     if(totalValidacion >= 1):
       ladoValido = True
 
-    if((lecturaCodigoBarras == False) or
-      (lecturaCodigoBarras == True and (tipoDocumento == "Pasaporte"))
+    if((lecturaCodigoBarras != 'EFIRMA-QR') or
+      (lecturaCodigoBarras == 'EFIRMA-QR' and (tipoDocumento == "Pasaporte"))
       ):
 
       return jsonify({
@@ -246,6 +246,16 @@ def verificarReverso():
       'ladoValido': ladoValido
     })
 
+
+@app.route('/proveedor-lector', methods=['GET'])
+def proveedorLector():
+  entityId = request.args.get('entityId')
+
+  selectProvider = controlador_db.selectProvider(id=entityId)
+
+  validationProvider = selectProvider
+
+  return jsonify({"proveedor": validationProvider})
 
 @app.route('/prueba-vida', methods=['POST'])
 def pruebaVida():
@@ -376,10 +386,10 @@ def validacionIdentidadTipo3():
   apellidoCodigoBarras = request.form.get('apellido_CB')
   documentoCodigoBarras = request.form.get('documento_CB')
 
-  reconocidoCodigoBarras = stringBool(reconocidoCodigoBarras)
-  nombreCodigoBarras = stringBool(nombreCodigoBarras)
-  apellidoCodigoBarras = stringBool(apellidoCodigoBarras)
-  documentoCodigoBarras =stringBool(documentoCodigoBarras)
+  # reconocidoCodigoBarras = stringBool(reconocidoCodigoBarras)
+  # nombreCodigoBarras = stringBool(nombreCodigoBarras)
+  # apellidoCodigoBarras = stringBool(apellidoCodigoBarras)
+  # documentoCodigoBarras =stringBool(documentoCodigoBarras)
 
   #leer data url
   fotoPersonaData = leerDataUrl(fotoPersona)
