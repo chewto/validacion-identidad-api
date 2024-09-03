@@ -257,51 +257,6 @@ def proveedorLector():
 
   return jsonify({"proveedor": validationProvider})
 
-@app.route('/prueba-vida', methods=['POST'])
-def pruebaVida():
-
-  id = request.args.get("id")
-
-  formato = "webm"
-
-  video = request.files.get("video")
-
-  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
-
-  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
-
-  pathUsuario = f"{pathEntidad}/{usuarioId}"
-
-  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
-
-  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
-
-  creadoEntidad = False
-  creadoUsuario = False
-
-  if(not existenciaCarpetaEntidad):
-    os.mkdir(pathEntidad)
-    creadoEntidad = True
-
-  if(not existenciaCarpetaUsuario):
-    os.mkdir(pathUsuario)
-    creadoUsuario = True
-
-  pathPrueba = ""
-
-  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}-prueba.{formato}"
-    
-    video.save(pathPrueba)
-
-  frames = obtenerFrames(pathPrueba)
-
-  dataURL, rostroReferencia, rostrosComparacion = deteccionRostro(frames)
-
-  movimientoDetectado = determinarMovimiento(rostroReferencia, rostrosComparacion)
-
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "preview":dataURL})
-
 @app.route('/obtener-usuario', methods=['GET'])
 def obtenerUsuario():
 
