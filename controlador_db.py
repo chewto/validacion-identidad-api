@@ -31,6 +31,13 @@ credencialesDB = {
     "host":'216.225.195.14',
     "port":3306,
     "user":'administrador'
+  },
+  "honducert":{
+    "password":'10830921',
+    "nombre":'pki_validacion',
+    "host":'154.38.190.87',
+    "port":3306,
+    "user":'root'
   }
 }
 
@@ -62,10 +69,17 @@ credencialesDBEntidad = {
     "host":'216.225.195.14',
     "port":3306,
     "user":'administrador'
+  },
+  "honducert":{
+    "password":'10830921',
+    "nombre":'pki_firma_electronica',
+    "host":'154.38.190.87',
+    "port":3306,
+    "user":'root'
   }
 }
 
-credenciales = 'eFirmaPanama'
+credenciales = 'desarrollo'
 
 
 passwordDB = credencialesDB[credenciales]["password"]
@@ -121,7 +135,6 @@ def selectData(query, *values):
     conn.commit()
     cursor.close()
     conn.close()
-
 
 def getUser(tabla,id):
   
@@ -205,12 +218,21 @@ def comprobarProceso(id):
       database=nombreDB
     )
   except mariadb.Error as e:
+    print(e)
     return f"error en la query, error = {e}"
 
   try:
     cursor = conn.cursor()
 
     queryInfo = f'SELECT count(ea.estado_verificacion), ea.estado_verificacion FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación" OR ea.estado_verificacion="se requiere nueva validación") and id_usuario_efirma = {id}'
+    # queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
+    # FROM documento_usuario AS doc
+    # INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+    # WHERE id_usuario_efirma = {id}
+    # ORDER BY ev.id DESC
+    # LIMIT 1;
+    # """
+    
     cursor.execute(queryInfo)
 
     comprobacion = cursor.fetchone()
@@ -229,6 +251,59 @@ def comprobarProceso(id):
   except mariadb.Error as e:
 
     print("error =", e)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def checkValidation(id):
+
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
+    FROM documento_usuario AS doc
+    INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+    WHERE id_usuario_efirma = {id}
+    ORDER BY ev.id DESC
+    LIMIT 1;
+    """
+    
+    cursor.execute(queryInfo)
+
+    comprobacion = cursor.fetchone()
+
+    if(comprobacion):
+      return {
+        "id": comprobacion[0],
+        "estado": comprobacion[1]
+      }
+    else:
+      return {
+        "id": 0,
+        "estado": ''
+      }
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+    return {
+        "id": 0,
+        "estado": ''
+      }
 
   finally:
     conn.commit()

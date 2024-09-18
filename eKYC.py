@@ -5,8 +5,14 @@ import json
 from ocr import extraerPorcentaje
 
 user = {
-    "login": "honducert_ekyctest",
-    "password":"CW9R)(!L-7q8jYBp"
+    "login": "honducert_test",
+    "password":"XaG7,9K.iR"
+}
+
+#this will generate the admin token
+userBackOffice = {
+  "login": "backoffice_test_hon",
+  "password":"MmiA{uX44."
 }
 
 videoURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
@@ -42,12 +48,14 @@ def postRequest(url, headers, data):
 
 def getAdminToken():
 
-  adminRes = postRequest(url=adminURL, data=user, headers={})
+  adminRes = postRequest(url=adminURL, data=userBackOffice, headers={})
+
+  errorCodes = ['400.0', '404.0','403.0']
 
   token = adminRes['adminToken']
 
-  if(len(token) <= 0):
-    return ''
+  if(adminRes['status'] in errorCodes and adminRes['code'] in errorCodes):
+    return False
   
   return token
 
@@ -120,11 +128,11 @@ def getSession(sessionData, sessionHeaders):
 
   return sessionRes
 
-def ekycData(validationDataRaw, userSignData):
+def ekycDataDTO(validationDataRaw, userSignData):
 
   if(len(validationDataRaw) <= 28):
     return {
-      "faceResult": 'Pendiente revision',
+      "faceResult": False,
       "name": {
         "ocrData": 'no encontrado',
         "ocrPercent": 0
@@ -136,8 +144,7 @@ def ekycData(validationDataRaw, userSignData):
       "document": {
         "ocrData": 'no encontrado',
         "ocrPercent": 0
-      },
-      "authenticity": ''
+      }
     }
 
   dataDict = json.loads(validationDataRaw)
@@ -150,13 +157,11 @@ def ekycData(validationDataRaw, userSignData):
 
   ocr = dataDict['ocr_m2']['standard_fields']
 
-  validationExtra = dataDict['validation_m2']['standard_fields']
-
   if('test_face_recognition_ratio' in face):
 
-    data['faceResult'] = 'Verificado' if face['test_face_recognition_ratio'] >= 0.5 else 'Pendiente revisión'
+    data['faceResult'] = True if face['test_face_recognition_ratio'] >= 0.5 else False
   else:
-    data['faceResult'] = 'Pendiente revisión'
+    data['faceResult'] = False
 
   if('name' in ocr):
 
@@ -168,10 +173,16 @@ def ekycData(validationDataRaw, userSignData):
 
     coincidence = extraerPorcentaje(OCRname, name)
 
-    data['name'] = {
-      "ocrData": OCRname,
-      "ocrPercent": int(coincidence)
-    }
+    if(coincidence >= 50.0):
+      data['name'] = {
+        "ocrData": OCRname,
+        "ocrPercent": int(coincidence)
+      }
+    else:
+      data['name'] = {
+        "ocrData": 'no encontrado',
+        "ocrPercent": 0
+      }
 
   else:
     data['name'] = {
@@ -197,9 +208,16 @@ def ekycData(validationDataRaw, userSignData):
 
     coincidence = extraerPorcentaje(OCRsurname,surname)
 
-    data['surname'] = {
-      "ocrData": OCRsurname,
-      "ocrPercent": int(coincidence)
+    if(coincidence >= 50.0):
+
+      data['surname'] = {
+        "ocrData": OCRsurname,
+        "ocrPercent": int(coincidence)
+      }
+    else:
+      data['surname'] =   {
+      "ocrData": 'no encontrado',
+      "ocrPercent": 0
     }
 
   else:
@@ -215,10 +233,17 @@ def ekycData(validationDataRaw, userSignData):
 
     coincidence = extraerPorcentaje(OCRdocument, document)
 
-    data['document'] = {
-      'ocrData': OCRdocument,
-      'ocrPercent': int(coincidence)
-    }
+    if(coincidence >= 50.0):
+      data['document'] = {
+        'ocrData': OCRdocument,
+        'ocrPercent': int(coincidence)
+      }
+
+    else:
+      data['document'] = {
+        "ocrData": 'no encontrado',
+        "ocrPercent": 0
+      }
   else:
     data['document'] = {
       "ocrData": 'no encontrado',
@@ -226,11 +251,55 @@ def ekycData(validationDataRaw, userSignData):
     }
 
 
-  if('test_global_authenticity_value' in validationExtra):
-    aunthenticity = validationExtra['test_global_authenticity_value']
+  # if('test_global_authenticity_value' in validationExtra):
+  #   aunthenticity = validationExtra['test_global_authenticity_value']
 
-    data['authenticity'] = aunthenticity
-  else:
-    data['authenticity'] = '!OK'
+  #   data['authenticity'] = aunthenticity
+  # else:
+  #   data['authenticity'] = '!OK'
 
   return data
+
+def ekycRules(rulesDict):
+
+  if(rulesDict == 'no se encontro la validación'):
+    return rulesDict, False
+
+  rulesData = []
+
+  approvedRulesCount = 0
+  deniedRulesCount = 0
+
+  dataDictionary = json.loads(rulesDict)
+
+  rules = dataDictionary['validation_m2']
+  standardFields = rules['standard_fields']
+
+  rulesJson = json.dumps(rules)
+
+  for key in standardFields:
+    value = standardFields.get(key)
+
+    if(isinstance(value, float)):
+      floatValues = True if value >= 0.5 else False
+      rulesData.append(floatValues)
+
+    if(isinstance(value, int)):
+      intValues = True if value >= 1 else False
+      rulesData.append(intValues)
+
+    if(isinstance(value, str)):
+      strValues = True if value == 'OK' else False
+      rulesData.append(strValues)
+
+  for rule in rulesData:
+    if(rule):
+      approvedRulesCount += 1
+    else:
+      deniedRulesCount += 1
+
+  if(approvedRulesCount >= deniedRulesCount):
+    return rulesJson, True
+  else:
+    return rulesJson, False
+  

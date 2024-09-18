@@ -1,5 +1,4 @@
 absl-py==2.0.0
-aspose-barcode-for-python-via-net==24.1
 astunparse==1.6.3
 attrs==23.1.0
 beautifulsoup4==4.12.3
@@ -82,11 +81,9 @@ rapidfuzz==3.5.2
 requests==2.31.0
 retina-face==0.0.17
 rich==13.7.1
-simple-websocket==1.0.0
 six==1.16.0
 sounddevice==0.4.6
 soupsieve==2.5
-SQLAlchemy==2.0.25
 sympy==1.12.1
 tbb==2021.13.0
 tensorboard==2.16.2
