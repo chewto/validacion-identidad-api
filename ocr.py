@@ -9,7 +9,7 @@ from utilidades import readDataURL, ordenamiento
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-pais = 'col'
+pais = 'hn'
 
 infoHash = {
         "col": {
@@ -38,6 +38,20 @@ infoHash = {
             "Cédula de extranjería": {
                 "anverso": [],
                 "reverso": []
+            }
+        },
+        "hn":{
+            "DNI": {
+                "anverso": [],
+                "reverso": []
+            },
+            "Carnet de residente": {
+                "anverso": [],
+                "reverso": []
+            },
+            "Pasaporte":{
+                "anverso":[],
+                "reverso":[]
             }
         }
     }

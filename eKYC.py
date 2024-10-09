@@ -4,16 +4,26 @@ import json
 
 from ocr import extraerPorcentaje
 
+# user = {
+#     "login": "clinpays_ekyctest",
+#     "password":"zdU62r{Z._9jYQNa"
+# }
+
 user = {
     "login": "honducert_test",
     "password":"XaG7,9K.iR"
 }
 
-#this will generate the admin token
+# this will generate the admin token
 userBackOffice = {
   "login": "backoffice_test_hon",
   "password":"MmiA{uX44."
 }
+
+# userBackOffice = {
+#   "login": "clinpays_ekyctest",
+#   "password":"zdU62r{Z._9jYQNa"
+# }
 
 videoURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
 

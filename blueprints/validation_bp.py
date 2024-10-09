@@ -114,7 +114,7 @@ def lleidaValidation():
 
   ekycExtractedRules, validRules = ekycRules(validationInfo)
 
-  isValid = 'Verificado' if(validRules == eKYCValidation['faceResult']) else 'iniciando segunda validación'
+  isValid = 'Verificado' if(validRules == eKYCValidation['faceResult']) else 'No verificado'
 
   tableColumns = ('selfie','anverso_documento','reverso_documento','info_validacion','check_validacion','reglas_negocio','callId')
   insertValues = (selfie, front_ID, back_ID, validationInfo, validationCheck, ekycExtractedRules,callId)
