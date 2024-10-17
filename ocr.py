@@ -54,7 +54,7 @@ infoHash = {
                 "reverso": []
             },
             "Pasaporte":{
-                "anverso":[],
+                "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION'],
                 "reverso":[]
             }
         }
@@ -91,9 +91,7 @@ def ocr(imagen: str, preprocesado):
 
     if(preprocesado == False):
         txt: str = tess.image_to_string(imagen)
-
         lineas: list[str] = txt.splitlines()
-
         return lineas
 
     if(preprocesado):

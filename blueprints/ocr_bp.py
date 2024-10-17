@@ -61,6 +61,9 @@ def verificarAnverso():
 
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
+    print(documentoOCRSencillo)
+    print(documentoOCRPre)
+
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
     numeroDocumentoOCR, porcentajeDocumento = validacionOCR(documentoOCRSencillo, numeroDocumento)
