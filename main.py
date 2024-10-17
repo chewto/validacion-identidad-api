@@ -6,6 +6,7 @@ from utilidades import readDataURL
 import os
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
+from lector_codigo import barcodeReader
 
 app = Flask(__name__)
 
@@ -43,15 +44,12 @@ def obtenerFirmador(id):
 
 @app.route('/prueba', methods=['POST'])
 def frame():
+  
+  reqBody = request.get_json()
 
-  res = request.get_json()
+  barcodes = barcodeReader(reqBody['imagen'], reqBody['id'], 'reverso')
 
-  selfie = res['selfie']
-
-  ndArray = readDataURL(selfie)
-  antiSpoofingtest = extractFaces(ndArray=ndArray, anti_spoofing=True)
-
-  return jsonify({"result": antiSpoofingtest})
+  return jsonify({"result": barcodes})
 
 
 @app.route('/anti-spoof', methods=['POST'])

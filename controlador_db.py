@@ -79,7 +79,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'honducert'
+credenciales = 'desarrollo'
 
 
 passwordDB = credencialesDB[credenciales]["password"]

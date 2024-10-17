@@ -1,44 +1,43 @@
 
 from flask import Blueprint, request, jsonify
 
+from lector_codigo import barcodeReader, hasBarcode
 from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento
+from mrz import hasMRZ, extractMRZ
 from reconocimiento import extractFaces, orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
-@ocr_bp.route('/ocr-test', methods=['POST'])
-def prueba():
-  return 'test'
-
-
 #rutas para el front
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
-    documento = request.get_json()
+    reqBody = request.get_json()
 
-    imagenPersona = documento['imagenPersona']
+    efirmaId = reqBody['id']
 
-    imagenDocumento = documento['imagen']
+    imagenPersona = reqBody['imagenPersona']
 
-    ladoDocumento = documento['ladoDocumento']
+    imagenDocumento = reqBody['imagen']
 
-    tipoDocumento = documento['tipoDocumento']
+    ladoDocumento = reqBody['ladoDocumento']
+
+    tipoDocumento = reqBody['tipoDocumento']
 
     documentoData = readDataURL(imagenDocumento)
 
     personaData = readDataURL(imagenPersona)
 
-    nombre = documento['nombre']
+    nombre = reqBody['nombre']
 
     nombre = textNormalize(nombre)
 
-    apellido = documento['apellido']
+    apellido = reqBody['apellido']
 
     apellido = textNormalize(apellido)
 
-    numeroDocumento = documento['documento']
+    numeroDocumento = reqBody['documento']
 
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
@@ -50,6 +49,7 @@ def verificarAnverso():
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
 
+
     totalValidacionLado = validarLadoPre + validarLadoSencillo
 
     ladoValido = False
@@ -57,9 +57,9 @@ def verificarAnverso():
     if(totalValidacionLado >=1):
       ladoValido = True
 
-    documentoOCRSencillo = ocr(documentoOrientado, 'sencillo')
+    documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
 
-    documentoOCRPre = ocr(documentoOrientado, 'preprocesado')
+    documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
@@ -73,12 +73,8 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
-    # coincidencia = False
 
-    if(len(carasImagenPersona) >= 1 and len(carasImagenDocumento) >= 1):
-      coincidencia = True
-
-    return jsonify({
+    results = {
       'ocr': {
           'nombreOCR': nombreComparado,
           'apellidoOCR': apellidoComparado,
@@ -91,44 +87,58 @@ def verificarAnverso():
         },
       'rostro': verifyDocument,
       'ladoValido': ladoValido
-    })
+    }
+
+    documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
+
+    if(documentBarcode):
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, 'anverso')
+      results['codigoBarra'] = detectedBarcodes
+
+    mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
+
+    extractedMRZ = ''
+
+    if(documentMRZ):
+      mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
+      mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      extractedMRZ += f"{mrz} {mrzPre}"
+
+      results['mrz'] = extractedMRZ
+
+    return jsonify(results), 200
 
 
 #rutas para el front
 @ocr_bp.route('/reverso', methods=['POST'])
 def verificarReverso():
 
-  
+    reqBody = request.get_json()
 
-    dataOCR = {
-      'numeroDocumentoOCR': 'no encontrado',
-      'nombreOCR': 'no encontrado',
-      'apellidoOCR': 'no encontrado'
-    }
-    
-    documento = request.get_json()
+    efirmaId = reqBody['id']
 
-    imagenDocumento = documento['imagen']
+    imagenDocumento = reqBody['imagen']
 
-    ladoDocumento = documento['ladoDocumento']
+    ladoDocumento = reqBody['ladoDocumento']
 
-    tipoDocumento = documento['tipoDocumento']
+    tipoDocumento = reqBody['tipoDocumento']
 
     documentoData = readDataURL(imagenDocumento)
     
-    nombre = documento['nombre']
+    nombre = reqBody['nombre']
 
     nombre = textNormalize(nombre)
 
-    apellido = documento['apellido']
+    apellido = reqBody['apellido']
 
     apellido = textNormalize(apellido)
 
-    numeroDocumento = documento['documento']
+    numeroDocumento = reqBody['documento']
 
-    # documentoOCRSencillo = ocr(documentoData, 'sencillo')
+    documentoOCRSencillo = ocr(documentoData, preprocesado=False)
 
-    # documentoOCRPre = ocr(documentoData, 'preprocesado')
+    documentoOCRPre = ocr(documentoData, preprocesado=True)
 
     # busquedaSencillo = busquedaData(documentoOCRSencillo, nombre, apellido, numeroDocumento)
     # busquedaPre = busquedaData(documentoOCRPre, nombre, apellido, numeroDocumento)
@@ -145,51 +155,27 @@ def verificarReverso():
     if(totalValidacion >= 1):
       ladoValido = True
 
-    return jsonify({
-        "codigoBarra":{
-          'reconocido': 'false',
-          'nombre':'false',
-          'apellido':'false',
-          'documento':'false'
-        },
-        'ladoValido': ladoValido
-      })
 
-    codigoBarrasData = lector_codigo.lectorCodigoBarras(imagenDocumento, tipoDocumento)
+    results = {
+      'ladoValido': ladoValido
+    }
 
-    if(codigoBarrasData is False):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'false',
-          'nombre': 'false',
-          'apellido':'false',
-          'documento':'false'
-        },
-        "ladoValido": validarLado
-      })
+    documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
 
-    validacionNombre = lector_codigo.validarDataCodigo(nombre, f"{codigoBarrasData['primerNombre']}" + ' ' + f"{codigoBarrasData['segundoNombre']}")
-    validacionApellido = lector_codigo.validarDataCodigo(apellido, f"{codigoBarrasData['primerApellido']}" + ' ' + f"{codigoBarrasData['segundoApellido']}")
-    validacionDocumento = lector_codigo.validarDataCodigo(numeroDocumento, f"{codigoBarrasData['numeroDocumento']}")
+    if(documentBarcode):
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, 'reverso')
+      results['codigoBarra'] = detectedBarcodes
 
+    mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
 
-    if(tipoDocumento == 'Cédula de extranjería'):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'true',
-          'nombre':'true',
-          'apellido':'true',
-          'documento':'true'
-        },
-        'ladoValido': validarLado
-      })
-    if(tipoDocumento == 'Cédula de ciudadanía'):
-      return jsonify({
-        "codigoBarra":{
-          'reconocido': 'true',
-          'nombre':validacionNombre,
-          'apellido':validacionApellido,
-          'documento':validacionDocumento
-        },
-        'ladoValido': validarLado
-      })
+    extractedMRZ = ''
+
+    if(documentMRZ):
+      mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
+      mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      extractedMRZ += f"{mrz} {mrzPre}"
+
+      results['mrz'] = extractedMRZ
+
+    return jsonify(results), 200

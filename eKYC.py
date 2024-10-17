@@ -115,7 +115,12 @@ def getDecodedData(encodedData):
   return decodedData
 
 def getVideoToken():
+  errorCodes = ['400.0', '404.0', '401.0']
+
   videoRes = postRequest(url=videoURL,data=user, headers={})
+
+  if(videoRes['status'] in errorCodes and videoRes['code'] in errorCodes):
+    return 'invalido'
 
   token = videoRes['adminToken']
 
@@ -259,14 +264,6 @@ def ekycDataDTO(validationDataRaw, userSignData):
       "ocrData": 'no encontrado',
       "ocrPercent": 0
     }
-
-
-  # if('test_global_authenticity_value' in validationExtra):
-  #   aunthenticity = validationExtra['test_global_authenticity_value']
-
-  #   data['authenticity'] = aunthenticity
-  # else:
-  #   data['authenticity'] = '!OK'
 
   return data
 

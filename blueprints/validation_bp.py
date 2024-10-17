@@ -146,6 +146,8 @@ def lleidaValidation():
 @validation_bp.route('/cbs/get-session', methods=['POST'])
 def createSession():
 
+  reqBody = request.get_json()
+
   token = getVideoToken()
 
   sessionHeader = {
@@ -155,8 +157,8 @@ def createSession():
   data = {
     "externalId": "0132456",
     "userClientIP": "8.8.8.8",
-    "latitude": "22.1462027",
-    "longitude": "113.56829379999999",
+    "latitude": reqBody['latitude'],
+    "longitude": reqBody['longitude'],
     "userAgentHeader": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
   }
 

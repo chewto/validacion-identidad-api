@@ -15,6 +15,14 @@ browserPatterns = {
     "Opera": r"OPR\/([\d\.]+)"
 }
 
+def listToText(list):
+  string = ''
+  
+  for element in list:
+    string += element
+
+  return string
+
 def getBrowser(userAgent):
     for browser, pattern in browserPatterns.items():
         match = re.search(pattern, userAgent)
@@ -27,7 +35,8 @@ def textNormalize(texto:str):
   texto = texto.strip()
   textoNormalizado = unicodedata.normalize('NFD', texto)
   sinAcentos  = ''.join(c for c in textoNormalizado if unicodedata.category(c) != 'Mn')
-  return sinAcentos
+  toUpper = sinAcentos.upper()
+  return toUpper
 
 def readDataURL(imagen):
 
