@@ -9,6 +9,34 @@ import subprocess
 country = 'HND'
 
 barcodes = {
+  "COL": {
+            "Cédula de ciudadanía": {
+                "anverso": False,
+                "reverso": True
+            },
+            "Cédula de extranjería": {
+                "anverso": False,
+                "reverso": True
+            },
+            "Permiso por protección temporal": {
+                "anverso": False,
+                "reverso": False
+            },
+            "Pasaporte":{
+                "anverso":False,
+                "reverso":False
+            }
+        },
+        "PTY":{
+            "Cédula de ciudadanía": {
+                "anverso": False,
+                "reverso": True
+            },
+            "Cédula de extranjería": {
+                "anverso": False,
+                "reverso": True
+            }
+        },
   'HND': {
     "DNI":{
       "anverso": False,
@@ -59,4 +87,4 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
   barcodesExtracted = sessionsExtracted["barcodes"]
   barcodesDetected = len(barcodesExtracted)
 
-  return True if barcodesDetected >= 1 else False
+  return 'OK' if barcodesDetected >= 1 else '!OK'

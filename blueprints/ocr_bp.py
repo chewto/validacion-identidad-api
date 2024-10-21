@@ -16,28 +16,18 @@ def verificarAnverso():
     reqBody = request.get_json()
 
     efirmaId = reqBody['id']
-
     imagenPersona = reqBody['imagenPersona']
-
     imagenDocumento = reqBody['imagen']
-
     ladoDocumento = reqBody['ladoDocumento']
-
     tipoDocumento = reqBody['tipoDocumento']
-
-    documentoData = readDataURL(imagenDocumento)
-
-    personaData = readDataURL(imagenPersona)
-
     nombre = reqBody['nombre']
+    apellido = reqBody['apellido']
+    numeroDocumento = reqBody['documento']
 
     nombre = textNormalize(nombre)
-
-    apellido = reqBody['apellido']
-
     apellido = textNormalize(apellido)
-
-    numeroDocumento = reqBody['documento']
+    documentoData = readDataURL(imagenDocumento)
+    personaData = readDataURL(imagenPersona)
 
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
@@ -48,8 +38,6 @@ def verificarAnverso():
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
-
-
     totalValidacionLado = validarLadoPre + validarLadoSencillo
 
     ladoValido = False
@@ -58,11 +46,7 @@ def verificarAnverso():
       ladoValido = True
 
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
-
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
-
-    print(documentoOCRSencillo)
-    print(documentoOCRPre)
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
@@ -76,14 +60,13 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
-
     results = {
       'ocr': {
           'nombreOCR': nombreComparado,
           'apellidoOCR': apellidoComparado,
           'documentoOCR': documentoComparado
       },
-      'porcentajes': {
+      'porcentajesOCR': {
           'porcentajeNombreOCR': porcentajeNombreComparado,
           'porcentajeApellidoOCR': porcentajeApellidoComparado,
           'porcentajeDocumentoOCR': porcentajeDocumentoComparado
@@ -93,22 +76,21 @@ def verificarAnverso():
     }
 
     documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
-
     if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, 'anverso')
-      results['codigoBarra'] = detectedBarcodes
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      results['codigoBarras'] = detectedBarcodes
+    else:
+      results['codigoBarras'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
-
     extractedMRZ = ''
-
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
-
-      extractedMRZ += f"{mrz} {mrzPre}"
-
+      extractedMRZ += f"{mrz} {mrzPre} mrz extraido desde el {ladoDocumento}"
       results['mrz'] = extractedMRZ
+    else:
+      results['mrz'] = 'documento sin codigo mrz'
 
     return jsonify(results), 200
 
@@ -120,37 +102,22 @@ def verificarReverso():
     reqBody = request.get_json()
 
     efirmaId = reqBody['id']
-
     imagenDocumento = reqBody['imagen']
-
     ladoDocumento = reqBody['ladoDocumento']
-
     tipoDocumento = reqBody['tipoDocumento']
-
-    documentoData = readDataURL(imagenDocumento)
-    
     nombre = reqBody['nombre']
-
-    nombre = textNormalize(nombre)
-
     apellido = reqBody['apellido']
-
-    apellido = textNormalize(apellido)
-
     numeroDocumento = reqBody['documento']
 
-    documentoOCRSencillo = ocr(documentoData, preprocesado=False)
+    nombre = textNormalize(nombre)
+    apellido = textNormalize(apellido)
+    documentoData = readDataURL(imagenDocumento)
 
+    documentoOCRSencillo = ocr(documentoData, preprocesado=False)
     documentoOCRPre = ocr(documentoData, preprocesado=True)
 
-    # busquedaSencillo = busquedaData(documentoOCRSencillo, nombre, apellido, numeroDocumento)
-    # busquedaPre = busquedaData(documentoOCRPre, nombre, apellido, numeroDocumento)
-
-
-    # print(busquedaSencillo, busquedaPre)
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
-
     totalValidacion = validarLadoPre + validarLadoSencillo
 
     ladoValido = False
@@ -158,27 +125,25 @@ def verificarReverso():
     if(totalValidacion >= 1):
       ladoValido = True
 
-
     results = {
       'ladoValido': ladoValido
     }
 
     documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
-
     if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, 'reverso')
-      results['codigoBarra'] = detectedBarcodes
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      results['codigoBarras'] = detectedBarcodes
+    else:
+      results['codigoBarras'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
-
     extractedMRZ = ''
-
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
-
       extractedMRZ += f"{mrz} {mrzPre}"
-
       results['mrz'] = extractedMRZ
+    else:
+      results['mrz'] = 'documento sin codigo mrz'
 
     return jsonify(results), 200

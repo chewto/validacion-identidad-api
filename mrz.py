@@ -4,6 +4,36 @@ from utilidades import listToText
 country = 'HND'
 
 documentMRZ = {
+   "COL": {
+            "Cédula de ciudadanía": {
+                "anverso": False,
+                "reverso": False
+            },
+            "Cédula de extranjería": {
+                "anverso": False,
+                "reverso": True,
+                "mrzLetter":"I<"
+            },
+            "Permiso por protección temporal": {
+                "anverso": False,
+                "reverso": False
+            },
+            "Pasaporte":{
+                "anverso":True,
+                "reverso":False,
+                "mrzLetter":"P<"
+            }
+        },
+        "PTY":{
+            "Cédula de ciudadanía": {
+                "anverso": False,
+                "reverso": False
+            },
+            "Cédula de extranjería": {
+                "anverso": False,
+                "reverso": False
+            }
+        },
   'HND': {
     "DNI":{
       "anverso": False,
@@ -41,6 +71,10 @@ def extractMRZ(ocr, mrzStartingLetter):
 
   if(findMrzIndex == -1):
     findMrzIndex = stringOCR.find("<")
+
+    if(findMrzIndex == -1):
+      return 'no se encontro el codigo mrz'
+
 
   mrz = stringOCR[findMrzIndex:ocrLength]
 

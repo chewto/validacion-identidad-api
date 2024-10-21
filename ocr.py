@@ -18,8 +18,8 @@ infoHash = {
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
             },
             "Cédula de extranjería": {
-                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'MIGRANTE', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
-                "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'NACIONALIDAD', 'EXPEDICION', 'VENCE', 'NO.', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
             },
             "Permiso por protección temporal": {
                 "anverso": [],
@@ -43,7 +43,7 @@ infoHash = {
         "hnd":{
             "DNI": {
                 "anverso": ['REGISTRO', 'NACIONAL','PERSONAS', 'HONDURAS', 'REGISTRO', 'DOCUMENTO', 'NACIONAL DE IDENTIFICACION', 'DOCUMENTO', 'IDENTIFICACION', 'LUGAR', 'NACIMIENTO', 'NACIONALIDAD', 'REGISTRO'],
-                "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS']
+                "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS', '<']
             },
             "Carnet de residente": {
                 "anverso": [],
@@ -54,7 +54,7 @@ infoHash = {
                 "reverso": []
             },
             "Pasaporte":{
-                "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION'],
+                "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION', '<'],
                 "reverso":[]
             }
         }
@@ -236,6 +236,7 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
+    print(tipoDocumento,ladoDocumento)
     lineas = []
 
     lineas = ocr(imagen=imagen, preprocesado=preprocesado)
