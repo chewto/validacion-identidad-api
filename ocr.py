@@ -5,11 +5,11 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from utilidades import leerDataUrl, ordenamiento
+from utilidades import readDataURL, ordenamiento
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-pais = 'col'
+pais = 'hnd'
 
 infoHash = {
         "col": {
@@ -18,8 +18,8 @@ infoHash = {
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
             },
             "Cédula de extranjería": {
-                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'MIGRANTE', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
-                "reverso": ["MIGRACION", "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'NACIONALIDAD', 'EXPEDICION', 'VENCE', 'NO.', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
             },
             "Permiso por protección temporal": {
                 "anverso": [],
@@ -38,6 +38,24 @@ infoHash = {
             "Cédula de extranjería": {
                 "anverso": [],
                 "reverso": []
+            }
+        },
+        "hnd":{
+            "DNI": {
+                "anverso": ['REGISTRO', 'NACIONAL','PERSONAS', 'HONDURAS', 'REGISTRO', 'DOCUMENTO', 'NACIONAL DE IDENTIFICACION', 'DOCUMENTO', 'IDENTIFICACION', 'LUGAR', 'NACIMIENTO', 'NACIONALIDAD', 'REGISTRO'],
+                "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS', '<']
+            },
+            "Carnet de residente": {
+                "anverso": [],
+                "reverso": []
+            },
+            "carnet de conducir": {
+                "anverso": [],
+                "reverso": []
+            },
+            "Pasaporte":{
+                "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION', '<'],
+                "reverso":[]
             }
         }
     }
@@ -69,17 +87,14 @@ def verificacionRostro(dataURL: str):
     if not found:
         return False
 
-def ocr(imagen: str, parametro):
+def ocr(imagen: str, preprocesado):
 
-
-    if(parametro == 'sencillo'):
+    if(preprocesado == False):
         txt: str = tess.image_to_string(imagen)
-
         lineas: list[str] = txt.splitlines()
-
         return lineas
-    
-    if(parametro == 'preprocesado'):
+
+    if(preprocesado):
 
         gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
         threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
@@ -94,6 +109,7 @@ def ocr(imagen: str, parametro):
 
 
 def validacionOCR(dataOCR, dataUsuario):
+
     dataUsuario = dataUsuario.split(" ")
 
     porcentajes = []
@@ -106,8 +122,8 @@ def validacionOCR(dataOCR, dataUsuario):
         linea = linea.split(" ")
 
         for lineaElemento in linea:
-            for dataElemento in dataUsuario:
 
+            for dataElemento in dataUsuario:
                 if(len(lineaElemento) >=1):
                     porcentaje = extraerPorcentaje(dataElemento, lineaElemento)
                     similitud = Levenshtein.distance(dataElemento, lineaElemento)
@@ -220,13 +236,10 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
+    print(tipoDocumento,ladoDocumento)
     lineas = []
 
-    if(preprocesado):
-        lineas = ocr(imagen=imagen, parametro='preprocesado')
-
-    if(preprocesado == False):
-        lineas = ocr(imagen=imagen, parametro='sencillo')
+    lineas = ocr(imagen=imagen, preprocesado=preprocesado)
 
     ladoPalabras = infoHash[pais][tipoDocumento][ladoDocumento]
 
@@ -254,6 +267,9 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, pre
             palabra = palabra.upper()
 
             if(len(linea) >=1):
+                    if(palabra in linea):
+                        coincidencias += 1
+
                     porcentaje = extraerPorcentaje(palabra, linea)
                     similitud = Levenshtein.distance(palabra, linea)
                     data = {
@@ -271,7 +287,6 @@ def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, pre
             coincidencias += 1
 
     return coincidencias
-
 
 def busquedaData(ocr,nombre, apellido, documento):
 
@@ -301,5 +316,3 @@ def busquedaData(ocr,nombre, apellido, documento):
             for linea in divisionNombre:
                 if(len(linea) >=1):
                     documentoEncontrado.append(linea)
-
-    

@@ -19,11 +19,11 @@ credencialesDB = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_validacion',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -31,6 +31,13 @@ credencialesDB = {
     "host":'216.225.195.14',
     "port":3306,
     "user":'administrador'
+  },
+  "honducert":{
+    "password":'10830921',
+    "nombre":'pki_validacion',
+    "host":'154.38.190.87',
+    "port":3306,
+    "user":'root'
   }
 }
 
@@ -50,11 +57,11 @@ credencialesDBEntidad = {
     "user":'administrador'
   },
   "eFirmaPanama":{
-    "password":'30265611BOC',
+    "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'74.208.221.227',
     "port":3306,
-    "user":'administrador'
+    "user":'root'
   },
   "eFirmaCO":{
     "password":'30265611',
@@ -62,21 +69,30 @@ credencialesDBEntidad = {
     "host":'216.225.195.14',
     "port":3306,
     "user":'administrador'
+  },
+  "honducert":{
+    "password":'10830921',
+    "nombre":'pki_firma_electronica',
+    "host":'154.38.190.87',
+    "port":3306,
+    "user":'root'
   }
 }
 
+credenciales = 'desarrollo'
 
-passwordDB = credencialesDB["eFirmaPanama"]["password"]
-nombreDB = credencialesDB["eFirmaPanama"]["nombre"]
-hostDB = credencialesDB["eFirmaPanama"]["host"]
-portDB = credencialesDB["eFirmaPanama"]["port"]
-userDB = credencialesDB["eFirmaPanama"]["user"]
 
-passwordDBEntidad = credencialesDBEntidad["eFirmaPanama"]["password"]
-nombreDBEntidad = credencialesDBEntidad["eFirmaPanama"]["nombre"]
-hostDBEntidad = credencialesDBEntidad["eFirmaPanama"]["host"]
-portDBEntidad = credencialesDBEntidad["eFirmaPanama"]["port"]
-userDBEntidad = credencialesDBEntidad["eFirmaPanama"]["user"]
+passwordDB = credencialesDB[credenciales]["password"]
+nombreDB = credencialesDB[credenciales]["nombre"]
+hostDB = credencialesDB[credenciales]["host"]
+portDB = credencialesDB[credenciales]["port"]
+userDB = credencialesDB[credenciales]["user"]
+
+passwordDBEntidad = credencialesDBEntidad[credenciales]["password"]
+nombreDBEntidad = credencialesDBEntidad[credenciales]["nombre"]
+hostDBEntidad = credencialesDBEntidad[credenciales]["host"]
+portDBEntidad = credencialesDBEntidad[credenciales]["port"]
+userDBEntidad = credencialesDBEntidad[credenciales]["user"]
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -88,7 +104,39 @@ def obtenerIpPublica():
 
   return ip
 
-def obtenerUsuario(tabla,id):
+
+def selectData(query, *values):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return ()
+  
+  try:
+    cursor = conn.cursor()
+
+    cursor.execute(query, values)
+
+    data = cursor.fetchone()
+
+    return data
+
+  except mariadb.Error as e:
+    print(e)
+    return ()
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def getUser(tabla,id):
   
   conn = mariadb.connect(
     user=userDB,
@@ -116,8 +164,7 @@ def obtenerUsuario(tabla,id):
 
   return usuarioDiccionario
 
-
-def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:str, columnaActualizar:str, idParam):
+def insertTabla(columns: tuple, table:str, values: tuple):
 
   try:
     conn = mariadb.connect(
@@ -128,137 +175,23 @@ def agregarEvidencias(columnas:tuple,tabla:str, valores:tuple, tablaActualizar:s
       database=nombreDB
     )
   except mariadb.Error as e:
-    return f"error en la query, error = {e}"
+    print(f"error en la query, error = {e}")
+    return 0
 
   try:
     cursor = conn.cursor()
 
-    columnasStr:str = ','.join(columnas)
+    columnasStr:str = ','.join(columns)
     placeHolder:list = []
 
-    for columna in columnas:
-      placeHolder.append('?')
-
-    placeHolderStr:str = ','.join(placeHolder)
-
-    queryEvidencias = f"INSERT INTO {tabla}({columnasStr}) VALUES ({placeHolderStr})"
-    cursor.execute(queryEvidencias, valores)
-
-    evidenciasID = cursor.lastrowid
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {evidenciasID} WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return evidenciasID
-
-
-  except mariadb.Error as e:
-    print("error = ", e)
-
-    with open('log.txt', "a") as file:
-        file.write(f"error = {e}")
-
-    return f"error = {e}"
-
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def actualizarTipoDocumento(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = '{valorNuevo}' WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return 'actualizada data'
-
-  except mariadb.Error as e:
-    print("error = ", e)
-
-    with open('log.txt') as f:
-      f.write(f"error = {e}\n")
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def actualizarData(tablaActualizar:str,columnaActualizar:str,valorNuevo:any, idParam):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-
-    queryUpdate = f"UPDATE {tablaActualizar} SET {columnaActualizar} = {valorNuevo} WHERE id = {idParam}"
-    cursor.execute(queryUpdate)
-
-    return 'actualizada data'
-
-  except mariadb.Error as e:
-    print("error = ", e)
-    return f"error = {e}"
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-def insertTabla(columnas: tuple, tabla:str, valores: tuple):
-
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    return f"error en la query, error = {e}"
-
-  try:
-    cursor = conn.cursor()
-
-    columnasStr:str = ','.join(columnas)
-    placeHolder:list = []
-
-    for columna in columnas:
+    for columna in columns:
       placeHolder.append('?')
 
     placeHolderStr:str = ','.join(placeHolder)
 
 
-    queryInfo = f"INSERT INTO {tabla} ({columnasStr}) VALUES ({placeHolderStr})"
-    cursor.execute(queryInfo,valores)
+    query = f"INSERT INTO {table} ({columnasStr}) VALUES ({placeHolderStr})"
+    cursor.execute(query,values)
 
     documentoUsuarioID = cursor.lastrowid
 
@@ -267,13 +200,12 @@ def insertTabla(columnas: tuple, tabla:str, valores: tuple):
   except mariadb.Error as e:
 
     print("error =", e)
-    return f"error = {e}"
+    return 0
 
   finally:
     conn.commit()
     cursor.close()
     conn.close()
-
 
 def comprobarProceso(id):
 
@@ -286,24 +218,92 @@ def comprobarProceso(id):
       database=nombreDB
     )
   except mariadb.Error as e:
+    print(e)
     return f"error en la query, error = {e}"
 
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT count(ea.estado_verificacion) FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación") and id_usuario_efirma={id}'
+    queryInfo = f'SELECT count(ea.estado_verificacion), ea.estado_verificacion FROM documento_usuario as du INNER JOIN evidencias_adicionales ea ON ea.id=du.id_evidencias_adicionales WHERE (ea.estado_verificacion="verificado" OR ea.estado_verificacion="Iniciando segunda validación" OR ea.estado_verificacion="Procesando segunda validación" OR ea.estado_verificacion="se requiere nueva validación") and id_usuario_efirma = {id}'
+    # queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
+    # FROM documento_usuario AS doc
+    # INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+    # WHERE id_usuario_efirma = {id}
+    # ORDER BY ev.id DESC
+    # LIMIT 1;
+    # """
+    
     cursor.execute(queryInfo)
 
-    comprobacion = cursor.fetchall()
+    comprobacion = cursor.fetchone()
 
-    if(len(comprobacion) >= 1):
-      return comprobacion[-1]
+    if(comprobacion):
+      return {
+        "validaciones": comprobacion[0],
+        "estado": comprobacion[1]
+      }
     else:
-      return None
+      return {
+        "validaciones": 0,
+        "estado": ''
+      }
 
   except mariadb.Error as e:
 
     print("error =", e)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def checkValidation(id):
+
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return f"error en la query, error = {e}"
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
+    FROM documento_usuario AS doc
+    INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+    WHERE id_usuario_efirma = {id}
+    ORDER BY ev.id DESC
+    LIMIT 1;
+    """
+    
+    cursor.execute(queryInfo)
+
+    comprobacion = cursor.fetchone()
+
+    if(comprobacion):
+      return {
+        "id": comprobacion[0],
+        "estado": comprobacion[1]
+      }
+    else:
+      return {
+        "id": 0,
+        "estado": ''
+      }
+
+  except mariadb.Error as e:
+
+    print("error =", e)
+    return {
+        "id": 0,
+        "estado": ''
+      }
 
   finally:
     conn.commit()
@@ -321,7 +321,8 @@ def obtenerEntidad(id):
       database=nombreDBEntidad
     )
   except mariadb.Error as e:
-    return f"error en la query, error = {e}"
+    print(e)
+    return 0,0
 
   try:
     cursor = conn.cursor()
@@ -339,8 +340,51 @@ def obtenerEntidad(id):
 
 
   except mariadb.Error as e:
+    print(e)
+    return 0,0
 
-    print("error =", e)
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def selectProvider(id):
+  
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    print(e)
+    return 'EFIRMA'
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = "SELECT ent.nombre_entidad, ent.validacion FROM pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
+
+    cursor.execute(queryInfo, (id,))
+
+    entidad = cursor.fetchone()
+
+    if(entidad != None):
+
+      if(entidad[1] == None):
+        return 'EFIRMA'
+      
+      return entidad[1]
+
+    else:
+      return 'EFIRMA'
+
+
+  except mariadb.Error as e:
+    print(e)
+    return 'EFIRMA'
 
   finally:
     conn.commit()
