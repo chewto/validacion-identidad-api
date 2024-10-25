@@ -2,17 +2,38 @@ from flask import Blueprint, request, jsonify
 import controlador_db
 from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento
 from utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
-from eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest
-import json
+from eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest, getSessionStatus
 
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
-@validation_bp.route('/testing', methods=['GET'])
+@validation_bp.route('/webhook-lleida', methods=['POST'])
+def webhook():
+
+  reqBody = request.get_json()
+
+  userCoords = reqBody['coords'].split(',')
+
+  userLatitude = '0'
+
+  userLongitude = '0' 
+
+  return jsonify({'latitude': userLatitude,'longitude':userLongitude })
+
+@validation_bp.route('/test', methods=['POST'])
 def testing():
 
+  reqBody = request.get_json()
 
-  return ''
+  userCoords = reqBody['coords'].split(',')
+
+  print(len(userCoords))
+
+  userLatitude = '0' if(len(userCoords) <= 1) else userCoords[0]
+
+  userLongitude = '0' if(len(userCoords) <= 1) else userCoords[1]
+
+  return jsonify({'latitude': userLatitude,'longitude':userLongitude })
 
 
 @validation_bp.route('/validation-provider', methods=['GET'])
@@ -47,9 +68,9 @@ def lleidaValidation():
 
   userCoords = reqJson['coords'].split(',')
 
-  userLatitude = userCoords[0]
+  userLatitude ='0' if(len(userCoords) <= 1) else  userCoords[0]
 
-  userLongitude = userCoords[1]
+  userLongitude = '0' if(len(userCoords) <= 1) else  userCoords[1]
 
   userIp = reqJson['ip']
 
@@ -96,6 +117,8 @@ def lleidaValidation():
   if(adminToken == False):
     return jsonify({"error": "error generating the admin token"}), 400
 
+  sessionStatus = getSessionStatus(callId=callId, auth=adminToken)
+
   selfie = getValidationMedia(callId=callId, externalId=externalId, mediaType='FACE', auth=adminToken)
 
   front_ID = getValidationMedia(callId=callId, externalId=externalId, mediaType='ID_FRONT', auth=adminToken)
@@ -110,7 +133,7 @@ def lleidaValidation():
 
   ekycExtractedRules, validRules = ekycRules(validationInfo)
 
-  isValid = 'Verificado' if(validRules == eKYCValidation['faceResult']) else 'No verificado'
+  # isValid = 'Verificado' if(validRules == eKYCValidation['faceResult']) else 'No verificado'
 
   tableColumns = ('selfie','anverso_documento','reverso_documento','info_validacion','check_validacion','reglas_negocio','callId')
   insertValues = (selfie, front_ID, back_ID, validationInfo, validationCheck, ekycExtractedRules,callId)
@@ -123,7 +146,7 @@ def lleidaValidation():
   insertUserEvidenceId = controlador_db.insertTabla(columns=userEvidenceColumns, table='evidencias_usuario', values=userEvidenceValues)
 
   userAditionalsColumns = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_privada','latitud','longitud','hora','fecha','ip_publica','validacion_nombre_ocr','validacion_apellido_ocr','validacion_documento_ocr', 'nombre_ocr','apellido_ocr','documento_ocr', 'id_carpeta_entidad','id_carpeta_usuario','validacion_vida','proveedor_validacion', 'mrz','codigo_barras')
-  userAditionalsValues = (isValid, userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, eKYCValidation['name']['ocrPercent'], eKYCValidation['surname']['ocrPercent'],eKYCValidation['document']['ocrPercent'], eKYCValidation['name']['ocrData'],eKYCValidation['surname']['ocrData'],eKYCValidation['document']['ocrData'], 0, 0, 'OK' if(validRules) else '!OK', f'lleida {callId}', '','')
+  userAditionalsValues = (sessionStatus, userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, eKYCValidation['name']['ocrPercent'], eKYCValidation['surname']['ocrPercent'],eKYCValidation['document']['ocrPercent'], eKYCValidation['name']['ocrData'],eKYCValidation['surname']['ocrData'],eKYCValidation['document']['ocrData'], 0, 0, 'OK' if(validRules) else '!OK', f'lleida {callId}', '','')
   # userAditionalsValues = ("verificado", userDevice, userBrowser, privateIp, userLatitude, userLongitude, callHour, callDate, userIp, 0, 0, 0, '','', '', 0, 0, '', f'lleida {callId}')
 
   insertUserAditionalsId = controlador_db.insertTabla(columns=userAditionalsColumns, table='evidencias_adicionales', values=userAditionalsValues)

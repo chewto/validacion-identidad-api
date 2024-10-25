@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-from io import BytesIO
-from PIL import Image
-=======
 import random
 import string
 import uuid
->>>>>>> anti-spoofing-test
 import cv2
 import numpy as np
 import base64
@@ -71,16 +66,6 @@ def cv2Blob(imagen):
 
   return imagenBlob
 
-<<<<<<< HEAD
-def ioBytesDesdeDataURL(imagen):
-  _, encoded = imagen.split(",", 1)
-
-  imagenBytes = BytesIO(base64.b64decode(encoded))
-
-  imagen = Image.open(imagenBytes)
-
-  return imagen
-=======
 def recorteData(data):
   if(len(data)>= 499):
     nueva = data[0:498]
@@ -108,4 +93,3 @@ def leerFileStorage(archivo):
   with open(archivo, 'rb') as archivoOpen:
     data = archivoOpen.read()
   return data
->>>>>>> anti-spoofing-test

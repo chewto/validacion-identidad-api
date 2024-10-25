@@ -1,17 +1,42 @@
 import subprocess
 import os
 import sys
+import base64
+from PIL import Image
+from io import BytesIO
+import json
 
-args = []
-args.append('./BarcodeReaderCLI')
-args.append('-type=pdf417')
-args.append('../fotos-prueba/reverso_documento.jpeg')
-# args.append('@./brcli-example.config')  # Additional options and sources in configuration file
 
-cp = subprocess.run(args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-output=cp.stdout
-error=cp.stderr
+def barcodeReader():
+  folderBarcodes = './codigos-barras'
+  folderExistance = os.path.exists(folderBarcodes)
 
-if output != "": print("STDOUT:\n" + output)
-if error != "":  print("STDERR:\n" + error)
-# print("RETURN CODE:"  + str(print(cp.returncode)))
+  if(not folderExistance):
+    os.makedirs(folderBarcodes)
+
+  # header, encoded = photo.split(",",1)
+  # data = base64.b64decode(encoded)
+  # image = Image.open(BytesIO(data))
+  # imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
+  # image.save(imagePath)
+
+  exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
+  args = []
+  args.append(exe)
+  args.append('../fotos-prueba/reversa mafe.jpg')
+  process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  # barcodeExistance = os.path.exists(imagePath)
+  # if(barcodeExistance):
+  #   os.remove(imagePath)
+
+  string = process.stdout.decode('utf-8')
+  jsonProcess = json.loads(string)
+  print(jsonProcess)
+  sessionsExtracted = jsonProcess["sessions"][0]
+  barcodesExtracted = sessionsExtracted["barcodes"]
+  barcodesDetected = len(barcodesExtracted)
+
+  return 'OK' if barcodesDetected >= 1 else '!OK'
+
+barcodeReader()

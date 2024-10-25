@@ -4,11 +4,6 @@ import json
 
 from ocr import extraerPorcentaje
 
-# user = {
-#     "login": "clinpays_ekyctest",
-#     "password":"zdU62r{Z._9jYQNa"
-# }
-
 user = {
     "login": "honducert_test",
     "password":"XaG7,9K.iR"
@@ -20,18 +15,27 @@ userBackOffice = {
   "password":"MmiA{uX44."
 }
 
+# user = {
+#     "login": "clinpays_ekyctest",
+#     "password":"zdU62r{Z._9jYQNa"
+# }
+
 # userBackOffice = {
 #   "login": "clinpays_ekyctest",
 #   "password":"zdU62r{Z._9jYQNa"
 # }
 
-videoURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_video_token'
+baseURL = 'https://ekycvideoapiwest-test.lleida.net/api'
 
-sessionURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/standalone/create_session'
+videoURL = f'{baseURL}/rest/auth/get_video_token'
 
-adminURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/auth/get_admin_token'
+sessionURL = f'{baseURL}/rest/standalone/create_session'
 
-mediURL = 'https://ekycvideoapiwest-test.lleida.net/api/rest/admin/get_media'
+adminURL = f'{baseURL}/rest/auth/get_admin_token'
+
+mediURL = f'{baseURL}/rest/admin/get_media'
+
+sessionURL = f'{baseURL}/rest/admin/get_session'
 
 def getRequest(url):
   try:
@@ -68,6 +72,26 @@ def getAdminToken():
     return False
   
   return token
+
+def getSessionStatus(callId, auth):
+
+  errorCodes = ['400.0', '404.0']
+
+  headers = {
+    'Content-Type': 'application/json',
+    'Authorization': f"Bearer {auth}"
+  }
+
+  sessionRes = postRequest(url=sessionURL, data={"callId":callId}, headers=headers)
+
+  if(sessionRes['status'] in errorCodes and sessionRes['code'] in errorCodes):
+    return 'No verificado'
+
+  if(sessionRes['data'][0]['status'] == 'POSITIVE'):
+    return 'Verificado'
+  else:
+    return 'No verificado'
+
 
 def getValidationMedia(callId, externalId, mediaType, auth):
 
