@@ -4,16 +4,27 @@ import json
 
 from ocr import extraerPorcentaje
 
+# user = {
+#     "login": "honducert_test",
+#     "password":"XaG7,9K.iR"
+# }
+# userBackOffice = {
+#   "login": "backoffice_test_hon",
+#   "password":"MmiA{uX44."
+# }
+
+# # this will generate the admin token
+
 user = {
-    "login": "honducert_test",
-    "password":"XaG7,9K.iR"
+    "login": "honducert_video",
+    "password":"tVR-R-!03U"
+}
+userBackOffice = {
+  "login": "agente_hchon",
+  "password":"{A3g(,fTN1"
 }
 
 # this will generate the admin token
-userBackOffice = {
-  "login": "backoffice_test_hon",
-  "password":"MmiA{uX44."
-}
 
 # user = {
 #     "login": "clinpays_ekyctest",
@@ -25,11 +36,11 @@ userBackOffice = {
 #   "password":"zdU62r{Z._9jYQNa"
 # }
 
-baseURL = 'https://ekycvideoapiwest-test.lleida.net/api'
+baseURL = 'https://ekycvideoapiwest.lleida.net/api'
 
 videoURL = f'{baseURL}/rest/auth/get_video_token'
 
-sessionURL = f'{baseURL}/rest/standalone/create_session'
+sessionVideoURL = f'{baseURL}/rest/standalone/create_session'
 
 adminURL = f'{baseURL}/rest/auth/get_admin_token'
 
@@ -44,7 +55,6 @@ def getRequest(url):
     return res.json()
 
   except requests.RequestException as e:
-    print(e)
     return {
 
     }
@@ -55,7 +65,6 @@ def postRequest(url, headers, data):
     res = requests.post(url=url, json=data, headers=headers)
     return res.json()
   except requests.RequestException as e:
-    print(e)
     return {
 
     }
@@ -155,9 +164,11 @@ def getVideoToken():
 
 def getSession(sessionData, sessionHeaders):
 
-  sessionRes = postRequest(url=sessionURL, data=sessionData, headers=sessionHeaders)
+  errorCodes = ['400.0', '404.0', '401.0']
 
-  if(len(sessionRes) <= 0):
+  sessionRes = postRequest(url=sessionVideoURL, data=sessionData, headers=sessionHeaders)
+
+  if(sessionRes['status'] in errorCodes and sessionRes['code'] in errorCodes):
     return {
       "riuSessionId": "",
       "callToken": "",

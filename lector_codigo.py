@@ -71,11 +71,24 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
   image.save(imagePath)
 
-  exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
+  exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
+
+
   args = []
   args.append(exe)
   args.append(imagePath)
-  process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  # process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+  try:
+        process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.check_returncode()  # Check if the subprocess ran successfully
+  except subprocess.CalledProcessError as e:
+        print(f"Error in subprocess: {e.stderr.decode('utf-8')}")
+        return '!OK'
+  except PermissionError as e:
+        print(f"Permission error: {e}")
+        return '!OK'
 
   barcodeExistance = os.path.exists(imagePath)
   if(barcodeExistance):
