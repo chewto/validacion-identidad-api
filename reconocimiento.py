@@ -49,17 +49,36 @@ def extractFaces(imageArray, anti_spoofing:bool):
     finally:
         return faces
 
+def antiSpoofingTest(selfie):
+
+    try:
+        verifyFace = DeepFace.extract_faces(
+            img_path=selfie,
+            anti_spoofing=True
+        )
+
+        test = all(face_obj["is_real"] is True for face_obj in verifyFace)
+
+        return test
+    except:
+        return False
+
 def verifyFaces(imageArray1, imageArray2):
 
-    verifyFaces = DeepFace.verify(
-        img1_path=imageArray1,
-        img2_path=imageArray2,
-        model_name='Facenet512'
-    )
+    try:
+        verifyFaces = DeepFace.verify(
+            img1_path=imageArray1,
+            img2_path=imageArray2,
+            model_name='Facenet512',
+        )
+        #tenemos una ventaja con la cual podemos extraer tambien las landmarks de ambas imagenes
+        verified = verifyFaces['verified']
 
-    verified = verifyFaces['verified']
+        return verified
+    except:
+        return False
 
-    return verified
+
 
 #viejos reconocimientos
 

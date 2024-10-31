@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
 import controlador_db
-from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento
+from reconocimiento import obtencionEncodings, orientacionImagen, reconocimiento, verifyFaces, antiSpoofingTest
 from utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
 from eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest, getSessionStatus
-
+from mrz import validateMRZ
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
@@ -25,15 +25,20 @@ def testing():
 
   reqBody = request.get_json()
 
-  userCoords = reqBody['coords'].split(',')
+  selfie = reqBody['selfie']
+  anverso = reqBody['anverso']
 
-  print(len(userCoords))
+  fotoPersonaData = readDataURL(selfie)
+  anversoData = readDataURL(anverso)
 
-  userLatitude = '0' if(len(userCoords) <= 1) else userCoords[0]
+  anversoOrientado, documentoValido = orientacionImagen(anversoData)
+  selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
-  userLongitude = '0' if(len(userCoords) <= 1) else userCoords[1]
+  antiSpoof = antiSpoofingTest(selfie)
 
-  return jsonify({'latitude': userLatitude,'longitude':userLongitude })
+  coincidencia = verifyFaces(selfie, anversoOrientado)
+
+  return jsonify({'faceVerify': coincidencia, 'antiSpoofing': antiSpoof})
 
 
 @validation_bp.route('/validation-provider', methods=['GET'])
@@ -226,6 +231,9 @@ def validationType3():
   anverso = request.form.get('anverso')
   reverso = request.form.get('reverso')
 
+  frontCorresponding = request.form.get('front_corresponding')
+  backCorresponding = request.form.get('back_corresponding')
+
   #validacion del ocr
   ocrNombre = request.form.get('porcentaje_nombre_ocr')
   ocrApellido = request.form.get('porcentaje_apellido_ocr')
@@ -246,12 +254,16 @@ def validationType3():
   anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
-  documentoEncodings = obtencionEncodings(documentoValido)
-  selfieEncodings = obtencionEncodings(selfieValida)
+  # documentoEncodings = obtencionEncodings(documentoValido)
+  # selfieEncodings = obtencionEncodings(selfieValida)
 
-  coincidencia = reconocimiento(selfieEncodings, documentoEncodings)
+  #checks
+  coincidencia = verifyFaces(selfie, anversoOrientado)
+  mrzCheck = validateMRZ(documentType=tipoDocumento, mrzData=mrz)
 
   estadoVericacion = ''
+
+
 
   if(coincidencia is True):
     estadoVericacion = 'Verificado'
