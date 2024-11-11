@@ -9,10 +9,16 @@ from utilidades import readDataURL, ordenamiento
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-pais = 'hnd'
+country = 'HND'
 
-infoHash = {
-        "col": {
+countries = {
+    'HND': 'HONDURAS',
+    'COL': 'COLOMBIA',
+    'PTY': 'PANAMA'
+}
+
+ocrHash = {
+        "COL": {
             "Cédula de ciudadanía": {
                 "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
@@ -30,7 +36,7 @@ infoHash = {
                 "reverso":[]
             }
         },
-        "pty":{
+        "PTY":{
             "Cédula de ciudadanía": {
                 "anverso": ['REPUBLICA DE PANAMA','TRIBUNAL ELECTORAL'],
                 "reverso": ['TRIBUNAL', 'ELECTORAL']
@@ -40,7 +46,7 @@ infoHash = {
                 "reverso": []
             }
         },
-        "hnd":{
+        "HND":{
             "DNI": {
                 "anverso": ['REGISTRO', 'NACIONAL','PERSONAS', 'HONDURAS', 'REGISTRO', 'DOCUMENTO', 'NACIONAL DE IDENTIFICACION', 'DOCUMENTO', 'IDENTIFICACION', 'LUGAR', 'NACIMIENTO', 'NACIONALIDAD', 'REGISTRO'],
                 "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS', '<']
@@ -59,6 +65,20 @@ infoHash = {
             }
         }
     }
+
+
+documentTypeHash = {
+    'HND':{
+        'DNI':{
+            'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION'],
+            'reverso': ['<', 'HND']
+        },
+        'Pasaporte': {
+            'anverso': ['PASAPORTE',  'PASSPORT'],
+            'reverso': []
+        }
+    }
+}
 
 def verificacionRostro(dataURL: str):
 
@@ -104,9 +124,35 @@ def ocr(imagen: str, preprocesado):
         txt: str = tess.image_to_string(opened)
 
         lineas: list[str] = txt.splitlines()
-
         return lineas
 
+
+def validateDocumentType(documentType, documentSide, ocr):
+
+    document = documentTypeHash[country][documentType][documentSide]
+
+    for line in ocr:
+        for documentLine in document:
+            if(len(line) >= 1 and documentLine in line):
+                return f'{documentType}', 'OK'
+            # else:
+            #     return 'el tipo del documento no coincide', '!OK'
+
+    return 'no detectado', '!OK'
+
+def validateDocumentCountry(ocr):
+    lines = ocr
+
+    for line in lines:
+        for key, value in countries.items():
+            if(value in line):
+                if(key == country):
+                    return key,value,'OK'
+            if(key in line):
+                if(key == country):
+                    return key,value,'OK'
+
+    return 'no detectado','no detectado', '!OK'
 
 def validacionOCR(dataOCR, dataUsuario):
 
@@ -236,12 +282,11 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
 
 def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
-    print(tipoDocumento,ladoDocumento)
     lineas = []
 
     lineas = ocr(imagen=imagen, preprocesado=preprocesado)
 
-    ladoPalabras = infoHash[pais][tipoDocumento][ladoDocumento]
+    ladoPalabras = ocrHash[country][tipoDocumento][ladoDocumento]
 
     coincidencias = 0
 

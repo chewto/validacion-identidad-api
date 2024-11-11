@@ -53,14 +53,14 @@ documentMRZ = {
   }
 }
 
-def hasMRZ(documentType, documentSide):
+def MRZSide(documentType, documentSide):
   mrz = documentMRZ[country][documentType][documentSide]
 
   mrzLetter = documentMRZ[country][documentType]["mrzLetter"]
 
   return mrzLetter, mrz
 
-def validateMRZ(documentType, mrzData):
+def hasMRZ(documentType):
   mrzDocumentType = documentMRZ[country][documentType]
 
   mrzCorrespondingSide = []
@@ -69,13 +69,23 @@ def validateMRZ(documentType, mrzData):
     if(key != 'mrzLetter'):
       mrzCorrespondingSide.append(value)
 
-  hasMRZ = any(mrzCorrespondingSide)
+  totalMRZ = any(mrzCorrespondingSide)
+
+  return totalMRZ
+
+def validateMRZ(documentType, mrzData):
+  mrzDocumentType = documentMRZ[country][documentType]
 
   mrzDataLength =True if (len(mrzData) >= 1) else False
 
-  mrzVerify = True if (mrzData.find(mrzDocumentType['mrzLetter']) != -1 ) else False
+  mrzVerify = False
 
-  mrzParameters = [hasMRZ, mrzDataLength, mrzVerify]
+  if(mrzData.find(mrzDocumentType['mrzLetter']) != -1 ):
+    mrzVerify = True
+  elif(mrzData.find('<') != -1 ):
+    mrzVerify = True
+
+  mrzParameters = [mrzDataLength, mrzVerify]
 
   mrzValidationResult = all(mrzParameters)
 

@@ -66,17 +66,32 @@ def antiSpoofingTest(selfie):
 def verifyFaces(imageArray1, imageArray2):
 
     try:
-        verifyFaces = DeepFace.verify(
+        compareFaces = DeepFace.verify(
             img1_path=imageArray1,
             img2_path=imageArray2,
             model_name='Facenet512',
         )
         #tenemos una ventaja con la cual podemos extraer tambien las landmarks de ambas imagenes
-        verified = verifyFaces['verified']
+        
+        confidence = compareFaces['distance']
+        verified = compareFaces['verified']
+        img1 = compareFaces['facial_areas']['img1']
+        img2 = compareFaces['facial_areas']['img2']
 
-        return verified
+        landmarks = {
+            'img1': img1,
+            'img2': img2
+        }
+
+        return landmarks, confidence, verified
     except:
-        return False
+
+        landmarks = {
+            'img1': 0,
+            'img2': 0
+        }
+
+        return landmarks,0.99, False
 
 
 

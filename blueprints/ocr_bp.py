@@ -1,9 +1,9 @@
 
 from flask import Blueprint, request, jsonify
 
-from lector_codigo import barcodeReader, hasBarcode
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento
-from mrz import hasMRZ, extractMRZ
+from lector_codigo import barcodeReader, barcodeSide
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
+from mrz import MRZSide, extractMRZ
 from reconocimiento import extractFaces, orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 
@@ -32,21 +32,22 @@ def verificarAnverso():
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
-    verifyDocument = verifyFaces(selfieOrientada, documentoOrientado)
+    _, _, verifyDocument = verifyFaces(selfieOrientada, documentoOrientado)
 
-    #ocr
+    documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
+    documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
     totalValidacionLado = validarLadoPre + validarLadoSencillo
 
-    ladoValido = False
+    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
 
-    if(totalValidacionLado >=1):
-      ladoValido = True
+    ladoValido = '!OK'
 
-    documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
-    documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
+    if(totalValidacionLado >=1 and documentCountryValidation == 'OK' and documentCountryValidation == 'OK'):
+      ladoValido = 'OK'
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
@@ -62,27 +63,37 @@ def verificarAnverso():
 
     results = {
       'ocr': {
-          'nombreOCR': nombreComparado,
-          'apellidoOCR': apellidoComparado,
-          'documentoOCR': documentoComparado
-      },
-      'porcentajesOCR': {
-          'porcentajeNombreOCR': porcentajeNombreComparado,
-          'porcentajeApellidoOCR': porcentajeApellidoComparado,
-          'porcentajeDocumentoOCR': porcentajeDocumentoComparado
+        'data':{
+          'name': nombreComparado,
+          'lastName': apellidoComparado,
+          'ID': documentoComparado
         },
-      'rostro': verifyDocument,
-      'ladoValido': ladoValido
+        'percentage': {
+          'name': porcentajeNombreComparado,
+          'lastName': porcentajeApellidoComparado,
+          'ID': porcentajeDocumentoComparado
+        }
+      },
+      'face': verifyDocument,
+      'validSide': ladoValido,
+      'document':{
+        'correspond': ladoValido, 
+        'code': countryCode,
+        'country': countryDetected,
+        'countryCheck':documentCountryValidation,
+        'type':typeDetected,
+        'typeCheck':documentTypeValidation
+      }
     }
 
-    documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-      results['codigoBarras'] = detectedBarcodes
+      results['barcode'] = detectedBarcodes
     else:
-      results['codigoBarras'] = 'documento sin codigo de barras'
+      results['barcode'] = 'documento sin codigo de barras'
 
-    mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
+    mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     extractedMRZ = ''
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
@@ -92,7 +103,7 @@ def verificarAnverso():
     else:
       results['mrz'] = 'documento sin codigo mrz'
 
-    return jsonify(results), 200
+    return jsonify(results)
 
 
 #rutas para el front
@@ -116,27 +127,38 @@ def verificarReverso():
     documentoOCRSencillo = ocr(documentoData, preprocesado=False)
     documentoOCRPre = ocr(documentoData, preprocesado=True)
 
+    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
     totalValidacion = validarLadoPre + validarLadoSencillo
 
-    ladoValido = False
+    ladoValido = '!OK'
 
-    if(totalValidacion >= 1):
-      ladoValido = True
+    if(totalValidacion >= 1 and documentCountryValidation == 'OK' and documentCountryValidation == 'OK'):
+      ladoValido = 'OK'
 
     results = {
-      'ladoValido': ladoValido
+      'validSide': ladoValido,
+      'document':{
+        'correspond': ladoValido,
+        'code': countryCode,
+        'country': countryDetected,
+        'countryCheck':documentCountryValidation,
+        'type':typeDetected,
+        'typeCheck':documentTypeValidation
+      }
     }
 
-    documentBarcode = hasBarcode(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-      results['codigoBarras'] = detectedBarcodes
+      results['barcode'] = detectedBarcodes
     else:
-      results['codigoBarras'] = 'documento sin codigo de barras'
+      results['barcode'] = 'documento sin codigo de barras'
 
-    mrzLetter, documentMRZ = hasMRZ(documentType=tipoDocumento, documentSide=ladoDocumento)
+    mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     extractedMRZ = ''
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
