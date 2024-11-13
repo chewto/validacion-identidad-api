@@ -106,7 +106,6 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
     os.remove(imagePath)
 
   string = process.stdout.decode('utf-8')
-  print(string)
   jsonProcess = json.loads(string)
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]

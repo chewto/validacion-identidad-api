@@ -1,7 +1,5 @@
-import check_result
+from mrz import mrzExtractInfo
 
-loco = {'movementCheck': True, 'antiSpoofing': False, 'coincidencia': False, 'frontSideCheck': True, 'mrzCheck': False, 'barcodeCheck': True, 'ocrNameCheck': True, 'ocrLastNameCheck': True, 'ocrIDCheck': True}
+data= mrzExtractInfo(mrz='I<HNDO072442894<<<<<<x<<6408262 F3308268HND<<<<<<<<MARTINEZ<CASTRO<<MARIA<DO', searchTerm='MARI')
 
-resulst = check_result.results(percent=90, validatioAttendance='AUTOMATICA', checksDict=loco)
-
-print(resulst)
+print(data)

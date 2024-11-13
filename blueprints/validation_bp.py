@@ -274,6 +274,16 @@ def validationType3():
   dataOCRDocumento = request.form.get('documento_ocr')
 
   mrz = request.form.get('mrz')
+  mrzName = request.form.get('mrz_name')
+  mrzLastname = request.form.get('mrz_lastname')
+  mrzNamePercent = request.form.get('mrz_name_percent')
+  mrzLastnamePercent = request.form.get('mrz_lastname_percent')
+
+  print(mrzName)
+  print(mrzLastname)
+  print(mrzNamePercent)
+  print(mrzLastnamePercent)
+
   barcode = request.form.get('codigo_barras')
 
   validationPercent = request.form.get('validation_percent')
@@ -340,7 +350,15 @@ def validationType3():
   checkValuesJSON['face_validation'] = faceValidation
 
   checkValuesJSON['mrz_validation'] = {
-    'mrz': mrz
+    'code': mrz,
+    'data': {
+      'name': mrzName,
+      'lastName': mrzLastname
+    },
+    'percentage':{
+      'name': mrzNamePercent,
+      'lastName': mrzLastnamePercent
+    }
   }
 
   checkValuesJSON['barcode_validation'] = {
@@ -355,6 +373,12 @@ def validationType3():
       'type': frontType
     }
   }
+
+  mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
+  checkValuesDict['mrz_name'] = mrzNameCheck
+
+  mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
+  checkValuesDict['mrz_lastname'] = mrzLastnameCheck
 
   frontCheck = True if(frontCorresponding == 'OK') else False
   checkValuesDict['front'] = frontCheck

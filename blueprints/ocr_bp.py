@@ -1,10 +1,9 @@
 
 from flask import Blueprint, request, jsonify
-
 from lector_codigo import barcodeReader, barcodeSide
 from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
-from mrz import MRZSide, extractMRZ
-from reconocimiento import extractFaces, orientacionImagen, verifyFaces
+from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
+from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
@@ -46,7 +45,7 @@ def verificarAnverso():
 
     ladoValido = '!OK'
 
-    if(totalValidacionLado >=1 and documentCountryValidation == 'OK' and documentCountryValidation == 'OK'):
+    if(totalValidacionLado >=1 and documentTypeValidation == 'OK' and documentCountryValidation == 'OK'):
       ladoValido = 'OK'
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
@@ -98,10 +97,40 @@ def verificarAnverso():
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
-      extractedMRZ += f"{mrz} {mrzPre} mrz extraido desde el {ladoDocumento}"
-      results['mrz'] = extractedMRZ
+
+      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+
+      extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
+      extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
+
+      nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
+      lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+
+      extractedMRZ += f"{mrz} {mrzPre}"
+      results['mrz'] = {
+        'code': extractedMRZ,
+        'data': {
+          'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
+          'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
+        },
+        'percentages': {
+          'name': nameMRZ['percent'],
+          'lastName': lastNameMRZ['percent']
+        }
+      }
     else:
-      results['mrz'] = 'documento sin codigo mrz'
+      results['mrz'] = {
+        'code': 'documento sin codigo mrz',
+        'data': {
+          'name': '',
+          'lastName': ''
+        },
+        'percentages': {
+          'name': 0,
+          'lastName': 0
+        }
+      }
 
     return jsonify(results)
 
@@ -136,7 +165,7 @@ def verificarReverso():
 
     ladoValido = '!OK'
 
-    if(totalValidacion >= 1 and documentCountryValidation == 'OK' and documentCountryValidation == 'OK'):
+    if(totalValidacion >= 1 and documentCountryValidation == 'OK' and documentTypeValidation == 'OK'):
       ladoValido = 'OK'
 
     results = {
@@ -163,9 +192,42 @@ def verificarReverso():
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+
+
+      extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
+      extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
+
+      nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
+      lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+
+
       extractedMRZ += f"{mrz} {mrzPre}"
-      results['mrz'] = extractedMRZ
+      results['mrz'] = {
+        'code': extractedMRZ,
+        'data': {
+          'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
+          'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
+        },
+        'percentages': {
+          'name': nameMRZ['percent'],
+          'lastName': lastNameMRZ['percent']
+        }
+      }
     else:
-      results['mrz'] = 'documento sin codigo mrz'
+      results['mrz'] = {
+        'code': 'documento sin codigo mrz',
+        'data': {
+          'name': '',
+          'lastName': ''
+        },
+        'percentages': {
+          'name': 0,
+          'lastName': 0
+        }
+      }
+      
 
     return jsonify(results), 200

@@ -1,5 +1,6 @@
 from ocr import ocr
 from utilidades import listToText
+from utilidades import extraerPorcentaje
 
 country = 'HND'
 
@@ -102,9 +103,38 @@ def extractMRZ(ocr, mrzStartingLetter):
     findMrzIndex = stringOCR.find("<")
 
     if(findMrzIndex == -1):
-      return 'no se encontro el codigo mrz'
-
+      return 'Requiere verificar – DATOS INCOMPLETOS'
 
   mrz = stringOCR[findMrzIndex:ocrLength]
 
   return mrz
+
+
+def mrzInfo(mrz, searchTerm):
+
+  splitData = mrz.split('<')
+
+  searchSplit = searchTerm.split(' ')
+
+  found = []
+
+  for search in searchSplit:
+    for data in splitData:
+      if(search in data):
+        found.append(data)
+
+  joinedFounds = ' '.join(found)
+
+  return joinedFounds
+
+def comparisonMRZInfo(termList,  comparisonTerm):
+
+  percentages = []
+
+  for term in termList:
+    percent = extraerPorcentaje(comparisonTerm, term)
+    percentages.append({'percent': percent, 'data': term})
+
+  maxPercentage = max(percentages, key=lambda x: x['percent'])
+
+  return maxPercentage

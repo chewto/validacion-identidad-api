@@ -6,6 +6,7 @@ import numpy as np
 import base64
 import unicodedata
 import re
+from difflib import SequenceMatcher
 
 browserPatterns = {
     "Chrome": r"Chrome\/([\d\.]+)",
@@ -30,6 +31,11 @@ def getBrowser(userAgent):
             return f"{browser} {match.group(1)}"
     return "navegador desconocido"
 
+def extraerPorcentaje(valor1, valor2):
+    radio = SequenceMatcher(None, valor1, valor2).ratio()
+    porcentaje = radio * 100
+    porcentaje = int(porcentaje)
+    return porcentaje
 
 def textNormalize(texto:str):
   texto = texto.strip()

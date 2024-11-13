@@ -30,8 +30,8 @@ def obtenerFirmador(id):
     "dato": {
         "id": 11,
         "firmaElectronicaId": 11,
-        "nombre": "Benito",
-        "apellido": "Otero Carreira",
+        "nombre": "MARIA DOLORES",
+        "apellido": "MARTINEZ CASTRO",
         "correo": "jesuselozada@gmail.com",
         "tipoDocumento": "CEDULA",
         "documento": "423105",

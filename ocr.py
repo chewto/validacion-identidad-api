@@ -1,11 +1,10 @@
 from PIL import Image
 from io import BytesIO
-from difflib import SequenceMatcher
 import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from utilidades import readDataURL, ordenamiento
+from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -187,11 +186,6 @@ def validacionOCR(dataOCR, dataUsuario):
 
     return data, porcentaje
 
-
-def extraerPorcentaje(valor1, valor2):
-    radio = SequenceMatcher(None, valor1, valor2).ratio()
-    porcentaje = radio * 100
-    return porcentaje
 
 def busquedaResultado(porcentajes, dataUsuario):
 
