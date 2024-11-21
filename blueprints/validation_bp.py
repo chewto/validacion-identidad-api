@@ -37,7 +37,7 @@ def testing():
   anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
-  antiSpoof = antiSpoofingTest(selfie)
+  _, antiSpoof = antiSpoofingTest(selfie)
 
   coincidencia = verifyFaces(selfie, anversoOrientado)
 
@@ -310,7 +310,7 @@ def validationType3():
   movementCheck = True if(movementTest == 'OK') else False
   checkValuesDict['movement'] = movementCheck
 
-  antiSpoof = antiSpoofingTest(selfie)
+  _,antiSpoof = antiSpoofingTest(selfie)
   checkValuesDict['antiSpoofing'] = antiSpoof
 
   ocrValidation = {
