@@ -4,7 +4,8 @@ from io import BytesIO
 import json
 import os
 import subprocess
-
+import cv2
+import numpy as np
 
 country = 'HND'
 
@@ -83,14 +84,19 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
   data = base64.b64decode(encoded)
   image = Image.open(BytesIO(data))
   image = image.convert('RGB')
+
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
+
   image.save(imagePath)
 
   exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
   args = []
   args.append(exe)
+  args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
+  args.append('-tbr=112,115,117')
   args.append(imagePath)
+  print(args)
   # process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
@@ -107,6 +113,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
 
   string = process.stdout.decode('utf-8')
   jsonProcess = json.loads(string)
+  print(jsonProcess)
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
   barcodesDetected = len(barcodesExtracted)

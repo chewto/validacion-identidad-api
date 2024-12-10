@@ -38,6 +38,13 @@ credencialesDB = {
     "host":'154.38.190.87',
     "port":3306,
     "user":'root'
+  },
+  "honducert-desarrollo":{
+    "password":'10830921',
+    "nombre":'pki_validacion',
+    "host":'154.38.190.87',
+    "port":3307,
+    "user":'root'
   }
 }
 
@@ -76,10 +83,17 @@ credencialesDBEntidad = {
     "host":'154.38.190.87',
     "port":3306,
     "user":'root'
+  },
+  "honducert-desarrollo":{
+    "password":'10830921',
+    "nombre":'pki_firma_electronica',
+    "host":'154.38.190.87',
+    "port":3307,
+    "user":'root'
   }
 }
 
-credenciales = 'honducert'
+credenciales = 'honducert-desarrollo'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]
@@ -419,16 +433,16 @@ def selectValidationParams(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f"SELECT ent.tipo_validacion, ent.porcentaje_acierto from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
+    queryInfo = f"SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
 
     cursor.execute(queryInfo, (id,))
 
     entidad = cursor.fetchone()
 
-    return entidad if(entidad != None) else (None, None)
+    return entidad if(entidad != None) else (None, None, None)
 
   except mariadb.Error as e:
-    return (None, None)
+    return (None, None, None)
 
   finally:
     conn.commit()

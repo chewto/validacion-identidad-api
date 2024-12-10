@@ -5,6 +5,8 @@ import base64
 import cv2
 import Levenshtein
 from utilidades import readDataURL, ordenamiento, extraerPorcentaje
+import numpy as np
+
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -69,7 +71,7 @@ ocrHash = {
 documentTypeHash = {
     'HND':{
         'DNI':{
-            'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION'],
+            'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION', 'REGISTRO NACIONAL DE LAS PERSONAS'],
             'reverso': ['<', 'HND']
         },
         'Pasaporte': {
@@ -116,11 +118,15 @@ def ocr(imagen: str, preprocesado):
     if(preprocesado):
 
         gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-        threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-        opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
+        kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]]) 
+        sharpened = cv2.filter2D(gris, -1, kernel)
+        invertedImage = cv2.bitwise_not(sharpened)
+        enhancedImage = cv2.convertScaleAbs(invertedImage, alpha=1.0, beta=-25)
+        # threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
+        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
+        # opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
 
-        txt: str = tess.image_to_string(opened)
+        txt: str = tess.image_to_string(enhancedImage)
 
         lineas: list[str] = txt.splitlines()
         return lineas
@@ -131,11 +137,11 @@ def validateDocumentType(documentType, documentSide, ocr):
     document = documentTypeHash[country][documentType][documentSide]
 
     for line in ocr:
+
         for documentLine in document:
-            if(len(line) >= 1 and documentLine in line):
+            if(len(line) >= 1 and (line in documentLine or documentLine in line)):
+
                 return f'{documentType}', 'OK'
-            # else:
-            #     return 'el tipo del documento no coincide', '!OK'
 
     return 'no detectado', '!OK'
 

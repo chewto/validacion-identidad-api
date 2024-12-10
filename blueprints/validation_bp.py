@@ -74,7 +74,8 @@ def validationParams():
 
   params = {
     "validationAttendance":validationParameters[0],
-    "validationPercent": validationParameters[1]
+    "validationPercent": validationParameters[1],
+    "documentsTries": validationParameters[2]
   }
 
   return jsonify(params)
@@ -248,14 +249,12 @@ def validationType3():
   anverso = request.form.get('anverso')
   reverso = request.form.get('reverso')
 
-  frontCorresponding = request.form.get('front_corresponding')
   frontCode = request.form.get('front_code')
   frontCountry = request.form.get('front_country')
   frontCountryCheck = request.form.get('front_country_check')
   frontType = request.form.get('front_type')
   frontTypeCheck = request.form.get('front_type_check')
 
-  backCorresponding = request.form.get('back_corresponding')
   backCode = request.form.get('back_code')
   backCountry = request.form.get('back_country')
   backCountryCheck = request.form.get('back_country_check')
@@ -274,15 +273,11 @@ def validationType3():
   dataOCRDocumento = request.form.get('documento_ocr')
 
   mrz = request.form.get('mrz')
+  mrzPre = request.form.get('mrz_pre')
   mrzName = request.form.get('mrz_name')
   mrzLastname = request.form.get('mrz_lastname')
   mrzNamePercent = request.form.get('mrz_name_percent')
   mrzLastnamePercent = request.form.get('mrz_lastname_percent')
-
-  print(mrzName)
-  print(mrzLastname)
-  print(mrzNamePercent)
-  print(mrzLastnamePercent)
 
   barcode = request.form.get('codigo_barras')
 
@@ -298,13 +293,17 @@ def validationType3():
   anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
+
   checkValuesDict = {}
 
   checkValuesJSON = {}
 
   faceValidation = {}
 
-  landmarks, confidenceValue, isIdentical = verifyFaces(selfie, anversoOrientado)
+  landmarks, confidenceValue, _ = verifyFaces(selfie, anversoOrientado)
+
+  isIdentical = True if(confidenceValue <= 0.50) else False
+
   checkValuesDict['confidence'] = isIdentical
 
   movementCheck = True if(movementTest == 'OK') else False
@@ -312,6 +311,8 @@ def validationType3():
 
   antiSpoof = antiSpoofingTest(selfie)
   checkValuesDict['antiSpoofing'] = antiSpoof
+
+  test = [movementCheck, antiSpoof, isIdentical]
 
   ocrValidation = {
     'data': {
@@ -350,7 +351,10 @@ def validationType3():
   checkValuesJSON['face_validation'] = faceValidation
 
   checkValuesJSON['mrz_validation'] = {
-    'code': mrz,
+    'code': {
+      'raw': mrz,
+      'preprocessed': mrzPre
+    },
     'data': {
       'name': mrzName,
       'lastName': mrzLastname
@@ -365,23 +369,11 @@ def validationType3():
     'barcode': barcode
   }
 
-  checkValuesJSON['sides_validation'] = {
-    'front': {
-      'correspond': frontCorresponding,
-      'code': frontCode,
-      'country': frontCountry,
-      'type': frontType
-    }
-  }
-
   mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
   checkValuesDict['mrz_name'] = mrzNameCheck
 
   mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
   checkValuesDict['mrz_lastname'] = mrzLastnameCheck
-
-  frontCheck = True if(frontCorresponding == 'OK') else False
-  checkValuesDict['front'] = frontCheck
 
   fCountryCheck = True if(frontCountryCheck == 'OK') else False
   checkValuesDict['front_country'] = fCountryCheck
@@ -389,15 +381,21 @@ def validationType3():
   fTypeCheck = True if(frontTypeCheck == 'OK') else False
   checkValuesDict['front_type'] = fTypeCheck
 
-  if(tipoDocumento != 'Pasaporte'):
-    checkValuesJSON['sides_validation']['back'] = {
-      'correspond': backCorresponding,
-      'code': backCode,
-      'country': backCountry,
-      'type': backType
+  frontCheck = all([fCountryCheck, fTypeCheck])
+  checkValuesDict['front'] = frontCheck
+
+  checkValuesJSON['sides_validation'] = {
+    'front': {
+      'correspond': frontCheck,
+      'code': frontCode,
+      'country': frontCountry,
+      'type': frontType
     }
-    backCheck = True if(backCorresponding == 'OK') else False
-    checkValuesDict['back'] = backCheck
+  }
+
+  test.append(frontCheck)
+
+  if(tipoDocumento != 'Pasaporte'):
 
     bCountryCheck = True if(backCountryCheck == 'OK') else False
     checkValuesDict['back_country'] = bCountryCheck
@@ -405,10 +403,21 @@ def validationType3():
     bTypeCheck = True if(backTypeCheck == 'OK') else False
     checkValuesDict['back_type'] = bTypeCheck
 
+    backCheck = all([bTypeCheck,bCountryCheck])
+    checkValuesDict['back'] = backCheck
+
     checkValuesDict['sides_country_confidence'] = True if(frontCountry == backCountry) else False
     
     checkValuesDict['sides_type_confidence'] = True if(frontTypeCheck == backTypeCheck) else False
 
+    checkValuesJSON['sides_validation']['back'] = {
+      'correspond': backCheck,
+      'code': backCode,
+      'country': backCountry,
+      'type': backType
+    }
+
+    test.append(backCheck)
 
   checkHasMRZ = hasMRZ(documentType=tipoDocumento)
   if(checkHasMRZ):
@@ -427,7 +436,7 @@ def validationType3():
   ocrIDCheck = True if(int(ocrDocumento) >= 50) else False
   checkValuesDict['ocr_id'] = ocrIDCheck
 
-  resultState, resultPercent = results(validatioAttendance=validationAttendance, percent=validationPercent, checksDict=checkValuesDict)
+  boolResult, resultState, resultPercent = results(validatioAttendance=validationAttendance, percent=validationPercent, checksDict=checkValuesDict)
 
   checkValuesJSON['checks'] = checkValuesDict
 
@@ -435,18 +444,21 @@ def validationType3():
     'validation_percentage': resultPercent
   }
 
+  test.append(barcodeCheck)
+  test.append(mrzCheck)
+
+  test = all(test)
+
+  final = all([test,boolResult])
+
+  if(not final and validationAttendance == 'AUTOMATICA'):
+    resultState = 'validación fallida'
+
   checkValuesJson = json.dumps(checkValuesJSON)
 
   anversoOrientado = cv2Blob(anversoOrientado)
   fotoPersonaBlob = cv2Blob(selfie)
   reversoBlob = cv2Blob(reversoData)
-
-  #normalizacion
-  nombres = nombres.lower()
-  apellidos = apellidos.lower()
-  email = email.lower()
-  tipoDocumento = tipoDocumento.lower()
-  documento = documento.lower()
 
   #tabla evidencias 
   columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
@@ -458,7 +470,7 @@ def validationType3():
 
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
@@ -468,3 +480,85 @@ def validationType3():
 
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
+
+@validation_bp.route('/failed', methods=['POST'])
+def rejectedValidation():
+
+  idUser = request.args.get('idUsuario')
+  idUser = int(idUser)
+
+  reqBody = request.get_json()
+
+  signInfo = reqBody['informacionFirmador']
+
+  name = signInfo['nombre']
+  lastName = signInfo['apellido']
+  email = signInfo['correo']
+  documentID = signInfo['documento']
+
+
+  generalInfo = reqBody['informacion']
+
+  anverse = generalInfo['anverso']
+  anverse = readDataURL(anverse)
+  anverse = cv2Blob(anverse)
+  reverse = generalInfo['reverso']
+  reverse = readDataURL(reverse)
+  reverse = cv2Blob(reverse)
+  selfie = generalInfo['foto_persona']
+  selfie = readDataURL(selfie)
+  selfie = cv2Blob(selfie)
+  documentType = generalInfo['tipoDocumento']
+  device = generalInfo['dispositivo']
+  browser = generalInfo['navegador']
+
+  privateIp = controlador_db.obtenerIpPrivada()
+  publicIp = generalInfo['ip']
+  
+  latitude = generalInfo['latitud']
+  longitude = generalInfo['longitud']
+
+  hour = generalInfo['hora']
+  date = generalInfo['fecha']
+
+  documentValidation = reqBody['validacionDocumento']
+
+  ocr = documentValidation['ocr']
+  dataOCR = ocr['data']
+  percentageOCR = ocr['percentage']
+
+  mrz = documentValidation['mrz']
+  mrzCode = mrz['code']
+
+  face = documentValidation['face']
+
+  barcode = documentValidation['barcode']
+
+  livenessTest = reqBody['pruebaVida']
+
+  movement = livenessTest['movimiento']
+  idFolderEntity = livenessTest['idCarpetaEntidad']
+  idFolderUser = livenessTest['idCarpetaUsuario']
+
+  state = "validación fallida"
+
+
+  #tabla evidencias 
+  columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
+  tablaEvidencias = 'evidencias_usuario'
+  valoresEvidencias = (anverse, reverse, selfie, '', '')
+  idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
+
+  #tabla evidencias adicionales
+
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras')
+  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  valoresEvidenciasAdicionales = (state, device, browser, publicIp, privateIp, latitude, longitude, hour,date, percentageOCR['name'], percentageOCR['lastName'],percentageOCR['ID'] , dataOCR['name'], dataOCR['lastName'], dataOCR['ID'],  movement, idFolderEntity, idFolderUser ,'eFirma', '', '')
+  idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
+
+  columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
+  tablaDocumento = 'documento_usuario'
+  valoresDocumento = (name, lastName, documentID, documentType, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUser)
+  documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
+
+  return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUser, "coincidenciaDocumentoRostro": face, "estadoVerificacion":state})

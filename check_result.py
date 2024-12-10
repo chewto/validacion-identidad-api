@@ -12,14 +12,40 @@ def results(percent, validatioAttendance, checksDict):
   valuePercent = 100 / valuesLength
 
   for value in values:
-    if value == True:
+    print(value)
+    if value == True or value == 'OK':
       totalPercent += valuePercent
 
   if totalPercent >= percent and validatioAttendance == 'AUTOMATICA':
-    return 'verificado', totalPercent
+    return True,'verificado', totalPercent
   elif totalPercent >= percent and validatioAttendance == 'MIXTA':
-    return 'iniciando segunda validacion', totalPercent
+    return True,'iniciando segunda validacion', totalPercent
   elif validatioAttendance == 'MANUAL':
-    return 'esperando aprobacion', totalPercent
+    return True,'esperando aprobacion', totalPercent
   else:
-    return 'No verificado', totalPercent
+    return False,'No verificado', totalPercent
+
+def testingType(array):
+
+  filt = filter(lambda x: x['validation'] == 'OK' ,array)
+
+  filteredList = list(filt)
+
+  if(len(filteredList) >= 1):
+    firstElement = filteredList[0]
+    return firstElement['type'],firstElement['validation']
+  else:
+    return 'no detectado', '!OK'
+  
+  
+def testingCountry(array):
+
+  filt = filter(lambda x: x['validation'] == 'OK' ,array)
+
+  filteredList = list(filt)
+
+  if(len(filteredList) >= 1):
+    firstElement = filteredList[0]
+    return firstElement['country'], firstElement['countryDetected'], firstElement['validation']
+  else:
+    return 'no detectado','no detectado', '!OK'

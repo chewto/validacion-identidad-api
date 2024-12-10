@@ -5,10 +5,10 @@ from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, valida
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
+from check_result import testingCountry, testingType, results
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
-#rutas para el front
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
@@ -31,7 +31,7 @@ def verificarAnverso():
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
-    _, _, verifyDocument = verifyFaces(selfieOrientada, documentoOrientado)
+    _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
@@ -40,13 +40,19 @@ def verificarAnverso():
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
     totalValidacionLado = validarLadoPre + validarLadoSencillo
 
+    checkSide = {
+      'validation': 'OK'if totalValidacionLado >= 1 else '!OK',
+      'face': 'OK' if confidence <= 0.6 else '!OK'
+    }
+
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
+
     countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+    countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre)
 
-    ladoValido = '!OK'
-
-    if(totalValidacionLado >=1 and documentTypeValidation == 'OK' and documentCountryValidation == 'OK'):
-      ladoValido = 'OK'
+    documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
@@ -60,7 +66,13 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
-    results = {
+    checkSide['documentValidation'] = documentValidation
+    checkSide['countryValidation'] = countryValidation
+    checkSide['percentName'] = 'OK' if porcentajeNombreComparado >= 50 else '!OK'
+    checkSide['percentLastname'] = 'OK' if porcentajeApellidoComparado >= 50 else '!OK'
+    checkSide['percentID'] ='OK' if porcentajeDocumentoComparado >= 50 else '!OK'
+
+    resultsDict = {
       'ocr': {
         'data':{
           'name': nombreComparado,
@@ -73,27 +85,25 @@ def verificarAnverso():
           'ID': porcentajeDocumentoComparado
         }
       },
-      'face': verifyDocument,
-      'validSide': ladoValido,
+      'face': True if(confidence <= 0.60) else False,
       'document':{
-        'correspond': ladoValido, 
-        'code': countryCode,
-        'country': countryDetected,
-        'countryCheck':documentCountryValidation,
-        'type':typeDetected,
-        'typeCheck':documentTypeValidation
+        'code': codeC,
+        'country': country,
+        'countryCheck':countryValidation,
+        'type':documentType,
+        'typeCheck':documentValidation
       }
     }
 
     documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-      results['barcode'] = detectedBarcodes
+      resultsDict['barcode'] = detectedBarcodes
+      checkSide['barcode'] = detectedBarcodes
     else:
-      results['barcode'] = 'documento sin codigo de barras'
+      resultsDict['barcode'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
-    extractedMRZ = ''
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
@@ -107,9 +117,11 @@ def verificarAnverso():
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
 
-      extractedMRZ += f"{mrz} {mrzPre}"
-      results['mrz'] = {
-        'code': extractedMRZ,
+      resultsDict['mrz'] = {
+        'code': {
+          'raw': mrz,
+          'preprocessed': mrzPre
+        },
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -119,9 +131,15 @@ def verificarAnverso():
           'lastName': lastNameMRZ['percent']
         }
       }
+
+      checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
+      checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
     else:
-      results['mrz'] = {
-        'code': 'documento sin codigo mrz',
+      resultsDict['mrz'] = {
+        'code': {
+          'raw':'',
+          'preprocessed': ''
+        },
         'data': {
           'name': '',
           'lastName': ''
@@ -132,7 +150,15 @@ def verificarAnverso():
         }
       }
 
-    return jsonify(results)
+    validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
+
+    if(confidence <= 0.60 and validSide):
+      resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+      return jsonify(resultsDict)
+
+    resultsDict['validSide'] = '!OK'
+    return jsonify(resultsDict)
+
 
 
 #rutas para el front
@@ -163,32 +189,42 @@ def verificarReverso():
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
     totalValidacion = validarLadoPre + validarLadoSencillo
 
-    ladoValido = '!OK'
+    checkSide = {
+      'validation': 'OK'if totalValidacion >= 1 else '!OK'
+    }
 
-    if(totalValidacion >= 1 and documentCountryValidation == 'OK' and documentTypeValidation == 'OK'):
-      ladoValido = 'OK'
+    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
 
-    results = {
-      'validSide': ladoValido,
+
+    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+    countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre)
+
+    documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+    checkSide['documentValidation'] = documentValidation
+    checkSide['countryValidation'] = countryValidation
+
+    resultsDict = {
       'document':{
-        'correspond': ladoValido,
-        'code': countryCode,
-        'country': countryDetected,
-        'countryCheck':documentCountryValidation,
-        'type':typeDetected,
-        'typeCheck':documentTypeValidation
+        'code': codeC,
+        'country': country,
+        'countryCheck':countryValidation,
+        'type':documentType,
+        'typeCheck':documentValidation
       }
     }
 
     documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-      results['barcode'] = detectedBarcodes
+      resultsDict['barcode'] = detectedBarcodes
+      checkSide['barcode'] = detectedBarcodes
     else:
-      results['barcode'] = 'documento sin codigo de barras'
+      resultsDict['barcode'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
-    extractedMRZ = ''
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
@@ -203,10 +239,11 @@ def verificarReverso():
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
 
-
-      extractedMRZ += f"{mrz} {mrzPre}"
-      results['mrz'] = {
-        'code': extractedMRZ,
+      resultsDict['mrz'] = {
+        'code': {
+          'raw': mrz,
+          'preprocessed': mrzPre
+        },
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -216,9 +253,15 @@ def verificarReverso():
           'lastName': lastNameMRZ['percent']
         }
       }
+
+      checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
+      checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
     else:
-      results['mrz'] = {
-        'code': 'documento sin codigo mrz',
+      resultsDict['mrz'] = {
+        'code': {
+          'raw':'',
+          'preprocessed': ''
+        },
         'data': {
           'name': '',
           'lastName': ''
@@ -228,6 +271,9 @@ def verificarReverso():
           'lastName': 0
         }
       }
-      
+  
+    validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
-    return jsonify(results), 200
+    resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+
+    return jsonify(resultsDict), 200

@@ -4,25 +4,25 @@ import json
 
 from ocr import extraerPorcentaje
 
-# user = {
-#     "login": "honducert_test",
-#     "password":"XaG7,9K.iR"
-# }
-# userBackOffice = {
-#   "login": "backoffice_test_hon",
-#   "password":"MmiA{uX44."
-# }
+user = {
+    "login": "honducert_test",
+    "password":"XaG7,9K.iR"
+}
+userBackOffice = {
+  "login": "backoffice_test_hon",
+  "password":"MmiA{uX44."
+}
 
 # # this will generate the admin token
 
-user = {
-    "login": "honducert_video",
-    "password":"tVR-R-!03U"
-}
-userBackOffice = {
-  "login": "agente_hchon",
-  "password":"{A3g(,fTN1"
-}
+# user = {
+#     "login": "honducert_video",
+#     "password":"tVR-R-!03U"
+# }
+# userBackOffice = {
+#   "login": "agente_hchon",
+#   "password":"{A3g(,fTN1"
+# }
 
 # this will generate the admin token
 
@@ -36,7 +36,7 @@ userBackOffice = {
 #   "password":"zdU62r{Z._9jYQNa"
 # }
 
-baseURL = 'https://ekycvideoapiwest.lleida.net/api'
+baseURL = 'https://ekycvideoapiwest-test.lleida.net/api'
 
 videoURL = f'{baseURL}/rest/auth/get_video_token'
 

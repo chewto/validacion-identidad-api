@@ -47,7 +47,9 @@ def textNormalize(texto:str):
 def readDataURL(imagen):
 
   if(len(imagen) <= 0):
-    return ''
+    with open('./assets/img/placeholder.jpeg', "rb") as image_file: 
+      encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+      imagen =  f"data:image/jpeg;base64,{encoded_string}"
 
   imagenURL = imagen
 
@@ -67,6 +69,7 @@ def ordenamiento(data):
 
 
 def cv2Blob(imagen):
+
   _, imagenEncode = cv2.imencode('.jpg',imagen)
   imagenBlob = imagenEncode.tobytes()
 
