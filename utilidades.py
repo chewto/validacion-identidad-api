@@ -70,7 +70,10 @@ def ordenamiento(data):
 
 def cv2Blob(imagen):
 
-  _, imagenEncode = cv2.imencode('.jpg',imagen)
+  height, width = imagen.shape[:2]
+  resizedImage = cv2.resize(imagen, (width // 2, height // 2))
+  compressionParams = [cv2.IMWRITE_JPEG_QUALITY, 50]
+  _, imagenEncode = cv2.imencode('.jpg',resizedImage, compressionParams)
   imagenBlob = imagenEncode.tobytes()
 
   return imagenBlob

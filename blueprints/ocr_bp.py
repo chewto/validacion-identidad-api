@@ -12,6 +12,8 @@ ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
+    confidenceValue = 0.6
+
     reqBody = request.get_json()
 
     efirmaId = reqBody['id']
@@ -33,6 +35,8 @@ def verificarAnverso():
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
+    print(confidence)
+
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
@@ -40,9 +44,14 @@ def verificarAnverso():
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
     totalValidacionLado = validarLadoPre + validarLadoSencillo
 
+    messages = []
+
+    if(confidence >= confidenceValue):
+      messages.append('No coinciden los rostros')
+
     checkSide = {
       'validation': 'OK'if totalValidacionLado >= 1 else '!OK',
-      'face': 'OK' if confidence <= 0.6 else '!OK'
+      'face': 'OK' if confidence <= confidenceValue else '!OK'
     }
 
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
@@ -53,6 +62,15 @@ def verificarAnverso():
 
     documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
     codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+    if(codeC == 'HND' or country == 'HONDURAS'):
+      idLength = len(numeroDocumento)
+      firstNums = numeroDocumento[0:4]
+      middleNums = numeroDocumento[4:8]
+      lastNums = numeroDocumento[8:idLength]
+      print(firstNums, middleNums, lastNums)
+
+      numeroDocumento = f"{firstNums} {middleNums} {lastNums}"
 
     nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
     apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
@@ -85,7 +103,7 @@ def verificarAnverso():
           'ID': porcentajeDocumentoComparado
         }
       },
-      'face': True if(confidence <= 0.60) else False,
+      'face': True if confidence <= confidenceValue else False,
       'document':{
         'code': codeC,
         'country': country,

@@ -281,9 +281,15 @@ def validationType3():
 
   barcode = request.form.get('codigo_barras')
 
+  validationAttendance = request.form.get('validation_attendance')
   validationPercent = request.form.get('validation_percent')
   validationPercent = int(validationPercent)
-  validationAttendance = request.form.get('validation_attendance')
+
+  failed = request.form.get('failed')
+  failedBack = request.form.get('failed_back')
+  failedFront = request.form.get('failed_front')
+
+
 
   #leer data url
   fotoPersonaData = readDataURL(fotoPersona)
@@ -453,8 +459,21 @@ def validationType3():
 
   if(not final and validationAttendance == 'AUTOMATICA'):
     resultState = 'validación fallida'
+  
+  if(failed == 'OK'):
+
+    resultState = 'validación fallida'
+    
+    if(failedBack == '!OK'):
+      resultState += ' el anverso no es valido'
+    if(failedFront == '!OK'):
+      resultState += ' el reverso no es valido'
 
   checkValuesJson = json.dumps(checkValuesJSON)
+
+  #compresiones
+
+  
 
   anversoOrientado = cv2Blob(anversoOrientado)
   fotoPersonaBlob = cv2Blob(selfie)
