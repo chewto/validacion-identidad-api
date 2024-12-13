@@ -35,8 +35,6 @@ def verificarAnverso():
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
-    print(confidence)
-
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
@@ -47,10 +45,10 @@ def verificarAnverso():
     messages = []
 
     if(confidence >= confidenceValue):
-      messages.append('No coinciden los rostros')
+      messages.append('Los rostros no coincidén.')
 
     checkSide = {
-      'validation': 'OK'if totalValidacionLado >= 1 else '!OK',
+      'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
       'face': 'OK' if confidence <= confidenceValue else '!OK'
     }
 
@@ -63,12 +61,17 @@ def verificarAnverso():
     documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
     codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
-    if(codeC == 'HND' or country == 'HONDURAS'):
+    if(documentValidation != 'OK'):
+      messages.append('El tipo de documento no coincide con el seleccionado.')
+    
+    if(countryValidation != 'OK'):
+      messages.append('El país del documento no coincide.')
+
+    if(codeC == 'HND' or country == 'HONDURAS' and tipoDocumento != 'Pasaporte'):
       idLength = len(numeroDocumento)
       firstNums = numeroDocumento[0:4]
       middleNums = numeroDocumento[4:8]
       lastNums = numeroDocumento[8:idLength]
-      print(firstNums, middleNums, lastNums)
 
       numeroDocumento = f"{firstNums} {middleNums} {lastNums}"
 
@@ -89,6 +92,15 @@ def verificarAnverso():
     checkSide['percentName'] = 'OK' if porcentajeNombreComparado >= 50 else '!OK'
     checkSide['percentLastname'] = 'OK' if porcentajeApellidoComparado >= 50 else '!OK'
     checkSide['percentID'] ='OK' if porcentajeDocumentoComparado >= 50 else '!OK'
+
+    if(porcentajeNombreComparado <= 50):
+      messages.append('El nombre no se ha encontrado en el documento.')
+
+    if(porcentajeApellidoComparado <= 50):
+      messages.append('El apellido no se ha encontrado en el documento.')
+
+    if(porcentajeDocumentoComparado <= 50):
+      messages.append('El numero del identificación no se ha encontrado en el documento.')
 
     resultsDict = {
       'ocr': {
@@ -118,6 +130,8 @@ def verificarAnverso():
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
+      if(detectedBarcodes != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
     else:
       resultsDict['barcode'] = 'documento sin codigo de barras'
 
@@ -125,6 +139,9 @@ def verificarAnverso():
     if(documentMRZ):
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+        messages.append('No se pudo detecar el código mrz del documento.')
 
       extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
       extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
@@ -152,6 +169,12 @@ def verificarAnverso():
 
       checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
       checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+
+      if(nameMRZ['percent']<= 50):
+        messages.append('No se encontró el nombre en el codigo mrz.')
+      if(lastNameMRZ['percent']<= 50):
+        messages.append('No se encontró el apellido en el codigo mrz.')
+
     else:
       resultsDict['mrz'] = {
         'code': {
@@ -170,6 +193,8 @@ def verificarAnverso():
 
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
+    resultsDict['messages'] = messages
+
     if(confidence <= 0.60 and validSide):
       resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
       return jsonify(resultsDict)
@@ -182,6 +207,8 @@ def verificarAnverso():
 #rutas para el front
 @ocr_bp.route('/reverso', methods=['POST'])
 def verificarReverso():
+    
+    messages = []
 
     reqBody = request.get_json()
 
@@ -208,18 +235,23 @@ def verificarReverso():
     totalValidacion = validarLadoPre + validarLadoSencillo
 
     checkSide = {
-      'validation': 'OK'if totalValidacion >= 1 else '!OK'
+      'validation': 'OK'if totalValidacion >= 3 else '!OK'
     }
 
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
-
 
     countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
     countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre)
 
     documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
     codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+    if(documentValidation != 'OK'):
+      messages.append('El tipo de documento no coincide con el seleccionado.')
+    
+    if(countryValidation != 'OK'):
+      messages.append('El país del documento no coincide.')
 
     checkSide['documentValidation'] = documentValidation
     checkSide['countryValidation'] = countryValidation
@@ -239,6 +271,8 @@ def verificarReverso():
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
+      if(detectedBarcodes != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
     else:
       resultsDict['barcode'] = 'documento sin codigo de barras'
 
@@ -247,9 +281,11 @@ def verificarReverso():
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
 
+      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+        messages.append('No se pudo detecar el código mrz del documento.')
+
       extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
       extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
-
 
       extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
       extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
@@ -274,6 +310,11 @@ def verificarReverso():
 
       checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
       checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+
+      if(nameMRZ['percent']<= 50):
+        messages.append('No se encontró el nombre en el codigo mrz.')
+      if(lastNameMRZ['percent']<= 50):
+        messages.append('No se encontró el apellido en el codigo mrz.')
     else:
       resultsDict['mrz'] = {
         'code': {
@@ -292,6 +333,8 @@ def verificarReverso():
   
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
+    resultsDict['messages'] = messages
+
     resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
 
-    return jsonify(resultsDict), 200
+    return jsonify(resultsDict)

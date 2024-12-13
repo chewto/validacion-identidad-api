@@ -42,19 +42,9 @@ def obtenerFirmador(id):
     }
 })
 
-@app.route('/prueba', methods=['POST'])
-def frame():
-  
-  reqBody = request.get_json()
-
-  barcodes = barcodeReader(reqBody['imagen'], reqBody['id'], 'reverso')
-
-  return jsonify({"result": barcodes})
-
-
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
-
+  
   id = request.args.get("id")
 
   formato = "webm"
@@ -85,20 +75,31 @@ def antiSpoofing():
   pathPrueba = ""
 
   if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}-prueba.{formato}"
-    
+    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId} .{formato}"
     video.save(pathPrueba)
+
+  messages = []
 
   frames = getFrames(pathPrueba)
 
   photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
   photoAccess = readDataURL(photoDataURL)
+
   result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
 
   movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result})
+  isRealFilter = filter(lambda x: x['isReal'] != True, result)
+  isRealFilter = list(isRealFilter)
+
+  if(len(photoDataURL) <= 0):
+    messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+
+  if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
+    messages.append('Por favor, tome la foto de un rostro real.')
+
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages})
 
 @app.route('/obtener-usuario', methods=['GET'])
 def getUser():

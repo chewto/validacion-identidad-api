@@ -61,6 +61,23 @@ def readDataURL(imagen):
 
   return imagen
 
+def readDataUrlFrames(images:list):
+
+  if(len(imagen) <= 0):
+    with open('./assets/img/placeholder.jpeg', "rb") as image_file: 
+      encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+      imagen =  f"data:image/jpeg;base64,{encoded_string}"
+
+  imagenURL = imagen
+
+  imagenData = base64.b64decode(imagenURL.split(",")[1])
+
+  npArray = np.frombuffer(imagenData, np.uint8)
+
+  imagen = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
+
+  return imagen
+
 def ordenamiento(data):
 
     listaOrdenada = sorted(data, key= lambda x:x['similitud'])

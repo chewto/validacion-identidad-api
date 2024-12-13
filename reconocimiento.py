@@ -151,7 +151,7 @@ def faceDetection(frames):
                     buff = io.BytesIO()
                     pilIMG.save(buff, format="JPEG")
                     imgStr = base64.b64encode(buff.getvalue())
-                    imageDataURL += "data:image/jpeg;base64," + imgStr.decode("utf-8")
+                    imageDataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
 
                 if(contador >= 2):
                     rostro = {
