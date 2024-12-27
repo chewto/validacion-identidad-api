@@ -1,3 +1,5 @@
+import datetime
+import re
 from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
@@ -138,3 +140,44 @@ def comparisonMRZInfo(termList,  comparisonTerm):
   maxPercentage = max(percentages, key=lambda x: x['percent'])
 
   return maxPercentage
+
+def extractDate(data):
+    datePattern = r'\d+[MF]\d+'
+
+    datesFound = []
+    
+    for line in data:
+        match = re.search(datePattern, line)
+        if(match is not None):
+            datesFound.append(match.string)
+
+    dates = ' '.join(datesFound)
+
+    return dates
+
+def expiracyDateMRZ(ocrData):
+
+    currentDate = datetime.date.today()
+
+    extraction = extractDate(data=ocrData)
+
+    expiracyDateFound = ''
+
+    searchChars = ['M', 'F']
+
+    for char in searchChars:
+      find = extraction.find(char)
+      if(find != -1):
+        substringStart = find + 1
+        substringEnd = substringStart + 6
+        dateFound = extraction[substringStart:substringEnd]
+        year = int('20'+dateFound[0:2])
+        month = int(dateFound[2:4])
+        day = int(dateFound[4:6])
+        date = datetime.date(year, month, day)
+        expiracyDateFound = date
+    
+    if(expiracyDateFound <= currentDate):
+      return True
+
+    return False

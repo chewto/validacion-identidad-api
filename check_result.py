@@ -22,7 +22,7 @@ def results(percent, validatioAttendance, checksDict):
   elif validatioAttendance == 'MANUAL':
     return True,'esperando aprobacion', totalPercent
   else:
-    return False,'No verificado', totalPercent
+    return False,'validación fallida', totalPercent
 
 def testingType(array):
 

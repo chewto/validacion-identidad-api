@@ -1,8 +1,8 @@
 
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
-from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, expiracyDateOCR
+from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 from check_result import testingCountry, testingType, results
@@ -41,16 +41,22 @@ def verificarAnverso():
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
     validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
     totalValidacionLado = validarLadoPre + validarLadoSencillo
-
-    messages = []
-
-    if(confidence >= confidenceValue):
-      messages.append('Los rostros no coincidén.')
-
     checkSide = {
       'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
       'face': 'OK' if confidence <= confidenceValue else '!OK'
     }
+
+    messages = []
+
+    isExpired = expiracyDateOCR([*documentoOCRPre, *documentoOCRSencillo], tipoDocumento)
+
+    checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+
+    if(isExpired):
+      messages.append('El documento esta expirado.')
+
+    if(confidence >= confidenceValue):
+      messages.append('Los rostros no coincidén.')
 
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
@@ -121,7 +127,8 @@ def verificarAnverso():
         'country': country,
         'countryCheck':countryValidation,
         'type':documentType,
-        'typeCheck':documentValidation
+        'typeCheck':documentValidation,
+        'isExpired': isExpired
       }
     }
 
@@ -151,6 +158,8 @@ def verificarAnverso():
 
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+
+      
 
       resultsDict['mrz'] = {
         'code': {
@@ -292,6 +301,15 @@ def verificarReverso():
 
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+
+      isExpired = expiracyDateMRZ([*documentoOCRSencillo, *documentoOCRPre])
+
+      checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+
+      if(isExpired):
+        messages.append('El documento esta expirado.')
+
+      resultsDict['document']['isExpired'] = isExpired
 
       resultsDict['mrz'] = {
         'code': {

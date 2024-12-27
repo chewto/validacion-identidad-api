@@ -96,8 +96,6 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
   args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
   args.append('-tbr=112,115,117')
   args.append(imagePath)
-  print(args)
-  # process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
         process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -113,7 +111,6 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
 
   string = process.stdout.decode('utf-8')
   jsonProcess = json.loads(string)
-  print(jsonProcess)
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
   barcodesDetected = len(barcodesExtracted)

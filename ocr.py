@@ -6,6 +6,8 @@ import cv2
 import Levenshtein
 from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
+import datetime
+import re
 
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -80,6 +82,88 @@ documentTypeHash = {
         }
     }
 }
+
+def extractDate(data, documentType):
+    datePattern = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b' 
+
+    if(documentType == 'Pasaporte'):
+        datePattern = r'\d{2}\s(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)\s\d{4}'
+
+    datesFound = []
+    
+    for line in data:
+        match = re.search(datePattern, line)
+        if(match is not None):
+            matchString = match.string
+            dateString = matchString[match.start():match.end()]
+            datesFound.append(dateString)
+
+    return datesFound
+
+def dateFormatter(dates):
+    monthPattern = r'(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)'
+
+    monthDict = {
+        'ENE':'1',
+        'FEB':'2',
+        'MAR':'3',
+        'ABR':'4',
+        'MAY':'5',
+        'JUN':'6',
+        'JUL':'7',
+        'AGO':'8',
+        'SEP':'9',
+        'OCT':'10',
+        'NOV':'11',
+        'DIC':'12',
+    }
+
+    datesFound = []
+
+    for date in dates:
+        match = re.search(monthPattern, date)
+        if(match is not None):
+            matchStart = match.start()
+            matchEnd = match.end()
+            matchString = match.string
+            matchLength = len(matchString)
+            monthString = matchString[matchStart:matchEnd]
+            monthSplitted = monthString.split('/')
+            monthExtracted = monthSplitted[0]
+            month = monthDict[monthExtracted]
+            day = matchString[0:matchStart]
+            year = matchString[matchEnd:matchLength]
+            date = f'{day}-{month}-{year}'
+            datesFound.append(date)
+
+    return datesFound
+
+def expiracyDateOCR(ocrData, documentType):
+
+    currentDate = datetime.date.today()
+
+    extraction = extractDate(data=ocrData, documentType=documentType)
+
+    if(documentType == 'Pasaporte'):
+        extraction = dateFormatter(extraction)
+
+    extractedDates = filter(lambda x: len(x) >= 1, extraction)
+
+    lowerDates = []
+    higherDates = []
+
+    for date in extractedDates:
+        splitedDate = date.split('-')
+        convertedDate = datetime.date(int(splitedDate[2]),int(splitedDate[1]), int(splitedDate[0]))
+        if(convertedDate > currentDate):
+            higherDates.append(convertedDate)
+
+        if(convertedDate <= currentDate):
+            lowerDates.append(convertedDate)
+
+    print(lowerDates, higherDates)
+
+    return False if(len(higherDates) >= 1) else True
 
 def verificacionRostro(dataURL: str):
 

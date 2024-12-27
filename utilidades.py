@@ -122,3 +122,5 @@ def leerFileStorage(archivo):
   with open(archivo, 'rb') as archivoOpen:
     data = archivoOpen.read()
   return data
+
+

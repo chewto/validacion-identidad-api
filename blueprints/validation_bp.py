@@ -254,12 +254,14 @@ def validationType3():
   frontCountryCheck = request.form.get('front_country_check')
   frontType = request.form.get('front_type')
   frontTypeCheck = request.form.get('front_type_check')
+  frontIsExpired = request.form.get('front_isExpired')
 
   backCode = request.form.get('back_code')
   backCountry = request.form.get('back_country')
   backCountryCheck = request.form.get('back_country_check')
   backType = request.form.get('back_type')
   backTypeCheck = request.form.get('back_type_check')
+  backIsExpired = request.form.get('back_isExpired')
 
   movementTest = request.form.get('movement_test')
 
@@ -387,7 +389,10 @@ def validationType3():
   fTypeCheck = True if(frontTypeCheck == 'OK') else False
   checkValuesDict['front_type'] = fTypeCheck
 
-  frontCheck = all([fCountryCheck, fTypeCheck])
+  fIsExpired = True if(frontIsExpired == 'OK') else False
+  checkValuesDict['front_isExpired'] = fIsExpired
+
+  frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
   checkValuesDict['front'] = frontCheck
 
   checkValuesJSON['sides_validation'] = {
@@ -395,7 +400,8 @@ def validationType3():
       'correspond': frontCheck,
       'code': frontCode,
       'country': frontCountry,
-      'type': frontType
+      'type': frontType,
+      'isExpired': not fIsExpired
     }
   }
 
@@ -409,18 +415,24 @@ def validationType3():
     bTypeCheck = True if(backTypeCheck == 'OK') else False
     checkValuesDict['back_type'] = bTypeCheck
 
-    backCheck = all([bTypeCheck,bCountryCheck])
+    bIsExpired = True if(backIsExpired == 'OK') else False
+    checkValuesDict['back_isExpired'] = bIsExpired
+
+    backCheck = all([bTypeCheck,bCountryCheck, bIsExpired])
     checkValuesDict['back'] = backCheck
 
     checkValuesDict['sides_country_confidence'] = True if(frontCountry == backCountry) else False
     
     checkValuesDict['sides_type_confidence'] = True if(frontTypeCheck == backTypeCheck) else False
 
+    checkValuesDict['both_sides_isExpired'] = all([fIsExpired, bIsExpired])
+
     checkValuesJSON['sides_validation']['back'] = {
       'correspond': backCheck,
       'code': backCode,
       'country': backCountry,
-      'type': backType
+      'type': backType,
+      'isExpired': not bIsExpired
     }
 
     test.append(backCheck)
