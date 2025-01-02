@@ -154,14 +154,20 @@ def expiracyDateOCR(ocrData, documentType):
 
     for date in extractedDates:
         splitedDate = date.split('-')
-        convertedDate = datetime.date(int(splitedDate[2]),int(splitedDate[1]), int(splitedDate[0]))
-        if(convertedDate > currentDate):
-            higherDates.append(convertedDate)
 
-        if(convertedDate <= currentDate):
-            lowerDates.append(convertedDate)
+        try:
+            day, month, year = int(splitedDate[0]), int(splitedDate[1]), int(splitedDate[2])
 
-    print(lowerDates, higherDates)
+            if 1 <= month <= 12:
+                convertedDate = datetime.date(year, month, day)
+                if convertedDate > currentDate:
+                    higherDates.append(convertedDate)
+                else:
+                    lowerDates.append(convertedDate)
+            else: 
+                raise ValueError("Month must be in 1..12") 
+        except ValueError as e: 
+            return True
 
     return False if(len(higherDates) >= 1) else True
 

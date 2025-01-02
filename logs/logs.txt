@@ -1,0 +1,2 @@
+2024-12-27 11:56:22.904040 | Column 'email' cannot be null
+2024-12-27 11:57:43.221260 | Column 'email' cannot be null

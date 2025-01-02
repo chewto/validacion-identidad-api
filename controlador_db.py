@@ -2,6 +2,7 @@ import mariadb
 import base64
 import socket
 import requests
+import logs
 
 credencialesDB = {
   "desarrollo":{
@@ -93,7 +94,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'honducert-desarrollo'
+credenciales = 'desarrollo'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]
@@ -215,8 +216,9 @@ def insertTabla(columns: tuple, table:str, values: tuple):
     return documentoUsuarioID
 
   except mariadb.Error as e:
+    logsPath = logs.checkLogsFile()
+    logs.writeLogs(logsPath, e)
 
-    print("error =", e)
     return 0
 
   finally:
