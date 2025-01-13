@@ -94,7 +94,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'desarrollo'
+credenciales = 'honducert'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]
@@ -117,11 +117,6 @@ def obtenerIpPublica():
   ip = requests.get('https://api.ipify.org').text
 
   return ip
-
-#query para obtener porcentajes
-"""
-SELECT ent.tipo_validacion, ent.porcentaje_acierto from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = 18502;
-"""
 
 def selectData(query, *values):
   try:
@@ -451,3 +446,40 @@ def selectValidationParams(id):
     cursor.close()
     conn.close()
 
+
+def selectCallback(id):
+
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+
+  except mariadb.Error as e:
+    return (None, None, None)
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = """SELECT ent.validacion_callback, usu.clave_api FROM usuarios.usuarios As usu
+      INNER JOIN usuarios.entidades AS ent  ON usu.entity_id = ent.entity_id
+      INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON  firma.usuario_id = usu.id
+      INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.firma_electronica_id = firma.id
+      WHERE firmador.id = ?"""
+
+    cursor.execute(queryInfo, (id,))
+
+    callbackData = cursor.fetchone()
+
+    return callbackData if(callbackData != None) else (None, None, None)
+
+  except mariadb.Error as e:
+    return (None, None, None)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()

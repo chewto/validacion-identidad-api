@@ -7,6 +7,8 @@ from eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidation
 from mrz import validateMRZ, hasMRZ
 from check_result import results
 from lector_codigo import hasBarcode
+from callback_request import callbackRequest
+
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
@@ -22,27 +24,6 @@ def webhook():
   userLongitude = '0' 
 
   return jsonify({'latitude': userLatitude,'longitude':userLongitude })
-
-@validation_bp.route('/test', methods=['POST'])
-def testing():
-
-  reqBody = request.get_json()
-
-  selfie = reqBody['selfie']
-  anverso = reqBody['anverso']
-
-  fotoPersonaData = readDataURL(selfie)
-  anversoData = readDataURL(anverso)
-
-  anversoOrientado, documentoValido = orientacionImagen(anversoData)
-  selfie, selfieValida = orientacionImagen(fotoPersonaData)
-
-  antiSpoof = antiSpoofingTest(selfie)
-
-  coincidencia = verifyFaces(selfie, anversoOrientado)
-
-  return jsonify({'faceVerify': coincidencia, 'antiSpoofing': antiSpoof})
-
 
 @validation_bp.route('/validation-provider', methods=['GET'])
 def validationProvider():
@@ -509,6 +490,10 @@ def validationType3():
   valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUsuario)
   documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
+  callbackData =  controlador_db.selectCallback(idUsuario)
+
+  callbackRequest(data=callbackData, state=resultState, validationParams=checkValuesDict, validationPercent=resultPercent, id=idUsuario)
+
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
 
@@ -592,4 +577,28 @@ def rejectedValidation():
   valoresDocumento = (name, lastName, documentID, documentType, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUser)
   documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
+  #callback
+
+
+
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUser, "coincidenciaDocumentoRostro": face, "estadoVerificacion":state})
+
+@validation_bp.route('/test', methods=['POST'])
+def test():
+  idFirmador = request.args.get('idFirmador')
+  idFirmador = int(idFirmador)
+
+  jsonData = request.get_json()
+
+  callbackData =  controlador_db.selectCallback(idFirmador)
+
+  callbackRequest(data=callbackData, state='test', validationParams='test', validationPercent='123123', id='122342344')
+
+  return jsonify({"test":'testing'})
+
+@validation_bp.route('/callback-test', methods=['POST'])
+def callbackTest():
+  jsonData = request.get_json()
+  print(jsonData)
+
+  return jsonify({"test":jsonData})
