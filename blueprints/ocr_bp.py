@@ -7,6 +7,8 @@ from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 from check_result import testingCountry, testingType, results
 
+import time
+
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
 @ocr_bp.route('/anverso', methods=['POST'])
@@ -33,8 +35,14 @@ def verificarAnverso():
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
+    timeRecognitionInit = time.time()
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
+    timeRecognitionEnd = time.time()
+    recognitionTime = timeRecognitionInit - timeRecognitionEnd
+    print('recognition timing ', recognitionTime)
 
+
+    timeOcrInit = time.time()
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
@@ -48,12 +56,13 @@ def verificarAnverso():
 
     messages = []
 
-    isExpired = expiracyDateOCR([*documentoOCRPre, *documentoOCRSencillo], tipoDocumento)
+    #REVISION
+    # isExpired = expiracyDateOCR([*documentoOCRPre, *documentoOCRSencillo], tipoDocumento)
 
-    checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+    # checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
 
-    if(isExpired):
-      messages.append('El documento esta expirado.')
+    # if(isExpired):
+    #   messages.append('El documento esta expirado.')
 
     if(confidence >= confidenceValue):
       messages.append('Los rostros no coincidén.')
@@ -93,6 +102,10 @@ def verificarAnverso():
     apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
     documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
+    timeOcrEnd = time.time()
+    OCRtime = timeOcrInit - timeOcrEnd
+    print('ocr time ', OCRtime)
+
     checkSide['documentValidation'] = documentValidation
     checkSide['countryValidation'] = countryValidation
     checkSide['percentName'] = 'OK' if porcentajeNombreComparado >= 50 else '!OK'
@@ -122,15 +135,18 @@ def verificarAnverso():
         }
       },
       'face': True if confidence <= confidenceValue else False,
+      'confidence': confidence,
       'document':{
         'code': codeC,
         'country': country,
         'countryCheck':countryValidation,
         'type':documentType,
         'typeCheck':documentValidation,
-        'isExpired': isExpired
+        'isExpired': False
       }
     }
+
+    codeTimeInit = time.time()
 
     documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
@@ -159,7 +175,7 @@ def verificarAnverso():
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
 
-      
+    
 
       resultsDict['mrz'] = {
         'code': {
@@ -184,6 +200,7 @@ def verificarAnverso():
       if(lastNameMRZ['percent']<= 50):
         messages.append('No se encontró el apellido en el codigo mrz.')
 
+
     else:
       resultsDict['mrz'] = {
         'code': {
@@ -202,13 +219,20 @@ def verificarAnverso():
 
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
+    codeTimeEnd = time.time()
+    codeTime = codeTimeInit - codeTimeEnd
+    print('codes time ', codeTime)
+
     resultsDict['messages'] = messages
 
     if(confidence <= 0.60 and validSide):
       resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+      # resultsDict['validSide'] = 'OK' 
+
       return jsonify(resultsDict)
 
     resultsDict['validSide'] = '!OK'
+    # resultsDict['validSide'] = 'OK' 
     return jsonify(resultsDict)
 
 
@@ -233,6 +257,8 @@ def verificarReverso():
     apellido = textNormalize(apellido)
     documentoData = readDataURL(imagenDocumento)
 
+    timeOcrInit = time.time()
+
     documentoOCRSencillo = ocr(documentoData, preprocesado=False)
     documentoOCRPre = ocr(documentoData, preprocesado=True)
 
@@ -256,6 +282,10 @@ def verificarReverso():
     documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
     codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
+    timeOcrEnd = time.time()
+    OCRtime = timeOcrInit - timeOcrEnd
+    print('ocr time ', OCRtime)
+
     if(documentValidation != 'OK'):
       messages.append('El tipo de documento no coincide con el seleccionado.')
     
@@ -273,7 +303,10 @@ def verificarReverso():
         'type':documentType,
         'typeCheck':documentValidation
       }
+
     }
+
+    codeTimeInit = time.time()
 
     documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
@@ -302,14 +335,15 @@ def verificarReverso():
       nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
 
-      isExpired = expiracyDateMRZ([*documentoOCRSencillo, *documentoOCRPre])
+      #REVISION
+      # isExpired = expiracyDateMRZ([*documentoOCRSencillo, *documentoOCRPre])
 
-      checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+      # checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
 
-      if(isExpired):
-        messages.append('El documento esta expirado.')
+      # if(isExpired):
+      #   messages.append('El documento esta expirado.')
 
-      resultsDict['document']['isExpired'] = isExpired
+      resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
         'code': {
@@ -351,8 +385,14 @@ def verificarReverso():
   
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
+    codeTimeEnd = time.time()
+    codeTime = codeTimeInit - codeTimeEnd
+    print('codes time ', codeTime)
+
     resultsDict['messages'] = messages
 
     resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+
+    # resultsDict['validSide'] = 'OK' 
 
     return jsonify(resultsDict)

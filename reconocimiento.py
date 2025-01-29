@@ -78,6 +78,9 @@ def verifyFaces(imageArray1, imageArray2):
         img1 = compareFaces['facial_areas']['img1']
         img2 = compareFaces['facial_areas']['img2']
 
+        print(confidence)
+        print(verified)
+
         landmarks = {
             'img1': img1,
             'img2': img2

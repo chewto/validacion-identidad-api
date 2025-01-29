@@ -18,9 +18,9 @@ def results(percent, validatioAttendance, checksDict):
   if totalPercent >= percent and validatioAttendance == 'AUTOMATICA':
     return True,'verificado', totalPercent
   elif totalPercent >= percent and validatioAttendance == 'MIXTA':
-    return True,'iniciando segunda validacion', totalPercent
+    return True,'iniciando segunda validación', totalPercent
   elif validatioAttendance == 'MANUAL':
-    return True,'esperando aprobacion', totalPercent
+    return True,'esperando aprobación', totalPercent
   else:
     return False,'validación fallida', totalPercent
 

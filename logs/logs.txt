@@ -1,2 +1,6 @@
 2024-12-27 11:56:22.904040 | Column 'email' cannot be null
 2024-12-27 11:57:43.221260 | Column 'email' cannot be null
+2025-01-24 10:33:34.038641 | statement (9) doesn't match the number of data elements (8).
+2025-01-24 10:34:58.660873 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python
+2025-01-24 10:35:55.546770 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python
+2025-01-24 10:37:04.646410 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python

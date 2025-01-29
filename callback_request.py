@@ -2,29 +2,23 @@ import requests
 import logs
 
 
-def callbackRequest(data, state, validationParams, validationPercent, id):
+def callbackRequest(data, callbackBody):
 
   callback = {
     'url': data[0],
     'bearer': data[1]
   }
 
-  callbackBody = {
-    'claveApi':callback['bearer'],
-    'estadoValidacion':state,
-    'parametrosValidacion':validationParams,
-    'porcentajeValidacion':validationPercent,
-    'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={id}'
-    # 'enlaceFirma': f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={id}'
-  }
-
-  print(callback)
+  
+  # if(standalone == None):
+  #   callbackBody['enlaceFirma'] = f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={idUser}'
+  # else:
+  #   callbackBody['enlaceValidacion'] = f'https://desarrollo.firma.e-custodia.com/resultado_validacion?id={idValidation}&idUsuario={idUser}&tipo={typeParam}',
 
   if(callback['url'] == None):
     return ''
   
   try:
-    
     res = requests.post(url=callback['url'], json=callbackBody)
   except requests.RequestException as e:
     path = logs.checkLogsFile()
