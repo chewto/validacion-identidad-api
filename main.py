@@ -19,7 +19,7 @@ CORS(app, resources={
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
 
-CORS(app, resources={r"/validation/*": {"origins": "https://localhost"}})
+# CORS(app, resources={r"/validation/*": {"origins": "*"}})
 
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)

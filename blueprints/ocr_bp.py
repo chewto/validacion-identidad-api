@@ -6,10 +6,10 @@ from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize
 from check_result import testingCountry, testingType, results
-
 import time
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
+
 
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():

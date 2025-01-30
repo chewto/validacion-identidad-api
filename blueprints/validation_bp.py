@@ -408,11 +408,10 @@ def validationType3():
   failedBack = request.form.get('failed_back')
   failedFront = request.form.get('failed_front')
 
-  # face = request.form.get('face')
-  # confidenceValue = request.form.get('confidence')
-  # landmarks = request.foi
-
-
+  face = request.form.get('face')
+  confidenceValue = request.form.get('confidence')
+  confidenceValue = float(confidenceValue)
+  # landmarks = request.form.get('landmarks')
 
   #leer data url
   fotoPersonaData = readDataURL(fotoPersona)
@@ -429,16 +428,9 @@ def validationType3():
 
   faceValidation = {}
 
-
-  #cambiar a recibir formdata
-  landmarks, confidenceValue, _ = verifyFaces(selfie, anversoOrientado)
-
-  isIdentical = True if(confidenceValue <= 0.55) else False
+  isIdentical = True if(face == 'OK') else False
 
   checkValuesDict['confidence'] = isIdentical
-
-
-
 
   movementCheck = True if(movementTest == 'OK') else False
   checkValuesDict['movement'] = movementCheck
@@ -474,13 +466,13 @@ def validationType3():
     'value': isIdentical
   }
 
-  faceValidation['img1_data'] = {
-    'faceLandmarks': landmarks['img1']
-  }
+  # faceValidation['img1_data'] = {
+  #   'faceLandmarks': landmarks['img1']
+  # }
 
-  faceValidation['img2_data'] = {
-    'faceLandmarks': landmarks['img2']
-  }
+  # faceValidation['img2_data'] = {
+  #   'faceLandmarks': landmarks['img2']
+  # }
 
   checkValuesJSON['face_validation'] = faceValidation
 
@@ -726,6 +718,10 @@ def standoleValidation():
 
   callback = request.form.get('callback')
 
+  face = request.form.get('face')
+  confidenceValue = request.form.get('confidence')
+  confidenceValue = float(confidenceValue)
+
 
   #leer data url
   fotoPersonaData = readDataURL(fotoPersona)
@@ -742,9 +738,9 @@ def standoleValidation():
 
   faceValidation = {}
 
-  landmarks, confidenceValue, _ = verifyFaces(selfie, anversoOrientado)
+  # landmarks, confidenceValue, _ = verifyFaces(selfie, anversoOrientado)
 
-  isIdentical = True if(confidenceValue <= 0.55) else False
+  isIdentical = True if(face == 'OK') else False
 
   checkValuesDict['confidence'] = isIdentical
 
@@ -782,13 +778,13 @@ def standoleValidation():
     'value': isIdentical
   }
 
-  faceValidation['img1_data'] = {
-    'faceLandmarks': landmarks['img1']
-  }
+  # faceValidation['img1_data'] = {
+  #   'faceLandmarks': landmarks['img1']
+  # }
 
-  faceValidation['img2_data'] = {
-    'faceLandmarks': landmarks['img2']
-  }
+  # faceValidation['img2_data'] = {
+  #   'faceLandmarks': landmarks['img2']
+  # }
 
   checkValuesJSON['face_validation'] = faceValidation
 
