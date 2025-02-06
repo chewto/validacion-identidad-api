@@ -4,13 +4,14 @@ from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
 
-country = 'HND'
+country = 'COL'
 
 documentMRZ = {
   "COL": {
             "Cédula de ciudadanía": {
                 "anverso": False,
-                "reverso": False
+                "reverso": False,
+                "mrzLetter":"I<"
             },
             "Cédula de extranjería": {
                 "anverso": False,

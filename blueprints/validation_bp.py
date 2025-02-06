@@ -566,6 +566,7 @@ def validationType3():
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
+    test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
@@ -582,7 +583,6 @@ def validationType3():
     'validation_percentage': resultPercent
   }
 
-  test.append(barcodeCheck)
   test.append(mrzCheck)
 
   test = all(test)
@@ -632,7 +632,7 @@ def validationType3():
   callbackRequest([callbackData[0], callbackData[1]], {
     'claveApi':callbackData[1],
     'estadoValidacion': resultState,
-    'porcentajeValidacion': checkValuesJson,
+    'porcentajeValidacion': resultPercent,
     'tipoValidacion': int(tipo),
     'idUsuario': int(idUsuario),
     'idValidacion': documentoUsuarioId, 
@@ -878,6 +878,7 @@ def standoleValidation():
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
+    test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
@@ -894,7 +895,7 @@ def standoleValidation():
     'validation_percentage': resultPercent
   }
 
-  test.append(barcodeCheck)
+
   test.append(mrzCheck)
 
   test = all(test)

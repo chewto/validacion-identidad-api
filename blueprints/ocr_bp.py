@@ -308,11 +308,14 @@ def verificarReverso():
 
     codeTimeInit = time.time()
 
-    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode, isCrypted, barcodeType = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      detectedBarcodes, barcodeData = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, isCrypted, barcodeType, tipoDocumento)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
+      if(barcodeData != None):
+        resultsDict['barcodeData'] = barcodeData
+
       if(detectedBarcodes != 'OK'):
         messages.append('No se pudo detectar el código de barras del documento.')
     else:

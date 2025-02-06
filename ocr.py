@@ -12,12 +12,12 @@ import re
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-country = 'HND'
+country = 'COL'
 
 countries = {
-    'HND': 'HONDURAS',
-    'COL': 'COLOMBIA',
-    'PTY': 'PANAMA'
+    'HND': ['HONDURAS'],
+    'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA'],
+    'PTY': ['PANAMA']
 }
 
 ocrHash = {
@@ -74,14 +74,26 @@ documentTypeHash = {
     'HND':{
         'DNI':{
             'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION', 'REGISTRO NACIONAL DE LAS PERSONAS'],
-            'reverso': ['<', 'HND']
+            'reverso': ['HND', 'DOMICILIO / ADDRESS']
         },
         'Pasaporte': {
             'anverso': ['PASAPORTE',  'PASSPORT'],
             'reverso': []
         }
+    },
+    "COL": {
+            "Cédula de ciudadanía": {
+                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA"],
+                "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO', 'LUGAR DE NACIMIENTO']
+            },
+            "Cédula de extranjería": {
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'EXPEDICION', 'VENCE', 'NO.', "MIGRANTE"],
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "COL", "document", "titular", "documento"]
+            },
     }
 }
+
+# "REPUBLICA DE COLOMBIA"
 
 def extractDate(data, documentType):
     datePattern = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b' 
@@ -229,7 +241,7 @@ def validateDocumentType(documentType, documentSide, ocr):
     for line in ocr:
 
         for documentLine in document:
-            if(len(line) >= 1 and (line in documentLine or documentLine in line)):
+            if(len(line) >= 3 and (line in documentLine or documentLine in line)):
 
                 return f'{documentType}', 'OK'
 
@@ -240,12 +252,13 @@ def validateDocumentCountry(ocr):
 
     for line in lines:
         for key, value in countries.items():
-            if(value in line):
-                if(key == country):
-                    return key,value,'OK'
+            for location in value:
+                if(location in line):
+                    if(key == country):
+                        return key,value[0],'OK'
             if(key in line):
                 if(key == country):
-                    return key,value,'OK'
+                    return key,value[0],'OK'
 
     return 'no detectado','no detectado', '!OK'
 
