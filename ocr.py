@@ -1,7 +1,5 @@
 from PIL import Image
 from io import BytesIO
-import easyocr
-import imutils
 import pytesseract as tess
 import base64
 import cv2
@@ -14,12 +12,12 @@ import re
 
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-country = 'HND'
+country = 'COL'
 
 countries = {
-    'HND': 'HONDURAS',
-    'COL': 'COLOMBIA',
-    'PTY': 'PANAMA'
+    'HND': ['HONDURAS'],
+    'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA'],
+    'PTY': ['PANAMA']
 }
 
 ocrHash = {
@@ -76,7 +74,7 @@ documentTypeHash = {
     'HND':{
         'DNI':{
             'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION', 'REGISTRO NACIONAL DE LAS PERSONAS'],
-            'reverso': ['<', 'HND']
+            'reverso': ['HND', 'DOMICILIO / ADDRESS']
         },
         'Pasaporte': {
             'anverso': ['PASAPORTE',  'PASSPORT'],
@@ -85,28 +83,21 @@ documentTypeHash = {
     },
     "COL": {
             "Cédula de ciudadanía": {
-                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
-                "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
+                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA"],
+                "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO', 'LUGAR DE NACIMIENTO']
             },
             "Cédula de extranjería": {
-                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'NACIONALIDAD', 'EXPEDICION', 'VENCE', 'NO.', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
-                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'EXPEDICION', 'VENCE', 'NO.', "MIGRANTE"],
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "COL", "document", "titular", "documento"]
             },
+            "Pasaporte": {
+                "anverso": ["Passport", "PASAPORTE", "PASSPORT", "Pasaporte", "REPUBLICA DE COLOMBIA"],
+                "reverso": []
+            }
     }
 }
 
-documentReferencePlacement = {
-    'HND':{
-        'DNI':{
-            'anverso': 'left',
-            'reverso': ''
-        },
-        'Pasaporte': {
-            'anverso': 'left',
-            'reverso': ''
-        }
-    }
-}
+# "REPUBLICA DE COLOMBIA"
 
 def extractDate(data, documentType):
     datePattern = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b' 
@@ -244,211 +235,9 @@ def ocr(imagen: str, preprocesado):
         txt: str = tess.image_to_string(enhancedImage)
 
         lineas: list[str] = txt.splitlines()
+        print(lineas)
         return lineas
 
-
-def detect_text(image):
-  """Use EasyOCR to detect text in the image."""
-  reader = easyocr.Reader(['en'], gpu=False)  # Specify the language
-  results = reader.readtext(image)
-  return results
-
-def rotate_image(image, angle):
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-
-    # Get the rotation matrix for the given angle
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-
-    # Calculate the new bounding box dimensions
-    abs_cos = abs(M[0, 0])
-    abs_sin = abs(M[0, 1])
-    new_w = int(h * abs_sin + w * abs_cos)
-    new_h = int(h * abs_cos + w * abs_sin)
-
-    # Adjust the rotation matrix to account for the translation
-    M[0, 2] += (new_w / 2) - center[0]
-    M[1, 2] += (new_h / 2) - center[1]
-
-    # Perform the rotation with the new bounding box dimensions
-    rotated = cv2.warpAffine(image, M, (new_w, new_h))
-    return rotated
-
-def orientation(dataURL: str, reference, documentType, documentSide):
-
-    refPlacement = documentReferencePlacement[country][documentType][documentSide]
-
-    image = cv2.cvtColor(dataURL, cv2.COLOR_BGR2RGB)
-    kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]]) 
-    sharpened = cv2.filter2D(image, -1, kernel)
-    invertedImage = cv2.bitwise_not(sharpened)
-    enhancedImage = cv2.convertScaleAbs(invertedImage, alpha=1.0, beta=-25)
-
-    results = detect_text(enhancedImage)
-    
-    boxCounter = {
-        'wider': 0,
-        'higher': 0,
-        'equal': 0
-    }
-
-    textCoords = []
-
-# Loop through the results and draw bounding boxes
-    for (bbox, text, prob) in results:
-        (top_left, top_right, bottom_right, bottom_left) = bbox
-        top_left = tuple(map(int, top_left))
-        top_right = tuple(map(int, top_right))
-        bottom_right = tuple(map(int, bottom_right))
-        bottom_left = tuple(map(int, bottom_left))
-
-        width = bottom_right[0] - top_left[0]
-        height = bottom_right[1] - top_left[1]
-
-        textCoords.append((top_left, top_right, bottom_right, bottom_left))  # Append all limits of the text box
-
-        if(width > height):
-            boxCounter['wider'] += 1
-        
-        if(width < height):
-            boxCounter["higher"] += 1
-        
-        if(width == height):
-            boxCounter["equal"] += 1
-
-    if(boxCounter['wider'] < boxCounter['higher']):
-        # Rotate the image 90 degrees counterclockwise
-
-        rotate180 = 0
-        notRotate = 0
-
-        leftLimit = reference[0]
-        rightLimit = reference[1]
-
-        rotatedImage = cv2.rotate(dataURL, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
-        detectedTextTest = detect_text(rotatedImage)
-
-        for (bbox, _, _) in detectedTextTest:
-            (top_left, top_right, bottom_right, bottom_left) = bbox
-            top_left = tuple(map(int, top_left))
-            top_right = tuple(map(int, top_right))
-            bottom_right = tuple(map(int, bottom_right))
-            bottom_left = tuple(map(int, bottom_left))
-
-            textLeftLimit = min(top_left[0], bottom_left[0])
-            textRightLimit = max(top_right[0], bottom_right[0])
-
-            if(refPlacement == 'left'):
-                if leftLimit > textLeftLimit and rightLimit > textRightLimit :
-                    rotate180 += 1
-                else:
-                    notRotate += 1
-
-        if(refPlacement == 'left'):
-            print('rated', rotate180, notRotate)
-            # rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_180)
-
-            return rotatedImage
-
-            # if textLeftLimit > rightLimit:
-            #     right += 1
-            # elif textRightLimit > leftLimit:
-            #     left += 1
-
-        # print(f"left: {left}, right: {right}")
-
-        # if refPlacement == 'left':
-        #     if left >= right:
-        #         print('test')
-        #         return rotatedImage
-        #     else:
-        #         print('bombaclar')
-        #         rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_180)
-        #         return rotatedImage
-        # else:
-        #     if right >= left:
-        #         return rotatedImage
-        #     else:
-        #         return dataURL
-
-        # if refPlacement == 'left':
-        #     if left >= right:
-        #         return rotatedImage
-        #     else:
-        #         return dataURL
-        # else:
-        #     if right >= left:
-        #         return rotatedImage
-        #     else:
-        #         return dataURL
-        
-        # info = tess.image_to_osd(rotatedImage, output_type=tess.Output.DICT)
-        # print(info['rotate'])
-
-        # if(info['rotate'] == 180):
-        #     rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_180)
-        #     return rotatedImage
-
-    # # Compare the coordinates of the text with the reference coordinates
-    #     for (top_left, top_right, bottom_right, bottom_left) in textCoords:
-    #         top_limit = min(top_left[1], top_right[1])
-    #         bottom_limit = max(bottom_left[1], bottom_right[1])
-
-    #         firstRef = reference[0]
-    #         secondRef = reference[1]
-
-    #         print('refs', firstRef, secondRef)
-    #         print('limits', top_limit, bottom_limit)
-
-    #         if top_limit > firstRef and top_limit > secondRef:
-    #             print('The image is below the reference')
-    #         elif bottom_limit < firstRef and bottom_limit < secondRef:
-    #             print('The image is above the reference')
-
-    #         # print(reference)
-    #         # print(f'Top limit: {top_limit}, Bottom limit: {bottom_limit}')
-
-    #         # if(top_limit > reference[0] and top_limit > reference[1]):
-    #         #     print('el texto esta por debajo la foto')
-
-    #         # if(bottom_limit < reference[0] and bottom_limit < reference[1]):
-    #         #     print('el texto esta por encima de la foto')
-
-    #         # if top_limit < reference[0] and bottom_limit > reference[0]:
-    #         #     print('esta por debajo')
-    #         # if top_limit > reference[0] and bottom_limit < reference[0]:
-    #         #     print('esta por encima')
-    #         # return dataURL
-
-
-
-        return dataURL
-
-
-
-    #evaluate if the document is upside down
-
-#   # Rotate the image and detect text for each angle
-#     # for angle in [0, 90, 180, 270]:
-#     for angle in [0]:
-#         rotated_image = rotate_image(enhancedImage, angle)
-#         rotatedCopy = rotate_image(dataURL, angle)
-#         results = detect_text(rotated_image)
-#         print(results)
-#         sumConfidence = 0
-#         for result in results:
-#             sumConfidence += result[2]
-
-#         all_results.append((angle, sumConfidence,rotatedCopy))
-
-#     best_angle, best_confidence, best_image = max(all_results, key=lambda x: x[1])
-
-#     # rotatedImage = cv2.cvtColor(best_image, cv2.COLOR_BGR2RGB)
-
-    return dataURL
-
-# def evaluatePlacement(ref, text, ):
 
 def validateDocumentType(documentType, documentSide, ocr):
 
@@ -457,7 +246,7 @@ def validateDocumentType(documentType, documentSide, ocr):
     for line in ocr:
 
         for documentLine in document:
-            if(len(line) >= 1 and (line in documentLine or documentLine in line)):
+            if(len(line) >= 3 and (line in documentLine or documentLine in line)):
 
                 return f'{documentType}', 'OK'
 
@@ -468,12 +257,13 @@ def validateDocumentCountry(ocr):
 
     for line in lines:
         for key, value in countries.items():
-            if(value in line):
-                if(key == country):
-                    return key,value,'OK'
+            for location in value:
+                if(location in line):
+                    if(key == country):
+                        return key,value[0],'OK'
             if(key in line):
                 if(key == country):
-                    return key,value,'OK'
+                    return key,value[0],'OK'
 
     return 'no detectado','no detectado', '!OK'
 
@@ -598,9 +388,11 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
         return ocrSencillo, porcentajeSencillo
 
 
-def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, ocr):
+def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
 
-    lineas = ocr
+    lineas = []
+
+    lineas = ocr(imagen=imagen, preprocesado=preprocesado)
 
     ladoPalabras = ocrHash[country][tipoDocumento][ladoDocumento]
 
