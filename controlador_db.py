@@ -94,7 +94,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'honducert-desarrollo'
+credenciales = 'honducert'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]
@@ -319,7 +319,7 @@ def checkValidation(query):
     cursor.close()
     conn.close()
 
-def obtenerEntidad(id):
+def obtenerEntidad(query):
 
   try:
     conn = mariadb.connect(
@@ -336,9 +336,7 @@ def obtenerEntidad(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT fe.usuario_id,usu.entity_id from pki_firma_electronica.firma_electronica_pki as fe INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id=fi.firma_electronica_id INNER JOIN usuarios.usuarios usu ON usu.id=fe.usuario_id WHERE fi.id={id}'
-
-    cursor.execute(queryInfo)
+    cursor.execute(query)
 
     entidad = cursor.fetchone()
 
@@ -351,6 +349,46 @@ def obtenerEntidad(id):
   except mariadb.Error as e:
     print(e)
     return 0,0
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def obtenerEntidadHash(hash):
+
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    print(e)
+    return 0
+
+  try:
+    cursor = conn.cursor()
+    query = """SELECT id_usuario FROM pki_validacion.documento_usuario AS du
+    INNER JOIN pki_validacion.parametros_validacion AS pv ON pv.id= du.id
+    WHERE pv.parametros_hash = ?"""
+
+    cursor.execute(query,(hash,))
+
+    entidad = cursor.fetchone()
+
+    if(entidad):
+      return entidad[0]
+    else:
+      return 0
+
+
+  except mariadb.Error as e:
+    print(e)
+    return 0
 
   finally:
     conn.commit()

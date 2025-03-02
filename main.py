@@ -1,3 +1,4 @@
+import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
@@ -7,10 +8,13 @@ import os
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
 from lector_codigo import barcodeReader
+from PIL import Image
+import numpy as np
+import hashlib
+import time
 
 app = Flask(__name__)
 
-carpetaPruebaVida = "./evidencias-vida"
 
 CORS(app, resources={
   r"/*":{
@@ -42,64 +46,246 @@ def obtenerFirmador(id):
     }
 })
 
-@app.route('/anti-spoof', methods=['POST'])
-def antiSpoofing():
+
+@app.route('/get-media', methods=['GET'])
+def getUserMedia():
+
+  carpetaPruebaVida = "./evidencias-vida"
   
   id = request.args.get("id")
+  hash = request.args.get('hash')
 
-  formato = "webm"
 
-  video = request.files.get("video")
+  usuarioId, entidadId = [0,0]
 
-  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
+  if(id == None):
+    usuarioId = controlador_db.obtenerEntidadHash(hash)
+    entidadId = usuarioId
 
-  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
+    print('usar hash')
+  else:
+    usuarioId, entidadId = controlador_db.obtenerEntidad(f'SELECT fe.usuario_id,usu.entity_id from pki_firma_electronica.firma_electronica_pki as fe INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id=fi.firma_electronica_id INNER JOIN usuarios.usuarios usu ON usu.id=fe.usuario_id WHERE fi.id={id}')
 
-  pathUsuario = f"{pathEntidad}/{usuarioId}"
+    print('usar id')
+  pathPrueba = "validacion_independiente"if(id == None) else "firma"
 
-  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
+  # pathEntidad = f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}"
 
-  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
+  # pathUsuario = f"{pathEntidad}/{usuarioId}"
 
-  creadoEntidad = False
-  creadoUsuario = False
+  pathEntidad =f"{carpetaPruebaVida}/{pathPrueba}/{usuarioId}" if(id is  None) else f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}" 
+  pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
+  
+  image_files = [f for f in os.listdir(pathUsuario) if f.endswith('.jpeg')]
 
-  if(not existenciaCarpetaEntidad):
-    os.mkdir(pathEntidad)
-    creadoEntidad = True
+  if not image_files:
+      return jsonify({'error': 'No image found'}), 404
 
-  if(not existenciaCarpetaUsuario):
-    os.mkdir(pathUsuario)
-    creadoUsuario = True
+  image_path = os.path.join(pathUsuario, image_files[0])
+  with open(image_path, "rb") as image_file:
+      image_data = image_file.read()
+      image_data_url = f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
 
-  pathPrueba = ""
+  image_name = os.path.basename(image_path)
+  splitedName = image_name.split("_")
+  splitedTest = splitedName[1].split("-")
+  lifeTest = splitedTest[0].replace('.jpeg', '')
 
-  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
-    video.save(pathPrueba)
+  response = {"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "lifeTest": lifeTest, "photo": image_data_url}
 
-  messages = []
+  if(id is not None):
+     response['videoHash'] = splitedName[0]
 
-  frames = getFrames(pathPrueba)
+  return jsonify(response)
 
-  photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
+  # result = extractFaces(imageArray=imageArray, anti_spoofing=True)
 
-  photoAccess = readDataURL(photoDataURL)
+  # isRealFilter = filter(lambda x: x['isReal'] != True, result)
+  # isRealFilter = list(isRealFilter)
+  
+  # # imageResult = 'OK' if (validationSuccess == 'true' and isRealFilter) else '!OK'
+  # imageResultBool = True if (validationSuccess == 'true' and isRealFilter) else False
+  
+  # if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
+  #   pathVideo = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
+  #   pathImage = f"{pathUsuario}/{entidadId}-{usuarioId}_{imageResult}.jpeg"
+    
+  #   # Delete all .jpeg images in the user's folder
+  #   for file in os.listdir(pathUsuario):
+  #       if file.endswith(".jpeg"):
+  #           os.remove(os.path.join(pathUsuario, file))
+    
+  #   video.save(pathVideo)
+  #   imageOpen.save(pathImage, format='JPEG')
 
-  result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
 
-  movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
-  isRealFilter = filter(lambda x: x['isReal'] != True, result)
-  isRealFilter = list(isRealFilter)
+# @app.route('/anti-spoof', methods=['POST'])
+# def antiSpoofing():
 
-  if(len(photoDataURL) <= 0):
-    messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+#   carpetaPruebaVida = "./evidencias-vida"
+  
+#   id = request.args.get("id")
+#   hash = request.args.get('hash')
 
-  if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
-    messages.append('Por favor, tome la foto de un rostro real.')
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages})
+#   formato = "webm"
+
+#   video = request.files.get("video")
+#   image = request.files.get("image")
+#   imageOpen = Image.open(image)
+#   imageArray = np.array(imageOpen)
+#   validationSuccess = request.form.get("validationSuccess")
+
+#   usuarioId, entidadId = [0,0]
+
+#   if(id == None):
+#     usuarioId = controlador_db.obtenerEntidadHash(hash)
+#     entidadId = usuarioId
+
+#     print('usar hash')
+#   else:
+#     usuarioId, entidadId = controlador_db.obtenerEntidad(f'SELECT fe.usuario_id,usu.entity_id from pki_firma_electronica.firma_electronica_pki as fe INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id=fi.firma_electronica_id INNER JOIN usuarios.usuarios usu ON usu.id=fe.usuario_id WHERE fi.id={id}')
+
+#     print('usar id')
+#   pathPrueba = "validacion_independiente"if(id == None) else "firma"
+
+#   pathEntidad = f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}"
+
+#   pathUsuario = f"{pathEntidad}/{usuarioId}"
+
+#   existenciaCarpetaEntidad = os.path.exists(pathEntidad)
+
+#   existenciaCarpetaUsuario = os.path.exists(pathUsuario)
+
+#   creadoEntidad = False
+#   creadoUsuario = False
+
+#   if(not existenciaCarpetaEntidad):
+#     os.mkdir(pathEntidad)
+#     creadoEntidad = True
+
+#   if(not existenciaCarpetaUsuario):
+#     os.mkdir(pathUsuario)
+#     creadoUsuario = True
+
+#   # result = extractFaces(imageArray=imageArray, anti_spoofing=True)
+
+#   # isRealFilter = filter(lambda x: x['isReal'] != True, result)
+#   # isRealFilter = list(isRealFilter)
+  
+#   lifeTest = 'OK' if (validationSuccess == 'true') else '!OK'
+#   imageResultBool = True if (validationSuccess == 'true') else False
+  
+#   if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
+#     pathVideo = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
+#     pathImage = f"{pathUsuario}/{entidadId}-{usuarioId}_{lifeTest}.jpeg"
+    
+#     # Delete all .jpeg images in the user's folder
+#     for file in os.listdir(pathUsuario):
+#         if file.endswith(".jpeg"):
+#             os.remove(os.path.join(pathUsuario, file))
+    
+#     video.save(pathVideo)
+#     imageOpen.save(pathImage, format='JPEG')
+
+#   return jsonify({"result":imageResultBool})
+
+@app.route('/anti-spoof', methods=['POST'])
+def antiSpoofing():
+    # Base directory for storing evidence
+    carpetaPruebaVida = "./evidencias-vida"
+    
+    # Retrieve query parameters
+    id = request.args.get("id")
+    hash = request.args.get('hash')
+    
+    # File format for video
+    formato = "webm"
+
+    # Retrieve files from the request
+    video = request.files.get("video")
+    image = request.files.get("image")
+    if not video or not image:
+        return jsonify({"error": "Missing video or image file"}), 400
+
+    # Open the image and convert it to a NumPy array
+    try:
+        imageOpen = Image.open(image)
+        imageArray = np.array(imageOpen)
+    except Exception as e:
+        return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
+
+    # Retrieve validation success flag
+    validationSuccess = request.form.get("validationSuccess")
+
+    # Initialize user and entity IDs
+    usuarioId, entidadId = [0, 0]
+
+    # Determine user and entity IDs based on the presence of 'id' or 'hash'
+    if id is None:
+        usuarioId = controlador_db.obtenerEntidadHash(hash)
+        entidadId = usuarioId
+        print('Using hash to identify user and entity')
+    else:
+        query = f'''
+        SELECT fe.usuario_id, usu.entity_id 
+        FROM pki_firma_electronica.firma_electronica_pki AS fe
+        INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id = fi.firma_electronica_id
+        INNER JOIN usuarios.usuarios usu ON usu.id = fe.usuario_id
+        WHERE fi.id = {id}
+        '''
+        usuarioId, entidadId = controlador_db.obtenerEntidad(query)
+        print('Using ID to identify user and entity')
+
+    # Determine the path for storing evidence
+    pathPrueba = "validacion_independiente" if id is None else "firma"
+    pathEntidad =f"{carpetaPruebaVida}/{pathPrueba}/{usuarioId}" if(id is  None) else f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}" 
+    pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
+
+    # Create directories if they do not exist
+    try:
+        if not os.path.exists(pathEntidad):
+            os.makedirs(pathEntidad)  # Create parent directories if needed
+            print(f"Created directory: {pathEntidad}")
+        if not os.path.exists(pathUsuario):
+            os.makedirs(pathUsuario)  # Create parent directories if needed
+            print(f"Created directory: {pathUsuario}")
+    except Exception as e:
+        return jsonify({"error": f"Failed to create directories: {str(e)}"}), 500
+
+    # Determine the validation result
+    lifeTest = 'OK' if validationSuccess == 'true' else '!OK'
+    imageResultBool = True if validationSuccess == 'true' else False
+
+  
+    pathVideo =f"{pathUsuario}/{hash}.{formato}" if id is None else  f"{pathUsuario}/{id}-{video.filename}"
+    pathImage = f"{pathUsuario}/{hash}_{lifeTest}.jpeg" if id is None else f"{pathUsuario}/{id}-{video.filename}_{lifeTest}.jpeg"
+
+    # Delete all existing .jpeg files in the user's folder before saving the new image
+    try:
+        for file in os.listdir(pathUsuario):
+            if file.endswith(".jpeg"):
+                os.remove(os.path.join(pathUsuario, file))
+                print(f"Deleted file: {file}")
+    except Exception as e:
+        return jsonify({"error": f"Failed to clean up old files: {str(e)}"}), 500
+
+    # Save the video and image files
+    try:
+        video.save(pathVideo)
+        print(f"Saved video to: {pathVideo}")
+    except Exception as e:
+        return jsonify({"error": f"Failed to save video: {str(e)}"}), 500
+
+    try:
+        imageOpen.save(pathImage, format='JPEG')
+        print(f"Saved image to: {pathImage}")
+    except Exception as e:
+        return jsonify({"error": f"Failed to save image: {str(e)}"}), 500
+
+    # Return the result of the validation
+    return jsonify({"result": imageResultBool})
 
 @app.route('/obtener-usuario', methods=['GET'])
 def getUser():

@@ -293,14 +293,14 @@ def testingCal():
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
     'idValidacion': documentoUsuarioId,
-    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
+    'direccionValidacion': f'https://{subdomain}.e-custodia.com/rostrov5.html?hash{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
       'idValidacion': documentoUsuarioId,
-      'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
+      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/rostrov5.html?hash={hashHex}'
     }
 
     return jsonify(res)
@@ -404,6 +404,8 @@ def validationType3():
   validationPercent = request.form.get('validation_percent')
   validationPercent = int(validationPercent)
 
+  videoHash =  request.form.get('videoHash')
+
   failed = request.form.get('failed')
   failedBack = request.form.get('failed_back')
   failedFront = request.form.get('failed_front')
@@ -418,7 +420,7 @@ def validationType3():
   anversoData = readDataURL(anverso)
   reversoData = readDataURL(reverso)
 
-  anversoOrientado, documentoValido = orientacionImagen(anversoData)
+  # anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
 
@@ -440,20 +442,6 @@ def validationType3():
 
   test = [movementCheck, antiSpoof, isIdentical]
 
-  ocrValidation = {
-    'data': {
-      'name': dataOCRNombre,
-      'lastName': dataOCRApellido,
-      'ID': dataOCRDocumento,
-    },
-    'percent': {
-      'name':ocrNombre,
-      'lastName':ocrApellido,
-      'ID':ocrDocumento
-    }
-  }
-
-  checkValuesJSON['ocr_validation'] = ocrValidation
 
   faceValidation['liveness_test'] = {
     'movement': movementCheck,
@@ -561,11 +549,13 @@ def validationType3():
   if(checkHasMRZ):
     mrzCheck = validateMRZ(documentType=tipoDocumento, mrzData=mrz)
     checkValuesDict['mrz'] = mrzCheck
+    test.append(mrzCheck)
 
   checkHasBarcode = hasBarcode(documentType=tipoDocumento)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
+    test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
@@ -574,6 +564,29 @@ def validationType3():
   ocrIDCheck = True if(int(ocrDocumento) >= 50) else False
   checkValuesDict['ocr_id'] = ocrIDCheck
 
+  ocrTotal = int(ocrNombre) + int(ocrApellido) + int(ocrDocumento)
+  average = ocrTotal / 3
+  ocrAverageCheck = True if(int(average) >= 75) else False
+  test.append(ocrAverageCheck)
+  checkValuesDict['ocr_average'] = ocrAverageCheck
+
+  ocrValidation = {
+    'data': {
+      'name': dataOCRNombre,
+      'lastName': dataOCRApellido,
+      'ID': dataOCRDocumento,
+    },
+    'percent': {
+      'name':ocrNombre,
+      'lastName':ocrApellido,
+      'ID':ocrDocumento
+    },
+    'average': average
+  }
+
+  checkValuesJSON['ocr_validation'] = ocrValidation
+
+
   boolResult, resultState, resultPercent = results(validatioAttendance=validationAttendance, percent=validationPercent, checksDict=checkValuesDict)
 
   checkValuesJSON['checks'] = checkValuesDict
@@ -581,9 +594,6 @@ def validationType3():
   checkValuesJSON['results_validation'] = {
     'validation_percentage': resultPercent
   }
-
-  test.append(barcodeCheck)
-  test.append(mrzCheck)
 
   test = all(test)
 
@@ -605,7 +615,7 @@ def validationType3():
 
   #compresiones
 
-  anversoOrientado = cv2Blob(anversoOrientado)
+  anversoOrientado = cv2Blob(anversoData)
   fotoPersonaBlob = cv2Blob(selfie)
   reversoBlob = cv2Blob(reversoData)
 
@@ -617,9 +627,9 @@ def validationType3():
 
   # #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
@@ -632,10 +642,10 @@ def validationType3():
   callbackRequest([callbackData[0], callbackData[1]], {
     'claveApi':callbackData[1],
     'estadoValidacion': resultState,
-    'porcentajeValidacion': checkValuesJson,
+    'porcentajeValidacion': resultPercent,
     'tipoValidacion': int(tipo),
     'idUsuario': int(idUsuario),
-    'idValidacion': documentoUsuarioId, 
+    'idValidacion': documentoUsuarioId,
     'parametrosValidacion': checkValuesJSON,
     'enlaceFirma': f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
   })
@@ -728,7 +738,7 @@ def standoleValidation():
   anversoData = readDataURL(anverso)
   reversoData = readDataURL(reverso)
 
-  anversoOrientado, documentoValido = orientacionImagen(anversoData)
+  # anversoOrientado, documentoValido = orientacionImagen(anversoData)
   selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
 
@@ -752,20 +762,7 @@ def standoleValidation():
 
   test = [movementCheck, antiSpoof, isIdentical]
 
-  ocrValidation = {
-    'data': {
-      'name': dataOCRNombre,
-      'lastName': dataOCRApellido,
-      'ID': dataOCRDocumento,
-    },
-    'percent': {
-      'name':ocrNombre,
-      'lastName':ocrApellido,
-      'ID':ocrDocumento
-    }
-  }
-
-  checkValuesJSON['ocr_validation'] = ocrValidation
+  
 
   faceValidation['liveness_test'] = {
     'movement': movementCheck,
@@ -873,11 +870,13 @@ def standoleValidation():
   if(checkHasMRZ):
     mrzCheck = validateMRZ(documentType=tipoDocumento, mrzData=mrz)
     checkValuesDict['mrz'] = mrzCheck
+    test.append(mrzCheck)
 
   checkHasBarcode = hasBarcode(documentType=tipoDocumento)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
+    test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
@@ -886,6 +885,28 @@ def standoleValidation():
   ocrIDCheck = True if(int(ocrDocumento) >= 50) else False
   checkValuesDict['ocr_id'] = ocrIDCheck
 
+  ocrTotal = int(ocrNombre) + int(ocrApellido) + int(ocrDocumento)
+  average = ocrTotal / 3
+  ocrAverageCheck = True if(int(average) >= 75) else False
+  test.append(ocrAverageCheck)
+  checkValuesDict['ocr_average'] = ocrAverageCheck
+
+  ocrValidation = {
+    'data': {
+      'name': dataOCRNombre,
+      'lastName': dataOCRApellido,
+      'ID': dataOCRDocumento,
+    },
+    'percent': {
+      'name':ocrNombre,
+      'lastName':ocrApellido,
+      'ID':ocrDocumento
+    },
+    'average': average
+  }
+
+  checkValuesJSON['ocr_validation'] = ocrValidation
+
   boolResult, resultState, resultPercent = results(validatioAttendance=validationAttendance, percent=validationPercent, checksDict=checkValuesDict)
 
   checkValuesJSON['checks'] = checkValuesDict
@@ -893,9 +914,6 @@ def standoleValidation():
   checkValuesJSON['results_validation'] = {
     'validation_percentage': resultPercent
   }
-
-  test.append(barcodeCheck)
-  test.append(mrzCheck)
 
   test = all(test)
 
@@ -917,7 +935,7 @@ def standoleValidation():
 
   #compresiones
 
-  anversoOrientado = cv2Blob(anversoOrientado)
+  anversoOrientado = cv2Blob(anversoData)
   fotoPersonaBlob = cv2Blob(selfie)
   reversoBlob = cv2Blob(reversoData)
 

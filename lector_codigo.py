@@ -7,25 +7,28 @@ import subprocess
 import cv2
 import numpy as np
 
+from logs import checkLogsFile, writeLogs
+from utilidades import readDataURL
+
 country = 'HND'
 
 barcodes = {
   "COL": {
             "Cédula de ciudadanía": {
-                "anverso": False,
-                "reverso": True
+                "anverso": [False,'none'],
+                "reverso": [True, 'pdf417']
             },
             "Cédula de extranjería": {
-                "anverso": False,
-                "reverso": True
+                "anverso": [False,'none'],
+                "reverso": [True, 'pdf417']
             },
             "Permiso por protección temporal": {
-                "anverso": False,
-                "reverso": False
+                "anverso": [False,'none'],
+                "reverso": [False, 'none']
             },
             "Pasaporte":{
-                "anverso":False,
-                "reverso":False
+                "anverso": [False,'none'],
+                "reverso": [False, 'none']
             }
         },
         "PTY":{
@@ -40,24 +43,24 @@ barcodes = {
         },
   'HND': {
     "DNI":{
-      "anverso": False,
-      "reverso": True
+      "anverso": [False,'none'],
+      "reverso": [True, 'qr']
     },
     "Carnet de residente": {
       "anverso": False,
       "reverso": True
     },
     "Pasaporte": {
-      "anverso": True,
-      "reverso": False
+      "anverso": [True,'pdf417'],
+      "reverso": [False, 'none']
     }
   }
 }
 
 
 def barcodeSide(documentType, documentSide):
-  barcode = barcodes[country][documentType][documentSide]
-  return barcode
+  hasBarcode, barcodeType = barcodes[country][documentType][documentSide]
+  return hasBarcode, barcodeType
 
 def hasBarcode(documentType):
 
@@ -73,28 +76,26 @@ def hasBarcode(documentType):
   return totalBarcode
 
 
-def barcodeReader(photo, idBarcodecode, barcodeSide):
+def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
   folderBarcodes = './codigos-barras'
   folderExistance = os.path.exists(folderBarcodes)
 
-  if(not folderExistance):
+  if not folderExistance:
     os.makedirs(folderBarcodes)
 
-  header, encoded = photo.split(",",1)
-  data = base64.b64decode(encoded)
-  image = Image.open(BytesIO(data))
-  image = image.convert('RGB')
+  gray = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
 
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
-
-  image.save(imagePath)
+  cv2.imwrite(imagePath, gray)
 
   exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
   args = []
   args.append(exe)
-  args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
+  args.append(f'-type={barcodeType}')
+  # args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
   args.append('-tbr=112,115,117')
+  args.append('-fields=text,data,rectangle,rotation')
   args.append(imagePath)
 
   try:
@@ -111,8 +112,43 @@ def barcodeReader(photo, idBarcodecode, barcodeSide):
 
   string = process.stdout.decode('utf-8')
   jsonProcess = json.loads(string)
+
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
-  barcodesDetected = len(barcodesExtracted)
+  
+  return barcodesExtracted
 
-  return 'OK' if barcodesDetected >= 1 else '!OK'
+
+
+def rotateBarcode(image, barcodes):
+
+  if(len(barcodes) <= 0):
+    return image
+
+  left = 0
+  right = 0
+  upside = 0
+
+  for barcode in barcodes:
+
+    side = barcode['rotation']
+
+    if(side == 'left'):
+      left = 1
+    if(side == 'right'):
+      right = 1
+    if(side == 'upside'):
+      upside = 1
+
+  rotatedImage = image
+
+  if(left >= 1):
+    rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_90_CLOCKWISE)
+
+  if(right >= 1):
+    rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+  if(upside >= 1):
+    rotatedImage = cv2.rotate(rotatedImage, cv2.ROTATE_180)
+
+  return rotatedImage

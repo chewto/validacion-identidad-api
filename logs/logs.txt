@@ -4,3 +4,6 @@
 2025-01-24 10:34:58.660873 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python
 2025-01-24 10:35:55.546770 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python
 2025-01-24 10:37:04.646410 | Data type 'tuple' in column 0 not supported in MariaDB Connector/Python
+2025-02-13 11:22:46.469965 | <class 'dict'> - tipo de la respuesta
+2025-02-14 13:12:10.139760 | HTTPConnectionPool(host='localhost', port=8080): Max retries exceeded with url: /callback-test (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F05B86FDD0>: Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée')), ha fallado la callback
+2025-02-27 19:58:35.654285 | HTTPConnectionPool(host='localhost', port=8080): Max retries exceeded with url: /callback-test (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000011E86602450>: Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée')), ha fallado la callback

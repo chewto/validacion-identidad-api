@@ -1,5 +1,6 @@
 import random
 import string
+import time
 import uuid
 import cv2
 import numpy as np
@@ -15,6 +16,38 @@ browserPatterns = {
     "Edge": r"Edg\/([\d\.]+)",
     "Opera": r"OPR\/([\d\.]+)"
 }
+
+def resizeImage(image, percentage):
+
+  original_height, original_width = image.shape[:2]
+
+  new_width = int(original_width * (percentage / 100.0))
+  new_height = int(original_height * (percentage / 100.0))
+  new_dimensions = (new_width, new_height)
+
+  resized_image = cv2.resize(image, new_dimensions, interpolation=cv2.INTER_AREA)
+
+  return resized_image
+
+
+def resizeHandle(image, max_dimension=1200):
+  original_height, original_width = image.shape[:2]
+
+  if original_width > max_dimension or original_height > max_dimension:
+    if original_width > original_height:
+      new_width = max_dimension
+      new_height = int((max_dimension / original_width) * original_height)
+    else:
+      new_height = max_dimension
+      new_width = int((max_dimension / original_height) * original_width)
+  else:
+    new_width = original_width
+    new_height = original_height
+
+  new_dimensions = (new_width, new_height)
+  resized_image = cv2.resize(image, new_dimensions, interpolation=cv2.INTER_AREA)
+
+  return resized_image
 
 def listToText(list):
   string = ''
@@ -43,6 +76,12 @@ def textNormalize(texto:str):
   sinAcentos  = ''.join(c for c in textoNormalizado if unicodedata.category(c) != 'Mn')
   toUpper = sinAcentos.upper()
   return toUpper
+
+def imageToDataURL(image):
+  _, buffer = cv2.imencode('.jpg', image)
+  image_base64 = base64.b64encode(buffer).decode('utf-8')
+  dataURL = f"data:image/jpeg;base64,{image_base64}"
+  return dataURL
 
 def readDataURL(imagen):
 

@@ -1,14 +1,27 @@
 
 from flask import Blueprint, request, jsonify
-from lector_codigo import barcodeReader, barcodeSide
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, expiracyDateOCR
+from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, expiracyDateOCR, orientation
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
 from reconocimiento import orientacionImagen, verifyFaces
-from utilidades import readDataURL, textNormalize
+from utilidades import readDataURL, resizeHandle, resizeImage, textNormalize, imageToDataURL
 from check_result import testingCountry, testingType, results
 import time
+# import test_reglas?
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
+
+@ocr_bp.route('/rotacion-test', methods=['POST'])
+def rotacionTest():
+    reqBody = request.get_json()
+    imagen = reqBody['imagen']
+    imagenData = readDataURL(imagen)
+
+    # test =  test_reglas.correct_orientation(imagenData)
+
+    # print(test)
+
+    return jsonify({'testing': 'testing'})
 
 
 @ocr_bp.route('/anverso', methods=['POST'])
@@ -26,14 +39,35 @@ def verificarAnverso():
     nombre = reqBody['nombre']
     apellido = reqBody['apellido']
     numeroDocumento = reqBody['documento']
+    testing = reqBody['test']
+
+    if(testing):
+      nombre = 'test'
+      apellido = 'test'
+      numeroDocumento = '9999'
+      ladoDocumento = 'anverso'
+      imagenPersona = imagenDocumento
+      tipoDocumento = 'DNI'
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
     documentoData = readDataURL(imagenDocumento)
     personaData = readDataURL(imagenPersona)
+    documentoData = resizeHandle(documentoData, max_dimension=1200)
+
 
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
+
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
+
+    # faceCoords = carasImagenDocumento[0][1] if (len(carasImagenDocumento) >= 1) else (0,0)
+  
+    timerOrientacion = time.time()
+    # documentoOrientado = orientation(documentoData, reference=faceCoords, documentType=tipoDocumento, documentSide=ladoDocumento)
+    # documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
+    timerOrientacionEnd = time.time()
+    orientacionTime = timerOrientacion - timerOrientacionEnd
+    print(orientacionTime)
 
     timeRecognitionInit = time.time()
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
@@ -46,8 +80,11 @@ def verificarAnverso():
     documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
-    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=True)
-    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, preprocesado=False)
+    print(documentoOCRSencillo)
+    print(documentoOCRPre)
+
+    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, documentoOCRPre)
+    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, documentoOCRSencillo)
     totalValidacionLado = validarLadoPre + validarLadoSencillo
     checkSide = {
       'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
@@ -119,9 +156,13 @@ def verificarAnverso():
       messages.append('El apellido no se ha encontrado en el documento.')
 
     if(porcentajeDocumentoComparado <= 50):
-      messages.append('El numero del identificación no se ha encontrado en el documento.')
+      messages.append('El número del identificación no se ha encontrado en el documento.')
+
+    image = resizeImage(documentoOrientado, 85)
+    image = imageToDataURL(image)
 
     resultsDict = {
+      'image': image,
       'ocr': {
         'data':{
           'name': nombreComparado,
@@ -148,9 +189,11 @@ def verificarAnverso():
 
     codeTimeInit = time.time()
 
-    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode, barcodeType = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType)
+      detectedBarcodes = 'OK' if(len(barcodes)>= 1) else '!OK'
+
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
       if(detectedBarcodes != 'OK'):
@@ -226,7 +269,7 @@ def verificarAnverso():
     resultsDict['messages'] = messages
 
     if(confidence <= 0.60 and validSide):
-      resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+      resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
       # resultsDict['validSide'] = 'OK' 
 
       return jsonify(resultsDict)
@@ -252,10 +295,41 @@ def verificarReverso():
     nombre = reqBody['nombre']
     apellido = reqBody['apellido']
     numeroDocumento = reqBody['documento']
+    imagenDocumento = readDataURL(imagenDocumento)
+    imagenDocumento = resizeHandle(imagenDocumento, max_dimension=1200)
+
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
-    documentoData = readDataURL(imagenDocumento)
+    # documentoData = readDataURL(imagenDocumento)
+    documentoData = None
+
+    resultsDict = {
+
+    }
+
+    checkSide = {
+
+    }
+
+    documentBarcode, barcodeType = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    if(documentBarcode):
+      barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType)
+
+      rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
+      rotatedImage = resizeImage(rotatedImage, 85)
+      detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
+  
+      documentoData = rotatedImage
+      resultsDict['barcode'] = detectedBarcodes
+      resultsDict['image'] = imageToDataURL(rotatedImage)
+      checkSide['barcode'] = detectedBarcodes
+      if(detectedBarcodes != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
+    else:
+      resultsDict['barcode'] = 'documento sin codigo de barras'
+
+    # rotatedImage = orientation(documentoData)
 
     timeOcrInit = time.time()
 
@@ -265,13 +339,11 @@ def verificarReverso():
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
 
-    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=True)
-    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, preprocesado=False)
+    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, documentoOCRPre)
+    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, documentoOCRSencillo)
     totalValidacion = validarLadoPre + validarLadoSencillo
 
-    checkSide = {
-      'validation': 'OK'if totalValidacion >= 3 else '!OK'
-    }
+    checkSide['validation'] = 'OK'if totalValidacion >= 3 else '!OK'
 
     typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
@@ -295,33 +367,33 @@ def verificarReverso():
     checkSide['documentValidation'] = documentValidation
     checkSide['countryValidation'] = countryValidation
 
-    resultsDict = {
-      'document':{
+    # image = imageToDataURL(documentoData)
+
+    resultsDict['document'] = {
         'code': codeC,
         'country': country,
         'countryCheck':countryValidation,
         'type':documentType,
         'typeCheck':documentValidation
-      }
-
     }
 
     codeTimeInit = time.time()
 
-    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
-    if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-      resultsDict['barcode'] = detectedBarcodes
-      checkSide['barcode'] = detectedBarcodes
-      if(detectedBarcodes != 'OK'):
-        messages.append('No se pudo detectar el código de barras del documento.')
-    else:
-      resultsDict['barcode'] = 'documento sin codigo de barras'
-
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentMRZ):
+
+      nameHasK = nombre.find("k")
+      lastNamehasK = apellido.find("k")
+
       mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      if(nameHasK == -1 or lastNamehasK == -1):
+        mrz = mrz.replace('K', ' ')
+        mrzPre = mrzPre.replace('K', ' ')
+
+      print(mrz)
+      print(mrzPre)
 
       if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
         messages.append('No se pudo detecar el código mrz del documento.')
@@ -391,7 +463,7 @@ def verificarReverso():
 
     resultsDict['messages'] = messages
 
-    resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
+    resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
 
     # resultsDict['validSide'] = 'OK' 
 

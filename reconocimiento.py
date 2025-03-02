@@ -191,7 +191,6 @@ def movementDetection(rostroReferencia, rostros):
     else:
         return '!OK'
 
-
 def pruebaVida(imagenBase, imagenComparacion):
    
     imagenBaseEncode = face_recognition.face_encodings(imagenBase)
@@ -252,9 +251,9 @@ def orientacionImagen(imagen):
     gray_image = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
 
     carasAlmacenadas = []
-
     encontrado = False
     intentos = 0
+    angulo = 0
 
     while intentos <= 4 and encontrado == False:
 
@@ -272,18 +271,23 @@ def orientacionImagen(imagen):
 
         if(len(carasDetectadas) <= 0):
             intentos = intentos + 1
-            gray_image = cv2.rotate(gray_image,cv2.ROTATE_90_CLOCKWISE)
-            imagen = cv2.rotate(imagen,cv2.ROTATE_90_CLOCKWISE )
+            angulo += 90
+            gray_image = cv2.rotate(gray_image, cv2.ROTATE_90_CLOCKWISE)
+            imagen = cv2.rotate(imagen, cv2.ROTATE_90_CLOCKWISE)
 
         if(len(carasDetectadas) >= 1):
             encontrado = True
             for (x, y, w, h) in carasDetectadas:
+                # Convert to square
+                leftLimit = x
+                rightLimit = x + w
+
                 roi_gray = gray_image[y:y+h, x:x+w]
 
                 ojos = clasificadorOjos.detectMultiScale(roi_gray)
 
                 if(len(ojos) >= 1):
-                    carasAlmacenadas.append(imagen)
+                    carasAlmacenadas.append((imagen, (leftLimit, rightLimit)))
 
         if(len(carasAlmacenadas) <= 0 and intentos >= 4):
             return imagen, carasAlmacenadas

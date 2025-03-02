@@ -96,6 +96,8 @@ def validateMRZ(documentType, mrzData):
 
 def extractMRZ(ocr, mrzStartingLetter):
   stringOCR = listToText(ocr)
+  stringOCR = stringOCR.replace(' ','')
+  stringOCR = stringOCR.upper()
 
   ocrLength = len(stringOCR)
 
@@ -109,7 +111,57 @@ def extractMRZ(ocr, mrzStartingLetter):
 
   mrz = stringOCR[findMrzIndex:ocrLength]
 
+  mrz = mrzClean(mrz)
+
   return mrz
+
+def parse_mrz(mrz:str):
+    print(mrz)
+    splitMRZ = mrz.split(' ')
+    print(splitMRZ)
+    # print(mrz)
+
+    # newMrz = mrz.replace('<', ' ')
+    # print(newMrz)
+
+    # firstLine = mrz[0:30] if isLetter else mrz[0:29]
+    # print(firstLine)
+    # secondLine = mrz[30:60] if isLetter else mrz[29:]
+    # print(secondLine)
+    # thirdLine = mrz[60:90] if isLetter else mrz[0:29]
+    # print(thirdLine)
+    # # Line 1
+    # document_type = firstLine[0]
+    # issuing_country = firstLine[2:5]
+    # document_number = firstLine[5:14].replace('<', '')
+    
+    # # Line 2
+    # birth_date = secondLine[0:6]
+    # sex = secondLine[7]
+    # expiry_date = secondLine[8:14]
+    # nationality = secondLine[15:18].replace('<', '')
+    
+    # # Line 3
+    # names = thirdLine.split('<<')
+    # surname = names[0].replace('<', ' ').strip()
+    # given_names = names[1].replace('<', ' ').strip()
+
+    # print({
+    #     'Document Type': document_type,
+    #     'Issuing Country': issuing_country,
+    #     'Document Number': document_number,
+    #     'Date of Birth': birth_date,
+    #     'Sex': sex,
+    #     'Expiry Date': expiry_date,
+    #     'Nationality': nationality,
+    #     'Surname': surname,
+    #     'Given Names': given_names
+    # })
+
+def mrzClean(mrz: str) -> str:
+  translationTable = str.maketrans('KX', '<<')
+  cleanedMrz = mrz.translate(translationTable)
+  return cleanedMrz
 
 
 def mrzInfo(mrz, searchTerm):
