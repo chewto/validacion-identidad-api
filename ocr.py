@@ -90,6 +90,10 @@ documentTypeHash = {
                 "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'EXPEDICION', 'VENCE', 'NO.', "MIGRANTE"],
                 "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "COL", "document", "titular", "documento"]
             },
+            "Pasaporte": {
+                "anverso": ["Passport", "PASAPORTE", "PASSPORT", "Pasaporte", "REPUBLICA DE COLOMBIA"],
+                "reverso": []
+            }
     }
 }
 
@@ -231,6 +235,7 @@ def ocr(imagen: str, preprocesado):
         txt: str = tess.image_to_string(enhancedImage)
 
         lineas: list[str] = txt.splitlines()
+        print(lineas)
         return lineas
 
 

@@ -148,9 +148,9 @@ def verificarAnverso():
 
     codeTimeInit = time.time()
 
-    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode, isCrypted, barcodeType = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, isCrypted, barcodeType, documentType)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
       if(detectedBarcodes != 'OK'):

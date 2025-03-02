@@ -30,7 +30,9 @@ barcodes = {
             },
             "Pasaporte":{
                 "anverso":False,
-                "reverso":False
+                "reverso":False,
+                "cifrado": False,
+                "type": ''
             }
         },
         "PTY":{
@@ -47,7 +49,7 @@ barcodes = {
     "DNI":{
       "anverso": False,
       "reverso": True,
-      "cifrado": True,
+      "cifrado": False,
       "type": 'qr,datamatrix'
     },
     "Carnet de residente": {
