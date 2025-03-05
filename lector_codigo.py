@@ -10,7 +10,7 @@ import numpy as np
 from logs import checkLogsFile, writeLogs
 from utilidades import readDataURL
 
-country = 'HND'
+country = 'COL'
 
 barcodes = {
   "COL": {

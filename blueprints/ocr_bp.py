@@ -1,7 +1,7 @@
 
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, expiracyDateOCR, orientation
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, resizeHandle, resizeImage, textNormalize, imageToDataURL
@@ -63,7 +63,7 @@ def verificarAnverso():
     # faceCoords = carasImagenDocumento[0][1] if (len(carasImagenDocumento) >= 1) else (0,0)
   
     timerOrientacion = time.time()
-    # documentoOrientado = orientation(documentoData, reference=faceCoords, documentType=tipoDocumento, documentSide=ladoDocumento)
+    # documentoOrientado = (documentoData, reference=faceCoords, documentType=tipoDocumento, documentSide=ladoDocumento)
     # documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
     timerOrientacionEnd = time.time()
     orientacionTime = timerOrientacion - timerOrientacionEnd

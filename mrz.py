@@ -4,7 +4,7 @@ from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
 
-country = 'HND'
+country = 'COL'
 
 documentMRZ = {
   "COL": {

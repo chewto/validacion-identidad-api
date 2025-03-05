@@ -57,6 +57,7 @@ def checkValidation():
 
   if(userHash != None):
 
+
     checkVal = controlador_db.checkValidation(f"""
     SELECT ev.id, ev.estado_verificacion 
 FROM documento_usuario AS doc
@@ -66,8 +67,6 @@ WHERE params.parametros_hash = '{userHash}'
 ORDER BY ev.id DESC
 LIMIT 1;
 """)
-    
-    print(checkVal)
 
     return jsonify({'results':checkVal})
 

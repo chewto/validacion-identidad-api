@@ -23,6 +23,7 @@ def results(percent, validatioAttendance, checksDict):
     return True,'esperando aprobación', totalPercent
   else:
     return False,'validación fallida', totalPercent
+    # return False,'Procesando validación', totalPercent
 
 def testingType(array):
 

@@ -94,7 +94,7 @@ credencialesDBEntidad = {
   }
 }
 
-credenciales = 'honducert'
+credenciales = 'honducert-desarrollo'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]
