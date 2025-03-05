@@ -10,7 +10,8 @@ documentMRZ = {
   "COL": {
             "Cédula de ciudadanía": {
                 "anverso": False,
-                "reverso": False
+                "reverso": False,
+                "mrzLetter":"I<"
             },
             "Cédula de extranjería": {
                 "anverso": False,

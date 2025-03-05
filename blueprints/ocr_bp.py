@@ -158,7 +158,7 @@ def verificarAnverso():
     if(porcentajeDocumentoComparado <= 50):
       messages.append('El número del identificación no se ha encontrado en el documento.')
 
-    image = resizeImage(documentoOrientado, 85)
+    image = resizeImage(documentoOrientado, 95)
     image = imageToDataURL(image)
 
     resultsDict = {
@@ -189,11 +189,9 @@ def verificarAnverso():
 
     codeTimeInit = time.time()
 
-    documentBarcode, barcodeType = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentBarcode):
-      barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType)
-      detectedBarcodes = 'OK' if(len(barcodes)>= 1) else '!OK'
-
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
       if(detectedBarcodes != 'OK'):
@@ -317,7 +315,7 @@ def verificarReverso():
       barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType)
 
       rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
-      rotatedImage = resizeImage(rotatedImage, 85)
+      rotatedImage = resizeImage(rotatedImage, 95)
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
   
       documentoData = rotatedImage
@@ -378,6 +376,16 @@ def verificarReverso():
     }
 
     codeTimeInit = time.time()
+
+    documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
+    if(documentBarcode):
+      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
+      resultsDict['barcode'] = detectedBarcodes
+      checkSide['barcode'] = detectedBarcodes
+      if(detectedBarcodes != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
+    else:
+      resultsDict['barcode'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentMRZ):

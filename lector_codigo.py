@@ -6,6 +6,7 @@ import os
 import subprocess
 import cv2
 import numpy as np
+import re
 
 from logs import checkLogsFile, writeLogs
 from utilidades import readDataURL
@@ -29,16 +30,20 @@ barcodes = {
             "Pasaporte":{
                 "anverso": [False,'none'],
                 "reverso": [False, 'none']
+            },
+            "Cédula digital": {
+               "anverso": [False, 'none'],
+               "reverso": [True, '']
             }
         },
         "PTY":{
             "Cédula de ciudadanía": {
-                "anverso": False,
-                "reverso": True
+                "anverso": [False,'none'],
+                "reverso": [True, 'none']
             },
             "Cédula de extranjería": {
-                "anverso": False,
-                "reverso": True
+                "anverso": [False,'none'],
+                "reverso": [False,'none']
             }
         },
   'HND': {
@@ -47,14 +52,50 @@ barcodes = {
       "reverso": [True, 'qr']
     },
     "Carnet de residente": {
-      "anverso": False,
-      "reverso": True
+      "anverso": [False, 'none'],
+      "reverso": [True, 'none'],
+      "cifrado": True
     },
     "Pasaporte": {
       "anverso": [True,'pdf417'],
       "reverso": [False, 'none']
     }
   }
+}
+
+formatDefinition = {
+    "Cédula de ciudadanía": [
+        ("codigoAfis", 2, 10),
+        ("fingerCard", 40, 48),
+        ("numeroDocumento", 48, 58),
+        ("apellido", 58, 80),
+        ("segundaApellido", 81, 104),
+        ("nombre", 104, 127),
+        ("segundoNombre", 127, 150),
+        ("genero", 151, 152),
+        ("añoNacimeinto", 152, 156),
+        ("mesNacimiento", 156, 158),
+        ("diaNacimiento", 158, 160),
+        ("codigoMunicipalidad", 160, 162),
+        ("codigoDepartamento", 162, 165),
+        ("tipoSangre", 166, 168)
+    ],
+    "Cédula de extranjería": [
+        ("estado", 10, ),
+        ("fingerCard", 40, 48),
+        ("numeroDocumento", 28, 58),
+        ("apellido", 58, 80),
+        ("segundaApellido", 81, 104),
+        ("nombre", 104, 127),
+        ("segundoNombre", 127, 150),
+        ("genero", 151, 152),
+        ("añoNacimeinto", 152, 156),
+        ("mesNacimiento", 156, 158),
+        ("diaNacimiento", 158, 160),
+        ("codigoMunicipalidad", 160, 162),
+        ("codigoDepartamento", 162, 165),
+        ("tipoSangre", 166, 168)
+    ]
 }
 
 
@@ -75,6 +116,11 @@ def hasBarcode(documentType):
 
   return totalBarcode
 
+def extractBarcodeData(barcodeData, documentType):
+  barcodeBytes = base64.b64decode(barcodeData)
+  barcodeString = barcodeBytes.decode('utf-8', errors='ignore')
+  print(barcodeString)
+  documentFormat = formatDefinition[documentType]
 
 def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
   folderBarcodes = './codigos-barras'
@@ -100,7 +146,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
 
   try:
         process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        process.check_returncode()  
+        process.check_returncode()
   except subprocess.CalledProcessError as e:
         return '!OK'
   except PermissionError as e:
