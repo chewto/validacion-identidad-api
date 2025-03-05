@@ -46,6 +46,67 @@ def obtenerFirmador(id):
     }
 })
 
+carpetaPruebaVida = "./evidencias-vida"
+
+@app.route('/anti-spoof', methods=['POST'])
+def antiSpoofing():
+  
+  id = request.args.get("id")
+
+  formato = "webm"
+
+  video = request.files.get("video")
+
+  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
+
+  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
+
+  pathUsuario = f"{pathEntidad}/{usuarioId}"
+
+  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
+
+  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
+
+  creadoEntidad = False
+  creadoUsuario = False
+
+  if(not existenciaCarpetaEntidad):
+    os.mkdir(pathEntidad)
+    creadoEntidad = True
+
+  if(not existenciaCarpetaUsuario):
+    os.mkdir(pathUsuario)
+    creadoUsuario = True
+
+  pathPrueba = ""
+
+  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
+    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
+    video.save(pathPrueba)
+
+  messages = []
+
+  frames = getFrames(pathPrueba)
+
+  photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
+
+  photoAccess = readDataURL(photoDataURL)
+
+  result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
+
+  movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
+
+  isRealFilter = filter(lambda x: x['isReal'] != True, result)
+  isRealFilter = list(isRealFilter)
+
+  if(len(photoDataURL) <= 0):
+    messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+
+  if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
+    messages.append('Por favor, tome la foto de un rostro real.')
+
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages})
+
 
 @app.route('/get-media', methods=['GET'])
 def getUserMedia():
@@ -191,102 +252,101 @@ def getUserMedia():
 
 #   return jsonify({"result":imageResultBool})
 
-@app.route('/anti-spoof', methods=['POST'])
-def antiSpoofing():
-    # Base directory for storing evidence
-    carpetaPruebaVida = "./evidencias-vida"
+# @app.route('/anti-spoof', methods=['POST'])
+# def antiSpoofing():
+#     # Base directory for storing evidence
+#     carpetaPruebaVida = "./evidencias-vida"
     
-    # Retrieve query parameters
-    id = request.args.get("id")
-    hash = request.args.get('hash')
+#     # Retrieve query parameters
+#     id = request.args.get("id")
+#     hash = request.args.get('hash')
     
-    # File format for video
-    formato = "webm"
+#     # File format for video
+#     formato = "webm"
 
-    # Retrieve files from the request
-    video = request.files.get("video")
-    image = request.files.get("image")
-    if not video or not image:
-        return jsonify({"error": "Missing video or image file"}), 400
+#     # Retrieve files from the request
+#     video = request.files.get("video")
+#     image = request.files.get("image")
+#     if not video or not image:
+#         return jsonify({"error": "Missing video or image file"}), 400
 
-    # Open the image and convert it to a NumPy array
-    try:
-        imageOpen = Image.open(image)
-        imageArray = np.array(imageOpen)
-    except Exception as e:
-        return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
+#     # Open the image and convert it to a NumPy array
+#     try:
+#         imageOpen = Image.open(image)
+#         imageArray = np.array(imageOpen)
+#     except Exception as e:
+#         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
-    # Retrieve validation success flag
-    validationSuccess = request.form.get("validationSuccess")
+#     # Retrieve validation success flag
+#     validationSuccess = request.form.get("validationSuccess")
 
-    # Initialize user and entity IDs
-    usuarioId, entidadId = [0, 0]
+#     # Initialize user and entity IDs
+#     usuarioId, entidadId = [0, 0]
 
-    # Determine user and entity IDs based on the presence of 'id' or 'hash'
-    if id is None:
-        usuarioId = controlador_db.obtenerEntidadHash(hash)
-        entidadId = usuarioId
-        print('Using hash to identify user and entity')
-    else:
-        query = f'''
-        SELECT fe.usuario_id, usu.entity_id 
-        FROM pki_firma_electronica.firma_electronica_pki AS fe
-        INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id = fi.firma_electronica_id
-        INNER JOIN usuarios.usuarios usu ON usu.id = fe.usuario_id
-        WHERE fi.id = {id}
-        '''
-        usuarioId, entidadId = controlador_db.obtenerEntidad(query)
-        print('Using ID to identify user and entity')
+#     # Determine user and entity IDs based on the presence of 'id' or 'hash'
+#     if id is None:
+#         usuarioId = controlador_db.obtenerEntidadHash(hash)
+#         entidadId = usuarioId
+#         print('Using hash to identify user and entity')
+#     else:
+#         query = f'''
+#         SELECT fe.usuario_id, usu.entity_id 
+#         FROM pki_firma_electronica.firma_electronica_pki AS fe
+#         INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id = fi.firma_electronica_id
+#         INNER JOIN usuarios.usuarios usu ON usu.id = fe.usuario_id
+#         WHERE fi.id = {id}
+#         '''
+#         usuarioId, entidadId = controlador_db.obtenerEntidad(query)
+#         print('Using ID to identify user and entity')
 
-    # Determine the path for storing evidence
-    pathPrueba = "validacion_independiente" if id is None else "firma"
-    pathEntidad =f"{carpetaPruebaVida}/{pathPrueba}/{usuarioId}" if(id is  None) else f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}" 
-    pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
+#     # Determine the path for storing evidence
+#     pathPrueba = "validacion_independiente" if id is None else "firma"
+#     pathEntidad =f"{carpetaPruebaVida}/{pathPrueba}/{usuarioId}" if(id is  None) else f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}" 
+#     pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
 
-    # Create directories if they do not exist
-    try:
-        if not os.path.exists(pathEntidad):
-            os.makedirs(pathEntidad)  # Create parent directories if needed
-            print(f"Created directory: {pathEntidad}")
-        if not os.path.exists(pathUsuario):
-            os.makedirs(pathUsuario)  # Create parent directories if needed
-            print(f"Created directory: {pathUsuario}")
-    except Exception as e:
-        return jsonify({"error": f"Failed to create directories: {str(e)}"}), 500
+#     # Create directories if they do not exist
+#     try:
+#         if not os.path.exists(pathEntidad):
+#             os.makedirs(pathEntidad)  # Create parent directories if needed
+#             print(f"Created directory: {pathEntidad}")
+#         if not os.path.exists(pathUsuario):
+#             os.makedirs(pathUsuario)  # Create parent directories if needed
+#             print(f"Created directory: {pathUsuario}")
+#     except Exception as e:
+#         return jsonify({"error": f"Failed to create directories: {str(e)}"}), 500
 
-    # Determine the validation result
-    lifeTest = 'OK' if validationSuccess == 'true' else '!OK'
-    imageResultBool = True if validationSuccess == 'true' else False
+#     # Determine the validation result
+#     lifeTest = 'OK' if validationSuccess == 'true' else '!OK'
+#     imageResultBool = True if validationSuccess == 'true' else False
 
   
-    pathVideo =f"{pathUsuario}/{hash}.{formato}" if id is None else  f"{pathUsuario}/{id}-{video.filename}"
-    pathImage = f"{pathUsuario}/{hash}_{lifeTest}.jpeg" if id is None else f"{pathUsuario}/{id}-{video.filename}_{lifeTest}.jpeg"
+#     pathVideo =f"{pathUsuario}/{hash}.{formato}" if id is None else  f"{pathUsuario}/{id}-{video.filename}"
+#     pathImage = f"{pathUsuario}/{hash}_{lifeTest}.jpeg" if id is None else f"{pathUsuario}/{id}-{video.filename}_{lifeTest}.jpeg"
 
-    # Delete all existing .jpeg files in the user's folder before saving the new image
-    try:
-        for file in os.listdir(pathUsuario):
-            if file.endswith(".jpeg"):
-                os.remove(os.path.join(pathUsuario, file))
-                print(f"Deleted file: {file}")
-    except Exception as e:
-        return jsonify({"error": f"Failed to clean up old files: {str(e)}"}), 500
+#     # Delete all existing .jpeg files in the user's folder before saving the new image
+#     try:
+#         for file in os.listdir(pathUsuario):
+#             if file.endswith(".jpeg"):
+#                 os.remove(os.path.join(pathUsuario, file))
+#                 print(f"Deleted file: {file}")
+#     except Exception as e:
+#         return jsonify({"error": f"Failed to clean up old files: {str(e)}"}), 500
 
-    # Save the video and image files
-    try:
-        video.save(pathVideo)
-        print(f"Saved video to: {pathVideo}")
-    except Exception as e:
-        return jsonify({"error": f"Failed to save video: {str(e)}"}), 500
+#     # Save the video and image files
+#     try:
+#         video.save(pathVideo)
+#         print(f"Saved video to: {pathVideo}")
+#     except Exception as e:
+#         return jsonify({"error": f"Failed to save video: {str(e)}"}), 500
 
-    try:
-        imageOpen.save(pathImage, format='JPEG')
-        print(f"Saved image to: {pathImage}")
-    except Exception as e:
-        return jsonify({"error": f"Failed to save image: {str(e)}"}), 500
+#     try:
+#         imageOpen.save(pathImage, format='JPEG')
+#         print(f"Saved image to: {pathImage}")
+#     except Exception as e:
+#         return jsonify({"error": f"Failed to save image: {str(e)}"}), 500
 
-    # Return the result of the validation
-    return jsonify({"result": imageResultBool})
-
+#     # Return the result of the validation
+#     return jsonify({"result": imageResultBool})
 @app.route('/obtener-usuario', methods=['GET'])
 def getUser():
 
@@ -327,6 +387,6 @@ def health():
 
 if __name__ == "__main__":
   try:
-    app.run(debug=True,host="0.0.0.0", port=4000)
+    app.run(debug=True,host="0.0.0.0", port=7000)
   finally:
     print('para reiniciar use el siguiente comando = python main.py')

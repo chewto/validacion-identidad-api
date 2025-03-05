@@ -26,6 +26,11 @@ documentMRZ = {
                 "anverso":True,
                 "reverso":False,
                 "mrzLetter":"P<"
+            },
+            "Cédula digital": {
+                "anverso":False,
+                "reverso":True,
+                "mrzLetter": "IC"
             }
         },
         "PTY":{
@@ -117,9 +122,7 @@ def extractMRZ(ocr, mrzStartingLetter):
   return mrz
 
 def parse_mrz(mrz:str):
-    print(mrz)
     splitMRZ = mrz.split(' ')
-    print(splitMRZ)
     # print(mrz)
 
     # newMrz = mrz.replace('<', ' ')

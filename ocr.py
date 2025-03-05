@@ -1,5 +1,6 @@
 from PIL import Image
 from io import BytesIO
+import easyocr
 import pytesseract as tess
 import base64
 import cv2
@@ -23,12 +24,12 @@ countries = {
 ocrHash = {
         "COL": {
             "Cédula de ciudadanía": {
-                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
+                "anverso": ["IDENTIFICACION PERSONAL"],
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
             },
             "Cédula de extranjería": {
                 "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'NACIONALIDAD', 'EXPEDICION', 'VENCE', 'NO.', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
-                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "www.migracioncolombia.gov.co", "document", "titular", "documento"]
             },
             "Permiso por protección temporal": {
                 "anverso": [],
@@ -37,6 +38,10 @@ ocrHash = {
             "Pasaporte":{
                 "anverso":['REPUBLICA DE COLOMBIA', 'PASAPORTE', 'PASSPORT'],
                 "reverso":[]
+            },
+            "Cédula digital": {
+                "anverso":['NUIP','Estatura','Fecha y lugar', 'expiracion'],
+                "reverso":["IC"]
             }
         },
         "PTY":{
@@ -83,16 +88,20 @@ documentTypeHash = {
     },
     "COL": {
             "Cédula de ciudadanía": {
-                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA"],
+                "anverso": ["IDENTIFICACION PERSONAL"],
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO', 'LUGAR DE NACIMIENTO']
             },
             "Cédula de extranjería": {
                 "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'EXPEDICION', 'VENCE', 'NO.', "MIGRANTE"],
-                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "COL", "document", "titular", "documento"]
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "www.migracioncolombia.gov.co", "migracioncolombia", "www.migracioncolombia", 'status', "document", "titular", "documento"]
             },
             "Pasaporte": {
                 "anverso": ["Passport", "PASAPORTE", "PASSPORT", "Pasaporte", "REPUBLICA DE COLOMBIA"],
                 "reverso": []
+            },
+            "Cédula digital": {
+                "anverso":[ 'NUIP','Estatura','Fecha y lugar', 'expiracion'],
+                "reverso":["IC"]
             }
     }
 }
@@ -215,10 +224,23 @@ def verificacionRostro(dataURL: str):
         return False
 
 def ocr(imagen: str, preprocesado):
+    reader = easyocr.Reader(['es'])
+
+# Read text from an image
 
     if(preprocesado == False):
-        txt: str = tess.image_to_string(imagen)
-        lineas: list[str] = txt.splitlines()
+        lineas = []
+        total_confidence = 0
+        result = reader.readtext(imagen)
+        for (bbox, text, prob) in result:
+            upperCase = text.upper()
+            lineas.append(upperCase)
+            total_confidence += prob
+        # txt: str = tess.image_to_string(imagen)
+        # lineas: list[str] = txt.splitlines()
+        print(lineas)
+        average_confidence = total_confidence / len(result) if result else 0
+        print(average_confidence)
         return lineas
 
     if(preprocesado):
@@ -232,10 +254,18 @@ def ocr(imagen: str, preprocesado):
         # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
         # opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
 
-        txt: str = tess.image_to_string(enhancedImage)
+        lineas = []
+        
+        total_confidence = 0
+        result = reader.readtext(enhancedImage)
+        for (bbox, text, prob) in result:
+            upperCase = text.upper()
+            lineas.append(upperCase)
+            total_confidence += prob
 
-        lineas: list[str] = txt.splitlines()
         print(lineas)
+        average_confidence = total_confidence / len(result) if result else 0
+        print(average_confidence)
         return lineas
 
 
@@ -246,8 +276,8 @@ def validateDocumentType(documentType, documentSide, ocr):
     for line in ocr:
 
         for documentLine in document:
-            if(len(line) >= 3 and (line in documentLine or documentLine in line)):
-
+            lineUpper = documentLine.upper()
+            if(line in lineUpper or lineUpper in line):
                 return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
@@ -388,11 +418,11 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
         return ocrSencillo, porcentajeSencillo
 
 
-def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
+def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, lineas):
 
     lineas = []
 
-    lineas = ocr(imagen=imagen, preprocesado=preprocesado)
+    # lineas = ocr(imagen=imagen, preprocesado=preprocesado)
 
     ladoPalabras = ocrHash[country][tipoDocumento][ladoDocumento]
 

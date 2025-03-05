@@ -46,6 +46,13 @@ credencialesDB = {
     "host":'154.38.190.87',
     "port":3306,
     "user":'root'
+  },
+  "efirma-plus":{
+    "password":'10830921',
+    "nombre":'pki_validacion',
+    "host":'69.48.200.78',
+    "port":3306,
+    "user":'administrador'
   }
 }
 
@@ -91,10 +98,17 @@ credencialesDBEntidad = {
     "host":'154.38.190.87',
     "port":3306,
     "user":'root'
-  }
+  },
+  "efirma-plus":{
+    "password":'10830921',
+    "nombre":'pki_firma_electronica',
+    "host":'69.48.200.78',
+    "port":3306,
+    "user":'administrador'
+  },
 }
 
-credenciales = 'honducert-desarrollo'
+credenciales = 'efirma-plus'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]

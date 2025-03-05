@@ -16,49 +16,48 @@ country = 'COL'
 barcodes = {
   "COL": {
             "Cédula de ciudadanía": {
-                "anverso": [False,'none'],
-                "reverso": [True, 'pdf417']
+                "anverso": [False,'none', ''],
+                "reverso": [True, 'pdf417','112']
             },
             "Cédula de extranjería": {
-                "anverso": [False,'none'],
-                "reverso": [True, 'pdf417']
+                "anverso": [False,'none', ''],
+                "reverso": [True, 'pdf417','123']
             },
             "Permiso por protección temporal": {
-                "anverso": [False,'none'],
-                "reverso": [False, 'none']
+                "anverso": [False,'none', ''],
+                "reverso": [False, 'none', '']
             },
             "Pasaporte":{
-                "anverso": [False,'none'],
-                "reverso": [False, 'none']
+                "anverso": [False,'none', ''],
+                "reverso": [False, 'none', '']
             },
             "Cédula digital": {
-               "anverso": [False, 'none'],
-               "reverso": [True, '']
+               "anverso": [False, 'none', ''],
+               "reverso": [True, 'datamatrix', '100']
             }
         },
         "PTY":{
             "Cédula de ciudadanía": {
-                "anverso": [False,'none'],
-                "reverso": [True, 'none']
+                "anverso": [False,'none', ''],
+                "reverso": [True, 'none', '']
             },
             "Cédula de extranjería": {
-                "anverso": [False,'none'],
-                "reverso": [False,'none']
+                "anverso": [False,'none', ''],
+                "reverso": [False,'none', '']
             }
         },
   'HND': {
     "DNI":{
-      "anverso": [False,'none'],
-      "reverso": [True, 'qr']
+      "anverso": [False,'none', ''],
+      "reverso": [True, 'qr', '116']
     },
     "Carnet de residente": {
-      "anverso": [False, 'none'],
-      "reverso": [True, 'none'],
-      "cifrado": True
+      "anverso": [False, 'none', ''],
+      "reverso": [True, 'none', ''],
     },
     "Pasaporte": {
-      "anverso": [True,'pdf417'],
-      "reverso": [False, 'none']
+      "anverso": [True,'pdf417', '107'],
+      "reverso": [False, 'none' , '']
     }
   }
 }
@@ -100,8 +99,8 @@ formatDefinition = {
 
 
 def barcodeSide(documentType, documentSide):
-  hasBarcode, barcodeType = barcodes[country][documentType][documentSide]
-  return hasBarcode, barcodeType
+  hasBarcode, barcodeType, tbr = barcodes[country][documentType][documentSide]
+  return hasBarcode, barcodeType, tbr
 
 def hasBarcode(documentType):
 
@@ -122,7 +121,7 @@ def extractBarcodeData(barcodeData, documentType):
   print(barcodeString)
   documentFormat = formatDefinition[documentType]
 
-def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
+def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   folderBarcodes = './codigos-barras'
   folderExistance = os.path.exists(folderBarcodes)
 
@@ -148,8 +147,11 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
         process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         process.check_returncode()
   except subprocess.CalledProcessError as e:
+        print(e)
+        print('no es detectaron')
         return '!OK'
   except PermissionError as e:
+        print('error de permisos')
         return '!OK'
 
   barcodeExistance = os.path.exists(imagePath)
@@ -162,11 +164,16 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType):
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
   
+  print(jsonProcess, 'codigos')
+
   return barcodesExtracted
 
 
 
 def rotateBarcode(image, barcodes):
+
+  if(barcodes == '!OK'):
+    return image
 
   if(len(barcodes) <= 0):
     return image
