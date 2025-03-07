@@ -11,7 +11,7 @@ import datetime
 import re
 
 
-tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 country = 'COL'
 
@@ -100,7 +100,7 @@ documentTypeHash = {
                 "reverso": []
             },
             "Cédula digital": {
-                "anverso":[ 'NUIP','Estatura','Fecha y lugar', 'expiracion'],
+                "anverso":[ 'NUIP','Estatura','lugar', 'expiracion'],
                 "reverso":["IC"]
             }
     }
@@ -263,9 +263,7 @@ def ocr(imagen: str, preprocesado):
             lineas.append(upperCase)
             total_confidence += prob
 
-        print(lineas)
         average_confidence = total_confidence / len(result) if result else 0
-        print(average_confidence)
         return lineas
 
 
@@ -278,6 +276,7 @@ def validateDocumentType(documentType, documentSide, ocr):
         for documentLine in document:
             lineUpper = documentLine.upper()
             if(line in lineUpper or lineUpper in line):
+                print(line, lineUpper)
                 return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'

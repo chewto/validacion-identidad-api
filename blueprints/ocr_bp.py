@@ -11,6 +11,28 @@ import time
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
+messages = {
+  "ocr":{
+    "name":"",
+    "lastName": "",
+    "document": ""
+  },
+  "mrz":{
+    "code":"",
+    "name":"",
+    "lastName": ""
+  },
+  "face":"",
+  "document":{
+    "country": "",
+    "type": "",
+    "expiracy": ""
+  },
+  "barcode": {
+    "code": ""
+  }
+}
+
 @ocr_bp.route('/rotacion-test', methods=['POST'])
 def rotacionTest():
     reqBody = request.get_json()
@@ -77,12 +99,10 @@ def verificarAnverso():
 
 
     timeOcrInit = time.time()
-    documentoOCRSencillo = ocr(documentoOrientado, preprocesado=False)
     documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, documentoOCRPre)
-    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, documentoOCRSencillo)
-    totalValidacionLado = validarLadoPre + validarLadoSencillo
+    totalValidacionLado = validarLadoPre 
     checkSide = {
       'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
       'face': 'OK' if confidence <= confidenceValue else '!OK'
@@ -101,14 +121,13 @@ def verificarAnverso():
     if(confidence >= confidenceValue):
       messages.append('Los rostros no coincidén.')
 
-    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
 
-    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+
     countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre)
 
-    documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
-    codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+    documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
     if(documentValidation != 'OK'):
       messages.append('El tipo de documento no coincide con el seleccionado.')
@@ -124,17 +143,14 @@ def verificarAnverso():
 
       numeroDocumento = f"{firstNums} {middleNums} {lastNums}"
 
-    nombreOCR, porcentajeNombre = validacionOCR(documentoOCRSencillo, nombre)
-    apellidoOCR, porcentajeApellido = validacionOCR(documentoOCRSencillo, apellido)
-    numeroDocumentoOCR, porcentajeDocumento = validacionOCR(documentoOCRSencillo, numeroDocumento)
 
     nombrePreOCR, porcentajeNombrePre = validacionOCR(documentoOCRPre, nombre)
     apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido)
     numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento)
 
-    nombreComparado, porcentajeNombreComparado = comparacionOCR(porcentajePre=porcentajeNombrePre, porcentajeSencillo=porcentajeNombre, ocrPre=nombrePreOCR, ocrSencillo=nombreOCR)
-    apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
-    documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
+    # nombreComparado, porcentajeNombreComparado = comparacionOCR(porcentajePre=porcentajeNombrePre, porcentajeSencillo=porcentajeNombre, ocrPre=nombrePreOCR, ocrSencillo=nombreOCR)
+    # apellidoComparado, porcentajeApellidoComparado = comparacionOCR(porcentajePre=porcentajeApellidoPre, porcentajeSencillo=porcentajeApellido, ocrPre=apellidoPreOCR, ocrSencillo=apellidoOCR)
+    # documentoComparado, porcentajeDocumentoComparado = comparacionOCR(porcentajePre=porcentajeDocumentoPre, porcentajeSencillo=porcentajeDocumento, ocrPre=numeroDocumentoPreOCR, ocrSencillo=numeroDocumentoOCR)
 
     timeOcrEnd = time.time()
     OCRtime = timeOcrInit - timeOcrEnd
@@ -142,34 +158,34 @@ def verificarAnverso():
 
     checkSide['documentValidation'] = documentValidation
     checkSide['countryValidation'] = countryValidation
-    checkSide['percentName'] = 'OK' if porcentajeNombreComparado >= 50 else '!OK'
-    checkSide['percentLastname'] = 'OK' if porcentajeApellidoComparado >= 50 else '!OK'
-    checkSide['percentID'] ='OK' if porcentajeDocumentoComparado >= 50 else '!OK'
+    checkSide['percentName'] = 'OK' if porcentajeNombrePre >= 50 else '!OK'
+    checkSide['percentLastname'] = 'OK' if porcentajeApellidoPre >= 50 else '!OK'
+    checkSide['percentID'] ='OK' if porcentajeDocumentoPre >= 50 else '!OK'
 
-    if(porcentajeNombreComparado <= 50):
+    if(porcentajeNombrePre <= 50):
       messages.append('El nombre no se ha encontrado en el documento.')
 
-    if(porcentajeApellidoComparado <= 50):
+    if(porcentajeApellidoPre <= 50):
       messages.append('El apellido no se ha encontrado en el documento.')
 
-    if(porcentajeDocumentoComparado <= 50):
+    if(porcentajeDocumentoPre <= 50):
       messages.append('El número del identificación no se ha encontrado en el documento.')
 
     image = resizeImage(documentoOrientado, 95)
     image = imageToDataURL(image)
 
     resultsDict = {
-      # 'image': image,
+      'image': image,
       'ocr': {
         'data':{
-          'name': nombreComparado,
-          'lastName': apellidoComparado,
-          'ID': documentoComparado
+          'name': nombrePreOCR,
+          'lastName': apellidoPreOCR,
+          'ID': numeroDocumentoPreOCR
         },
         'percentage': {
-          'name': porcentajeNombreComparado,
-          'lastName': porcentajeApellidoComparado,
-          'ID': porcentajeDocumentoComparado
+          'name': porcentajeNombrePre,
+          'lastName': porcentajeApellidoPre,
+          'ID': porcentajeDocumentoPre
         }
       },
       'face': True if confidence <= confidenceValue else False,
@@ -191,35 +207,30 @@ def verificarAnverso():
       detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
-      if(detectedBarcodes != 'OK'):
-        messages.append('No se pudo detectar el código de barras del documento.')
+      # if(detectedBarcodes != 'OK'):
+        # messages.append('No se pudo detectar el código de barras del documento.')
     else:
       resultsDict['barcode'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentMRZ):
-      mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
+      # mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
 
-      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
-      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
 
       extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
       extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
 
-      nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
-      lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+      nameMRZ = comparisonMRZInfo([ extractNamePre], nombre)
+      lastNameMRZ = comparisonMRZInfo([ extractLastnamePre], apellido)
 
     
 
       resultsDict['mrz'] = {
-        'code': {
-          'raw': mrz,
-          'preprocessed': mrzPre
-        },
+        'code':  mrzPre,
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -241,10 +252,7 @@ def verificarAnverso():
 
     else:
       resultsDict['mrz'] = {
-        'code': {
-          'raw':'',
-          'preprocessed': ''
-        },
+        'code': '',
         'data': {
           'name': '',
           'lastName': ''
@@ -328,26 +336,26 @@ def verificarReverso():
 
     timeOcrInit = time.time()
 
-    documentoOCRSencillo = ocr(documentoData, preprocesado=False)
+    # documentoOCRSencillo = ocr(documentoData, preprocesado=False)
     documentoOCRPre = ocr(documentoData, preprocesado=True)
 
-    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
-    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+    # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, documentoOCRPre)
-    validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, documentoOCRSencillo)
-    totalValidacion = validarLadoPre + validarLadoSencillo
+    # validarLadoSencillo = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoData, documentoOCRSencillo)
+    totalValidacion = validarLadoPre
 
     checkSide['validation'] = 'OK'if totalValidacion >= 3 else '!OK'
 
-    typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
+    # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre)
 
-    countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+    # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
     countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre)
 
-    documentType, documentValidation = testingType([{'type':typeDetected, 'validation':documentTypeValidation},{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
-    codeC, country, countryValidation = testingCountry([{'country': countryCode, 'countryDetected': countryDetected, 'validation': documentCountryValidation}, {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+    documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
     timeOcrEnd = time.time()
     OCRtime = timeOcrInit - timeOcrEnd
@@ -391,24 +399,25 @@ def verificarReverso():
       nameHasK = nombre.find("k")
       lastNamehasK = apellido.find("k")
 
-      mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
+      # mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
       mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
 
       if(nameHasK == -1 or lastNamehasK == -1):
-        mrz = mrz.replace('K', ' ')
+        # mrz = mrz.replace('K', ' ')
         mrzPre = mrzPre.replace('K', ' ')
 
-      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
-      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+      # extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
+      # extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
 
       extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
       extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
 
-      nameMRZ = comparisonMRZInfo([extractName, extractNamePre], nombre)
-      lastNameMRZ = comparisonMRZInfo([extractLastname, extractLastnamePre], apellido)
+
+      nameMRZ = comparisonMRZInfo([extractNamePre], nombre)
+      lastNameMRZ = comparisonMRZInfo([extractLastnamePre], apellido)
 
       #REVISION
       # isExpired = expiracyDateMRZ([*documentoOCRSencillo, *documentoOCRPre])
@@ -421,10 +430,7 @@ def verificarReverso():
       resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code': {
-          'raw': mrz,
-          'preprocessed': mrzPre
-        },
+        'code': mrzPre,
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -444,10 +450,7 @@ def verificarReverso():
         messages.append('No se encontró el apellido en el codigo mrz.')
     else:
       resultsDict['mrz'] = {
-        'code': {
-          'raw':'',
-          'preprocessed': ''
-        },
+        'code': '',
         'data': {
           'name': '',
           'lastName': ''

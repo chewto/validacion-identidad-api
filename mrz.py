@@ -170,15 +170,21 @@ def mrzClean(mrz: str) -> str:
 
 def mrzInfo(mrz, searchTerm):
 
+
   splitData = mrz.split('<')
+  cleanedData = []
+
+  for data in splitData:
+    if(len(data) > 1):
+      cleanedData.append(re.sub(r'\d', '', data))
+
 
   searchSplit = searchTerm.split(' ')
 
   found = []
-
   for search in searchSplit:
-    for data in splitData:
-      if(search in data):
+    for data in cleanedData:
+      if data in search:
         found.append(data)
 
   joinedFounds = ' '.join(found)

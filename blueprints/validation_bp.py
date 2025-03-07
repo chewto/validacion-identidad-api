@@ -391,7 +391,6 @@ def validationType3():
   dataOCRDocumento = request.form.get('documento_ocr')
 
   mrz = request.form.get('mrz')
-  mrzPre = request.form.get('mrz_pre')
   mrzName = request.form.get('mrz_name')
   mrzLastname = request.form.get('mrz_lastname')
   mrzNamePercent = request.form.get('mrz_name_percent')
@@ -464,10 +463,7 @@ def validationType3():
   checkValuesJSON['face_validation'] = faceValidation
 
   checkValuesJSON['mrz_validation'] = {
-    'code': {
-      'raw': mrz,
-      'preprocessed': mrzPre
-    },
+    'code': mrz,
     'data': {
       'name': mrzName,
       'lastName': mrzLastname
@@ -630,7 +626,7 @@ def validationType3():
   # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
   # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
@@ -711,7 +707,6 @@ def standoleValidation():
   dataOCRDocumento = request.form.get('documento_ocr')
 
   mrz = request.form.get('mrz')
-  mrzPre = request.form.get('mrz_pre')
   mrzName = request.form.get('mrz_name')
   mrzLastname = request.form.get('mrz_lastname')
   mrzNamePercent = request.form.get('mrz_name_percent')
@@ -787,10 +782,7 @@ def standoleValidation():
   checkValuesJSON['face_validation'] = faceValidation
 
   checkValuesJSON['mrz_validation'] = {
-    'code': {
-      'raw': mrz,
-      'preprocessed': mrzPre
-    },
+    'code': mrz,
     'data': {
       'name': mrzName,
       'lastName': mrzLastname
@@ -951,7 +943,7 @@ def standoleValidation():
   # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   #aqui debemos actualizar los indices y el tipo documento
