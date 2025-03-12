@@ -163,8 +163,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
 
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
-  
-  print(jsonProcess, 'codigos')
+
 
   return barcodesExtracted
 

@@ -171,8 +171,8 @@ def verificarAnverso():
     if(porcentajeDocumentoPre <= 50):
       messages.append('El número del identificación no se ha encontrado en el documento.')
 
-    image = resizeImage(documentoOrientado, 95)
-    image = imageToDataURL(image)
+    # image = resizeImage(documentoOrientado, 95)
+    image = imageToDataURL(documentoOrientado)
 
     resultsDict = {
       'image': image,
@@ -320,12 +320,12 @@ def verificarReverso():
       barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
 
       rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
-      rotatedImage = resizeImage(rotatedImage, 95)
+      # rotatedImage = resizeImage(rotatedImage, 95)
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
   
       documentoData = rotatedImage
       resultsDict['barcode'] = detectedBarcodes
-      # resultsDict['image'] = imageToDataURL(rotatedImage)
+      resultsDict['image'] = imageToDataURL(rotatedImage)
       checkSide['barcode'] = detectedBarcodes
       if(detectedBarcodes != 'OK'):
         messages.append('No se pudo detectar el código de barras del documento.')
@@ -474,3 +474,78 @@ def verificarReverso():
     # resultsDict['validSide'] = 'OK' 
 
     return jsonify(resultsDict)
+
+@ocr_bp.route('/barcode-reader', methods=['POST'])
+def reader():
+
+  id = request.args.get('id')
+  reqBody = request.get_json()
+  image = reqBody['image']
+  documentType = reqBody['documentType']
+  documentSide = reqBody['documentSide']
+  imageData = readDataURL(image)
+
+  print(id, documentType, documentSide)
+
+  documentBarcode, barcodeType, barcodetbr = barcodeSide(documentType=documentType, documentSide=documentSide)
+
+  barcodes = barcodeReader(imageData, id, documentSide, barcodeType, barcodetbr)
+
+  print(barcodes)
+
+  return jsonify({
+    'image': image,
+    'barcodeData': barcodes
+  })
+
+  return jsonify({
+    'image': image,
+    'barcodeData': [
+        {
+          "data": "MDEwMDI0ODk3NQ==",
+          "length": 10,
+          "page": {
+            "number": 1,
+            "path": "Cedula Benito Otero (2).jpg"
+          },
+          "text": "0100248975",
+          "type": "code128"
+        },
+        {
+          "data": "QTEwMTAwMjQ4OTc1TUlHUkFOVEUAAAAAAAAAAAAAAABDRTAwMDAwMDAwMDAwMDQyMzEwNU9URVJPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENBUlJFSVJBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJFTklUTwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMTk3MjA4MjFNMjAyMTA4MDIyMDI0MDcyOUErAEVTUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADJGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A5gEcfDIA9gD8gEYA+AE0TEYA5AD8dFoBIAD2OVoBIAE8RFUBMgEckUYA0gEwFEYBHAFKSlUBNgEsOEsA1AFADFUA+ADaVVABNAE6PVABQgEON1ABFAFaUVUBLgDillUBQgD2lEsA/ADMrksBMgFMRVUA+ADIV0sBOgDePUsBMgFaTFUAwgFSE1oBGgDCoVoBNgDQmlABDgFwWVoAoAEkHloBWAFGQ1UArAFKGloBWgDamVoBKgF8VloAADdGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A6AE0J1AAzgFMISgBKAEYhloA+AD0GlUBGgD8DlABJgEIUVABEAFuGFUBNgFAH1ABOAE2fVUBFADsZVAAwAFoejwApgE+bSgArgFUfVABCgGADzwAwAF4HUsBEgGGDjIBJgGAEFUBUAEak1oBUgE0hloAngFSdlAA5gGMGFUAmAFQc1ABPAF0FFoAzgGQF0sBMgDcrloApAF2GlABXAEQmloBYAFAiloAkAFaGTwBBgGgDy0BJgGaAVAAAA==",
+          "length": 688,
+          "page": {
+            "number": 1,
+            "path": "Cedula Benito Otero (2).jpg"
+          },
+          "text": "A10100248975MIGRANTE{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CE000000000000423105OTERO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CARREIRA{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}BENITO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}19720821M2021080220240729A+{NUL}ESP{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}2FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├ª{SOH}{FS}|2{NUL}├╢{NUL}├╝┬ÇF{NUL}├╕{SOH}4LF{NUL}├ñ{NUL}├╝tZ{SOH} {NUL}├╢9Z{SOH} {SOH}<DU{SOH}2{SOH}{FS}┬æF{NUL}├Æ{SOH}0{DC4}F{SOH}{FS}{SOH}JJU{SOH}6{SOH},8K{NUL}├ö{SOH}@{FF}U{NUL}├╕{NUL}├ÜUP{SOH}4{SOH}:=P{SOH}B{SOH}{SO}7P{SOH}{DC4}{SOH}ZQU{SOH}.{NUL}├ó┬ûU{SOH}B{NUL}├╢┬öK{NUL}├╝{NUL}├î┬«K{SOH}2{SOH}LEU{NUL}├╕{NUL}├êWK{SOH}:{NUL}├₧=K{SOH}2{SOH}ZLU{NUL}├é{SOH}R{DC3}Z{SOH}{SUB}{NUL}├é┬íZ{SOH}6{NUL}├É┬ÜP{SOH}{SO}{SOH}pYZ{NUL}┬á{SOH}${RS}Z{SOH}X{SOH}FCU{NUL}┬¼{SOH}J{SUB}Z{SOH}Z{NUL}├Ü┬ÖZ{SOH}*{SOH}|VZ{NUL}{NUL}7FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├¿{SOH}4'P{NUL}├Ä{SOH}L!({SOH}({SOH}{CAN}┬åZ{NUL}├╕{NUL}├┤{SUB}U{SOH}{SUB}{NUL}├╝{SO}P{SOH}&{SOH}{BS}QP{SOH}{DLE}{SOH}n{CAN}U{SOH}6{SOH}@{US}P{SOH}8{SOH}6}U{SOH}{DC4}{NUL}├¼eP{NUL}├Ç{SOH}hz<{NUL}┬ª{SOH}>m({NUL}┬«{SOH}T}P{SOH}\n{SOH}┬Ç{SI}<{NUL}├Ç{SOH}x{GS}K{SOH}{DC2}{SOH}┬å{SO}2{SOH}&{SOH}┬Ç{DLE}U{SOH}P{SOH}{SUB}┬ôZ{SOH}R{SOH}4┬åZ{NUL}┬₧{SOH}RvP{NUL}├ª{SOH}┬î{CAN}U{NUL}┬ÿ{SOH}PsP{SOH}<{SOH}t{DC4}Z{NUL}├Ä{SOH}┬É{ETB}K{SOH}2{NUL}├£┬«Z{NUL}┬ñ{SOH}v{SUB}P{SOH}\\{SOH}{DLE}┬ÜZ{SOH}`{SOH}@┬èZ{NUL}┬É{SOH}Z{EM}<{SOH}{ACK}{SOH}┬á{SI}-{SOH}&{SOH}┬Ü{SOH}P{NUL}{NUL}",
+          "type": "pdf417"
+        },
+        {
+          "data": "QTEwMTAwMjQ4OTc1TUlHUkFOVEUAAAAAAAAAAAAAAABDRTAwMDAwMDAwMDAwMDQyMzEwNU9URVJPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENBUlJFSVJBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJFTklUTwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMTk3MjA4MjFNMjAyMTA4MDIyMDI0MDcyOUErAEVTUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADJGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A5gEcfDIA9gD8gEYA+AE0TEYA5AD8dFoBIAD2OVoBIAE8RFUBMgEckUYA0gEwFEYBHAFKSlUBNgEsOEsA1AFADFUA+ADaVVABNAE6PVABQgEON1ABFAFaUVUBLgDillUBQgD2lEsA/ADMrksBMgFMRVUA+ADIV0sBOgDePUsBMgFaTFUAwgFSE1oBGgDCoVoBNgDQmlABDgFwWVoAoAEkHloBWAFGQ1UArAFKGloBWgDamVoBKgF8VloAADdGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A6AE0J1AAzgFMISgBKAEYhloA+AD0GlUBGgD8DlABJgEIUVABEAFuGFUBNgFAH1ABOAE2fVUBFADsZVAAwAFoejwApgE+bSgArgFUfVABCgGADzwAwAF4HUsBEgGGDjIBJgGAEFUBUAEak1oBUgE0hloAngFSdlAA5gGMGFUAmAFQc1ABPAF0FFoAzgGQF0sBMgDcrloApAF2GlABXAEQmloBYAFAiloAkAFaGTwBBgGgDy0BJgGaAVAAAA==",
+          "length": 688,
+          "page": {
+            "number": 1,
+            "path": "Cedula Benito Otero (2).jpg"
+          },
+          "text": "A10100248975MIGRANTE{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CE000000000000423105OTERO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CARREIRA{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}BENITO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}19720821M2021080220240729A+{NUL}ESP{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}2FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├ª{SOH}{FS}|2{NUL}├╢{NUL}├╝┬ÇF{NUL}├╕{SOH}4LF{NUL}├ñ{NUL}├╝tZ{SOH} {NUL}├╢9Z{SOH} {SOH}<DU{SOH}2{SOH}{FS}┬æF{NUL}├Æ{SOH}0{DC4}F{SOH}{FS}{SOH}JJU{SOH}6{SOH},8K{NUL}├ö{SOH}@{FF}U{NUL}├╕{NUL}├ÜUP{SOH}4{SOH}:=P{SOH}B{SOH}{SO}7P{SOH}{DC4}{SOH}ZQU{SOH}.{NUL}├ó┬ûU{SOH}B{NUL}├╢┬öK{NUL}├╝{NUL}├î┬«K{SOH}2{SOH}LEU{NUL}├╕{NUL}├êWK{SOH}:{NUL}├₧=K{SOH}2{SOH}ZLU{NUL}├é{SOH}R{DC3}Z{SOH}{SUB}{NUL}├é┬íZ{SOH}6{NUL}├É┬ÜP{SOH}{SO}{SOH}pYZ{NUL}┬á{SOH}${RS}Z{SOH}X{SOH}FCU{NUL}┬¼{SOH}J{SUB}Z{SOH}Z{NUL}├Ü┬ÖZ{SOH}*{SOH}|VZ{NUL}{NUL}7FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├¿{SOH}4'P{NUL}├Ä{SOH}L!({SOH}({SOH}{CAN}┬åZ{NUL}├╕{NUL}├┤{SUB}U{SOH}{SUB}{NUL}├╝{SO}P{SOH}&{SOH}{BS}QP{SOH}{DLE}{SOH}n{CAN}U{SOH}6{SOH}@{US}P{SOH}8{SOH}6}U{SOH}{DC4}{NUL}├¼eP{NUL}├Ç{SOH}hz<{NUL}┬ª{SOH}>m({NUL}┬«{SOH}T}P{SOH}\n{SOH}┬Ç{SI}<{NUL}├Ç{SOH}x{GS}K{SOH}{DC2}{SOH}┬å{SO}2{SOH}&{SOH}┬Ç{DLE}U{SOH}P{SOH}{SUB}┬ôZ{SOH}R{SOH}4┬åZ{NUL}┬₧{SOH}RvP{NUL}├ª{SOH}┬î{CAN}U{NUL}┬ÿ{SOH}PsP{SOH}<{SOH}t{DC4}Z{NUL}├Ä{SOH}┬É{ETB}K{SOH}2{NUL}├£┬«Z{NUL}┬ñ{SOH}v{SUB}P{SOH}\\{SOH}{DLE}┬ÜZ{SOH}`{SOH}@┬èZ{NUL}┬É{SOH}Z{EM}<{SOH}{ACK}{SOH}┬á{SI}-{SOH}&{SOH}┬Ü{SOH}P{NUL}{NUL}",
+          "type": "pdf417"
+        }
+      ]
+  })
+
+  
+    # if(documentBarcode):
+
+    #   rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
+    #   rotatedImage = resizeImage(rotatedImage, 95)
+    #   detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
+  
+    #   documentoData = rotatedImage
+    #   resultsDict['barcode'] = detectedBarcodes
+    #   # resultsDict['image'] = imageToDataURL(rotatedImage)
+    #   checkSide['barcode'] = detectedBarcodes
+    #   if(detectedBarcodes != 'OK'):
+    #     messages.append('No se pudo detectar el código de barras del documento.')
+    # else:
+    #   resultsDict['barcode'] = 'documento sin codigo de barras'

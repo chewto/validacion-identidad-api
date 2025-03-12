@@ -550,7 +550,8 @@ def validationType3():
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
-    test.append(barcodeCheck)
+    if(tipoDocumento != "Cédula digital"):
+      test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
@@ -869,7 +870,8 @@ def standoleValidation():
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
-    test.append(barcodeCheck)
+    if(tipoDocumento != "Cédula digital"):
+      test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
