@@ -167,34 +167,82 @@ def expiracyDateOCR(ocrData, documentType):
 
     currentDate = datetime.date.today()
 
-    extraction = extractDate(data=ocrData, documentType=documentType)
+    reference = None
 
-    if(documentType == 'Pasaporte'):
-        extraction = dateFormatter(extraction)
+    for (coords, data, _) in ocrData:
 
-    extractedDates = filter(lambda x: len(x) >= 1, extraction)
+        #para cedula de extranjeria
+        # if ('VENCE' in data):
+        #     reference = (coords, data)
+        if ('' in data):
+            reference = (coords, data)
 
-    lowerDates = []
-    higherDates = []
+    nearestCoords = None
+    min_distance = float('inf')
 
-    for date in extractedDates:
-        splitedDate = date.split('-')
+    for (coords, data, _) in ocrData:
+        x, y = coords[0]
+        if reference:
+            refCoords, _ = reference
+            rX, rY = refCoords[0]
+            # agregar if dependiendo de la direccion (realiza un hash map como siempre)
+            # if x > rX:
+            #     distance = abs(y - rY)
+            #     if distance < min_distance:
+            #         min_distance = distance
+            #         nearestCoords = [coords, data]
 
-        try:
-            day, month, year = int(splitedDate[0]), int(splitedDate[1]), int(splitedDate[2])
 
-            if 1 <= month <= 12:
-                convertedDate = datetime.date(year, month, day)
-                if convertedDate > currentDate:
-                    higherDates.append(convertedDate)
-                else:
-                    lowerDates.append(convertedDate)
-            else: 
-                raise ValueError("Month must be in 1..12") 
-        except ValueError as e: 
-            return True
+            if y > rY:
+                print(coords, data)
+                # distance = abs(y - rY)
+                # if distance < min_distance:
+                #     min_distance = distance
+                #     nearestCoords = [coords, data]
 
-    return False if(len(higherDates) >= 1) else True
+    if nearestCoords:
+        print(f"Nearest coords to the reference in Y axis: {nearestCoords}")
+
+
+#  for (coords, data, _) in ocrData:
+#         x, y, w, h = coords
+#         if reference:
+#             ref_coords, _ = reference
+#             rX, rY, rW, rH = ref_coords
+#             if x > rX + rW and abs(y - rY) < h:
+#                 print(f"({x}, {y}) está al lado derecho y verticalmente más cercano a la referencia ({rX}, {rY}, {rW}, {rH}), {data}")
+
+
+    print(reference)
+
+    # extraction = extractDate(data=ocrData, documentType=documentType)
+
+    # if(documentType == 'Pasaporte'):
+    #     extraction = dateFormatter(extraction)
+
+    # extractedDates = filter(lambda x: len(x) >= 1, extraction)
+
+    # lowerDates = []
+    # higherDates = []
+
+    # for date in extractedDates:
+    #     splitedDate = date.split('-')
+
+    #     try:
+    #         day, month, year = int(splitedDate[0]), int(splitedDate[1]), int(splitedDate[2])
+
+    #         if 1 <= month <= 12:
+    #             convertedDate = datetime.date(year, month, day)
+    #             if convertedDate > currentDate:
+    #                 higherDates.append(convertedDate)
+    #             else:
+    #                 lowerDates.append(convertedDate)
+    #         else: 
+    #             raise ValueError("Month must be in 1..12") 
+    #     except ValueError as e: 
+    #         return True
+
+    # return False if(len(higherDates) >= 1) else True
 
 def verificacionRostro(dataURL: str):
 
@@ -262,9 +310,12 @@ def ocr(imagen: str, preprocesado):
             upperCase = text.upper()
             lineas.append(upperCase)
             total_confidence += prob
+            print(text)
 
         average_confidence = total_confidence / len(result) if result else 0
-        return lineas
+
+
+        return result, lineas
 
 
 def validateDocumentType(documentType, documentSide, ocr):

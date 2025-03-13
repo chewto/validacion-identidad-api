@@ -1,13 +1,12 @@
 
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
+from ocr import comparacionOCR, expiracyDateOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
 from reconocimiento import orientacionImagen, verifyFaces
-from utilidades import readDataURL, resizeHandle, resizeImage, textNormalize, imageToDataURL
+from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2
 from check_result import testingCountry, testingType, results
 import time
-# import test_reglas?
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
@@ -51,30 +50,41 @@ def verificarAnverso():
 
     confidenceValue = 0.6
 
-    reqBody = request.get_json()
+    # reqBody = request.get_json()
 
-    efirmaId = reqBody['id']
-    imagenPersona = reqBody['imagenPersona']
-    imagenDocumento = reqBody['imagen']
-    ladoDocumento = reqBody['ladoDocumento']
-    tipoDocumento = reqBody['tipoDocumento']
-    nombre = reqBody['nombre']
-    apellido = reqBody['apellido']
-    numeroDocumento = reqBody['documento']
-    testing = reqBody['test']
+    # efirmaId = reqBody['id']
+    # imagenPersona = reqBody['imagenPersona']
+    # imagenDocumento = reqBody['imagen']
+    # ladoDocumento = reqBody['ladoDocumento']
+    # tipoDocumento = reqBody['tipoDocumento']
+    # nombre = reqBody['nombre']
+    # apellido = reqBody['apellido']
+    # numeroDocumento = reqBody['documento']
+    # testing = reqBody['test']
 
-    if(testing):
-      nombre = 'test'
-      apellido = 'test'
-      numeroDocumento = '9999'
-      ladoDocumento = 'anverso'
-      imagenPersona = imagenDocumento
-      tipoDocumento = 'DNI'
+    efirmaId = request.form.get('id')
+    imagenPersona = request.files.get('imagenPersona')
+    imagenDocumento = request.files.get('imagen')
+    ladoDocumento = request.form.get('ladoDocumento')
+    tipoDocumento = request.form.get('tipoDocumento')
+    nombre = request.form.get('nombre')
+    apellido = request.form.get('apellido')
+    numeroDocumento = request.form.get('documento')
+
+    personaData = fileCv2(imagenPersona)
+    documentoData = fileCv2(imagenDocumento)
+
+    # if(testing):
+    #   nombre = 'test'
+    #   apellido = 'test'
+    #   numeroDocumento = '9999'
+    #   ladoDocumento = 'anverso'
+    #   imagenPersona = imagenDocumento
+    #   tipoDocumento = 'DNI'
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
-    documentoData = readDataURL(imagenDocumento)
-    personaData = readDataURL(imagenPersona)
+    
     # documentoData = resizeHandle(documentoData, max_dimension=1200)
 
 
@@ -99,7 +109,7 @@ def verificarAnverso():
 
 
     timeOcrInit = time.time()
-    documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
+    ocrResult, documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOrientado, documentoOCRPre)
     totalValidacionLado = validarLadoPre 
@@ -111,7 +121,7 @@ def verificarAnverso():
     messages = []
 
     #REVISION
-    # isExpired = expiracyDateOCR([*documentoOCRPre, *documentoOCRSencillo], tipoDocumento)
+    isExpired = expiracyDateOCR(ocrResult,tipoDocumento)
 
     # checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
 
@@ -289,18 +299,28 @@ def verificarReverso():
     
     messages = []
 
-    reqBody = request.get_json()
+    # reqBody = request.get_json()
 
-    efirmaId = reqBody['id']
-    imagenDocumento = reqBody['imagen']
-    ladoDocumento = reqBody['ladoDocumento']
-    tipoDocumento = reqBody['tipoDocumento']
-    nombre = reqBody['nombre']
-    apellido = reqBody['apellido']
-    numeroDocumento = reqBody['documento']
-    imagenDocumento = readDataURL(imagenDocumento)
+    # efirmaId = reqBody['id']
+    # imagenDocumento = reqBody['imagen']
+    # ladoDocumento = reqBody['ladoDocumento']
+    # tipoDocumento = reqBody['tipoDocumento']
+    # nombre = reqBody['nombre']
+    # apellido = reqBody['apellido']
+    # numeroDocumento = reqBody['documento']
+    # imagenDocumento = readDataURL(imagenDocumento)
     # imagenDocumento = resizeHandle(imagenDocumento, max_dimension=1200)
 
+    efirmaId = request.form.get('id')
+    imagenPersona = request.files.get('imagenPersona')
+    imagenDocumento = request.files.get('imagen')
+    ladoDocumento = request.form.get('ladoDocumento')
+    tipoDocumento = request.form.get('tipoDocumento')
+    nombre = request.form.get('nombre')
+    apellido = request.form.get('apellido')
+    numeroDocumento = request.form.get('documento')
+
+    imagenDocumento = fileCv2(imagenDocumento)
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
@@ -337,7 +357,7 @@ def verificarReverso():
     timeOcrInit = time.time()
 
     # documentoOCRSencillo = ocr(documentoData, preprocesado=False)
-    documentoOCRPre = ocr(documentoData, preprocesado=True)
+    ocrResult, documentoOCRPre = ocr(documentoData, preprocesado=True)
 
     # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
@@ -497,55 +517,3 @@ def reader():
     'image': image,
     'barcodeData': barcodes
   })
-
-  return jsonify({
-    'image': image,
-    'barcodeData': [
-        {
-          "data": "MDEwMDI0ODk3NQ==",
-          "length": 10,
-          "page": {
-            "number": 1,
-            "path": "Cedula Benito Otero (2).jpg"
-          },
-          "text": "0100248975",
-          "type": "code128"
-        },
-        {
-          "data": "QTEwMTAwMjQ4OTc1TUlHUkFOVEUAAAAAAAAAAAAAAABDRTAwMDAwMDAwMDAwMDQyMzEwNU9URVJPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENBUlJFSVJBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJFTklUTwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMTk3MjA4MjFNMjAyMTA4MDIyMDI0MDcyOUErAEVTUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADJGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A5gEcfDIA9gD8gEYA+AE0TEYA5AD8dFoBIAD2OVoBIAE8RFUBMgEckUYA0gEwFEYBHAFKSlUBNgEsOEsA1AFADFUA+ADaVVABNAE6PVABQgEON1ABFAFaUVUBLgDillUBQgD2lEsA/ADMrksBMgFMRVUA+ADIV0sBOgDePUsBMgFaTFUAwgFSE1oBGgDCoVoBNgDQmlABDgFwWVoAoAEkHloBWAFGQ1UArAFKGloBWgDamVoBKgF8VloAADdGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A6AE0J1AAzgFMISgBKAEYhloA+AD0GlUBGgD8DlABJgEIUVABEAFuGFUBNgFAH1ABOAE2fVUBFADsZVAAwAFoejwApgE+bSgArgFUfVABCgGADzwAwAF4HUsBEgGGDjIBJgGAEFUBUAEak1oBUgE0hloAngFSdlAA5gGMGFUAmAFQc1ABPAF0FFoAzgGQF0sBMgDcrloApAF2GlABXAEQmloBYAFAiloAkAFaGTwBBgGgDy0BJgGaAVAAAA==",
-          "length": 688,
-          "page": {
-            "number": 1,
-            "path": "Cedula Benito Otero (2).jpg"
-          },
-          "text": "A10100248975MIGRANTE{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CE000000000000423105OTERO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CARREIRA{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}BENITO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}19720821M2021080220240729A+{NUL}ESP{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}2FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├ª{SOH}{FS}|2{NUL}├╢{NUL}├╝┬ÇF{NUL}├╕{SOH}4LF{NUL}├ñ{NUL}├╝tZ{SOH} {NUL}├╢9Z{SOH} {SOH}<DU{SOH}2{SOH}{FS}┬æF{NUL}├Æ{SOH}0{DC4}F{SOH}{FS}{SOH}JJU{SOH}6{SOH},8K{NUL}├ö{SOH}@{FF}U{NUL}├╕{NUL}├ÜUP{SOH}4{SOH}:=P{SOH}B{SOH}{SO}7P{SOH}{DC4}{SOH}ZQU{SOH}.{NUL}├ó┬ûU{SOH}B{NUL}├╢┬öK{NUL}├╝{NUL}├î┬«K{SOH}2{SOH}LEU{NUL}├╕{NUL}├êWK{SOH}:{NUL}├₧=K{SOH}2{SOH}ZLU{NUL}├é{SOH}R{DC3}Z{SOH}{SUB}{NUL}├é┬íZ{SOH}6{NUL}├É┬ÜP{SOH}{SO}{SOH}pYZ{NUL}┬á{SOH}${RS}Z{SOH}X{SOH}FCU{NUL}┬¼{SOH}J{SUB}Z{SOH}Z{NUL}├Ü┬ÖZ{SOH}*{SOH}|VZ{NUL}{NUL}7FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├¿{SOH}4'P{NUL}├Ä{SOH}L!({SOH}({SOH}{CAN}┬åZ{NUL}├╕{NUL}├┤{SUB}U{SOH}{SUB}{NUL}├╝{SO}P{SOH}&{SOH}{BS}QP{SOH}{DLE}{SOH}n{CAN}U{SOH}6{SOH}@{US}P{SOH}8{SOH}6}U{SOH}{DC4}{NUL}├¼eP{NUL}├Ç{SOH}hz<{NUL}┬ª{SOH}>m({NUL}┬«{SOH}T}P{SOH}\n{SOH}┬Ç{SI}<{NUL}├Ç{SOH}x{GS}K{SOH}{DC2}{SOH}┬å{SO}2{SOH}&{SOH}┬Ç{DLE}U{SOH}P{SOH}{SUB}┬ôZ{SOH}R{SOH}4┬åZ{NUL}┬₧{SOH}RvP{NUL}├ª{SOH}┬î{CAN}U{NUL}┬ÿ{SOH}PsP{SOH}<{SOH}t{DC4}Z{NUL}├Ä{SOH}┬É{ETB}K{SOH}2{NUL}├£┬«Z{NUL}┬ñ{SOH}v{SUB}P{SOH}\\{SOH}{DLE}┬ÜZ{SOH}`{SOH}@┬èZ{NUL}┬É{SOH}Z{EM}<{SOH}{ACK}{SOH}┬á{SI}-{SOH}&{SOH}┬Ü{SOH}P{NUL}{NUL}",
-          "type": "pdf417"
-        },
-        {
-          "data": "QTEwMTAwMjQ4OTc1TUlHUkFOVEUAAAAAAAAAAAAAAABDRTAwMDAwMDAwMDAwMDQyMzEwNU9URVJPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENBUlJFSVJBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJFTklUTwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMTk3MjA4MjFNMjAyMTA4MDIyMDI0MDcyOUErAEVTUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADJGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A5gEcfDIA9gD8gEYA+AE0TEYA5AD8dFoBIAD2OVoBIAE8RFUBMgEckUYA0gEwFEYBHAFKSlUBNgEsOEsA1AFADFUA+ADaVVABNAE6PVABQgEON1ABFAFaUVUBLgDillUBQgD2lEsA/ADMrksBMgFMRVUA+ADIV0sBOgDePUsBMgFaTFUAwgFSE1oBGgDCoVoBNgDQmlABDgFwWVoAoAEkHloBWAFGQ1UArAFKGloBWgDamVoBKgF8VloAADdGTVIAIDIwAADaABexRwAAAfQB9ADFAMUBAAACUB8A6AE0J1AAzgFMISgBKAEYhloA+AD0GlUBGgD8DlABJgEIUVABEAFuGFUBNgFAH1ABOAE2fVUBFADsZVAAwAFoejwApgE+bSgArgFUfVABCgGADzwAwAF4HUsBEgGGDjIBJgGAEFUBUAEak1oBUgE0hloAngFSdlAA5gGMGFUAmAFQc1ABPAF0FFoAzgGQF0sBMgDcrloApAF2GlABXAEQmloBYAFAiloAkAFaGTwBBgGgDy0BJgGaAVAAAA==",
-          "length": 688,
-          "page": {
-            "number": 1,
-            "path": "Cedula Benito Otero (2).jpg"
-          },
-          "text": "A10100248975MIGRANTE{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CE000000000000423105OTERO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}CARREIRA{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}BENITO{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}19720821M2021080220240729A+{NUL}ESP{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}{NUL}2FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├ª{SOH}{FS}|2{NUL}├╢{NUL}├╝┬ÇF{NUL}├╕{SOH}4LF{NUL}├ñ{NUL}├╝tZ{SOH} {NUL}├╢9Z{SOH} {SOH}<DU{SOH}2{SOH}{FS}┬æF{NUL}├Æ{SOH}0{DC4}F{SOH}{FS}{SOH}JJU{SOH}6{SOH},8K{NUL}├ö{SOH}@{FF}U{NUL}├╕{NUL}├ÜUP{SOH}4{SOH}:=P{SOH}B{SOH}{SO}7P{SOH}{DC4}{SOH}ZQU{SOH}.{NUL}├ó┬ûU{SOH}B{NUL}├╢┬öK{NUL}├╝{NUL}├î┬«K{SOH}2{SOH}LEU{NUL}├╕{NUL}├êWK{SOH}:{NUL}├₧=K{SOH}2{SOH}ZLU{NUL}├é{SOH}R{DC3}Z{SOH}{SUB}{NUL}├é┬íZ{SOH}6{NUL}├É┬ÜP{SOH}{SO}{SOH}pYZ{NUL}┬á{SOH}${RS}Z{SOH}X{SOH}FCU{NUL}┬¼{SOH}J{SUB}Z{SOH}Z{NUL}├Ü┬ÖZ{SOH}*{SOH}|VZ{NUL}{NUL}7FMR{NUL} 20{NUL}{NUL}├Ü{NUL}{ETB}┬▒G{NUL}{NUL}{SOH}├┤{SOH}├┤{NUL}├à{NUL}├à{SOH}{NUL}{NUL}{STX}P{US}{NUL}├¿{SOH}4'P{NUL}├Ä{SOH}L!({SOH}({SOH}{CAN}┬åZ{NUL}├╕{NUL}├┤{SUB}U{SOH}{SUB}{NUL}├╝{SO}P{SOH}&{SOH}{BS}QP{SOH}{DLE}{SOH}n{CAN}U{SOH}6{SOH}@{US}P{SOH}8{SOH}6}U{SOH}{DC4}{NUL}├¼eP{NUL}├Ç{SOH}hz<{NUL}┬ª{SOH}>m({NUL}┬«{SOH}T}P{SOH}\n{SOH}┬Ç{SI}<{NUL}├Ç{SOH}x{GS}K{SOH}{DC2}{SOH}┬å{SO}2{SOH}&{SOH}┬Ç{DLE}U{SOH}P{SOH}{SUB}┬ôZ{SOH}R{SOH}4┬åZ{NUL}┬₧{SOH}RvP{NUL}├ª{SOH}┬î{CAN}U{NUL}┬ÿ{SOH}PsP{SOH}<{SOH}t{DC4}Z{NUL}├Ä{SOH}┬É{ETB}K{SOH}2{NUL}├£┬«Z{NUL}┬ñ{SOH}v{SUB}P{SOH}\\{SOH}{DLE}┬ÜZ{SOH}`{SOH}@┬èZ{NUL}┬É{SOH}Z{EM}<{SOH}{ACK}{SOH}┬á{SI}-{SOH}&{SOH}┬Ü{SOH}P{NUL}{NUL}",
-          "type": "pdf417"
-        }
-      ]
-  })
-
-  
-    # if(documentBarcode):
-
-    #   rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
-    #   rotatedImage = resizeImage(rotatedImage, 95)
-    #   detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
-  
-    #   documentoData = rotatedImage
-    #   resultsDict['barcode'] = detectedBarcodes
-    #   # resultsDict['image'] = imageToDataURL(rotatedImage)
-    #   checkSide['barcode'] = detectedBarcodes
-    #   if(detectedBarcodes != 'OK'):
-    #     messages.append('No se pudo detectar el código de barras del documento.')
-    # else:
-    #   resultsDict['barcode'] = 'documento sin codigo de barras'

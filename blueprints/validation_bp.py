@@ -292,14 +292,14 @@ def testingCal():
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
     'idValidacion': documentoUsuarioId,
-    'direccionValidacion': f'https://{subdomain}.e-custodia.com/rostrov5.html?hash{hashHex}'
+    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
       'idValidacion': documentoUsuarioId,
-      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/rostrov5.html?hash={hashHex}'
+      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}'
     }
 
     return jsonify(res)

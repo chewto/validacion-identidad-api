@@ -1,6 +1,7 @@
 import random
 import string
 import time
+from PIL import Image
 import uuid
 import cv2
 import numpy as np
@@ -130,6 +131,11 @@ def cv2Blob(imagen):
   imagenBlob = imagenEncode.tobytes()
 
   return imagenBlob
+
+def fileCv2(image):
+  npArrayImage = np.frombuffer(image.read(), np.uint8)
+  decodedImage = cv2.imdecode(npArrayImage, cv2.IMREAD_COLOR)
+  return decodedImage
 
 def recorteData(data):
   if(len(data)>= 499):
