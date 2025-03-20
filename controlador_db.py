@@ -108,7 +108,7 @@ credencialesDBEntidad = {
   },
 }
 
-credenciales = 'efirma-plus'
+credenciales = 'honducert-desarrollo'
 
 passwordDB = credencialesDB[credenciales]["password"]
 nombreDB = credencialesDB[credenciales]["nombre"]

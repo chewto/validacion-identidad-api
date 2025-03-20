@@ -7,11 +7,12 @@ import subprocess
 import cv2
 import numpy as np
 import re
+from country import selectCountry
 
 from logs import checkLogsFile, writeLogs
 from utilidades import readDataURL
 
-country = 'COL'
+country = selectCountry()
 
 barcodes = {
   "COL": {

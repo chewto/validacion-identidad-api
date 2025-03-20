@@ -1,10 +1,11 @@
 import datetime
 import re
+from country import selectCountry
 from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
 
-country = 'COL'
+country = selectCountry()
 
 documentMRZ = {
   "COL": {

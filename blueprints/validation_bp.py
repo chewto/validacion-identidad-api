@@ -402,7 +402,7 @@ def validationType3():
   validationPercent = request.form.get('validation_percent')
   validationPercent = int(validationPercent)
 
-  videoHash =  request.form.get('videoHash')
+  videoHash =  request.form.get('video_hash')
 
   failed = request.form.get('failed')
   failedBack = request.form.get('failed_back')
@@ -490,11 +490,11 @@ def validationType3():
   fTypeCheck = True if(frontTypeCheck == 'OK') else False
   checkValuesDict['front_type'] = fTypeCheck
 
-  # fIsExpired = True if(frontIsExpired == 'OK') else False
-  # checkValuesDict['front_isExpired'] = fIsExpired
-  # frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
+  fIsExpired = True if(frontIsExpired == 'OK') else False
+  checkValuesDict['front_isExpired'] = fIsExpired
+  frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
 
-  frontCheck = all([fCountryCheck, fTypeCheck])
+  # frontCheck = all([fCountryCheck, fTypeCheck])
   checkValuesDict['front'] = frontCheck
 
   checkValuesJSON['sides_validation'] = {
@@ -503,7 +503,7 @@ def validationType3():
       'code': frontCode,
       'country': frontCountry,
       'type': frontType,
-      # 'isExpired': not fIsExpired
+      'isExpired': not fIsExpired
     }
   }
 
@@ -596,11 +596,11 @@ def validationType3():
   final = all([test,boolResult])
 
   if(not final and validationAttendance == 'AUTOMATICA'):
-    resultState = 'Procesando validación'
+    resultState = 'validación fallida'
   
   if(failed == 'OK'):
 
-    resultState = 'Procesando validación'
+    resultState = 'validación fallida'
     
     if(failedBack == '!OK'):
       resultState += ' el anverso no es válido'
@@ -623,11 +623,11 @@ def validationType3():
 
   # #tabla evidencias adicionales
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
-  # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
+  # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', f'original:{mrz} preprocesado:{mrzPre}', barcode, checkValuesJson)
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson)
+  # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
@@ -635,15 +635,26 @@ def validationType3():
   valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUsuario)
   documentoUsuarioId = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
-  callbackData =  controlador_db.selectCallback(idUsuario, 'SELECT ent.validacion_callback, usu.clave_api FROM usuarios.usuarios As usu INNER JOIN usuarios.entidades AS ent  ON usu.entity_id = ent.entity_id INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON  firma.usuario_id = usu.id INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.firma_electronica_id = firma.id WHERE firmador.id = ?')
+  callbackData =  controlador_db.selectCallback(idUsuario,"""SELECT ent.validacion_callback, usu.clave_api,firmador.firma_electronica_id FROM usuarios.usuarios As usu 
+    INNER JOIN usuarios.entidades AS ent  ON usu.entity_id = ent.entity_id 
+    INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON  firma.usuario_id = usu.id 
+    INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.firma_electronica_id = firma.id 
+    WHERE firmador.id = ?""")
+  
+  idFirma = callbackData[2]
 
   callbackRequest([callbackData[0], callbackData[1]], {
     'claveApi':callbackData[1],
     'estadoValidacion': resultState,
     'porcentajeValidacion': resultPercent,
     'tipoValidacion': int(tipo),
-    'idUsuario': int(idUsuario),
+    'idFirma': int(idFirma),
+    'idFirmador': int(idUsuario),
     'idValidacion': documentoUsuarioId,
+    'nombre': nombres,
+    'apellido': apellidos,
+    'documento': documento,
+    'tipo': tipoDocumento,
     'parametrosValidacion': checkValuesJSON,
     'enlaceFirma': f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
   })
@@ -714,6 +725,7 @@ def standoleValidation():
   mrzLastnamePercent = request.form.get('mrz_lastname_percent')
 
   barcode = request.form.get('codigo_barras')
+  videoHash =  request.form.get('video_hash')
 
   validationAttendance = request.form.get('validation_attendance')
   validationPercent = request.form.get('validation_percent')
@@ -810,11 +822,11 @@ def standoleValidation():
   fTypeCheck = True if(frontTypeCheck == 'OK') else False
   checkValuesDict['front_type'] = fTypeCheck
 
-  # fIsExpired = True if(frontIsExpired == 'OK') else False
-  # checkValuesDict['front_isExpired'] = fIsExpired
-  # frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
+  fIsExpired = True if(frontIsExpired == 'OK') else False
+  checkValuesDict['front_isExpired'] = fIsExpired
+  frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
 
-  frontCheck = all([fCountryCheck, fTypeCheck])
+  # frontCheck = all([fCountryCheck, fTypeCheck])
   checkValuesDict['front'] = frontCheck
 
   checkValuesJSON['sides_validation'] = {
@@ -823,7 +835,7 @@ def standoleValidation():
       'code': frontCode,
       'country': frontCountry,
       'type': frontType,
-      # 'isExpired': not fIsExpired
+      'isExpired': not fIsExpired
     }
   }
 
@@ -915,11 +927,11 @@ def standoleValidation():
   final = all([test,boolResult])
 
   if(not final and validationAttendance == 'AUTOMATICA'):
-    resultState = 'Procesando validación'
+    resultState = 'validación fallida'
   
   if(failed == 'OK'):
 
-    resultState = 'Procesando validación'
+    resultState = 'validación fallida'
     
     if(failedBack == '!OK'):
       resultState += ' el anverso no es válido'
@@ -943,9 +955,9 @@ def standoleValidation():
   # #tabla evidencias adicionales
 
   # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   #aqui debemos actualizar los indices y el tipo documento

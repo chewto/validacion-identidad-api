@@ -1,8 +1,9 @@
 
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
-from ocr import comparacionOCR, expiracyDateOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, expiracyDateMRZ
+from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2
 from check_result import testingCountry, testingType, results
@@ -50,29 +51,29 @@ def verificarAnverso():
 
     confidenceValue = 0.6
 
-    # reqBody = request.get_json()
+    reqBody = request.get_json()
 
-    # efirmaId = reqBody['id']
-    # imagenPersona = reqBody['imagenPersona']
-    # imagenDocumento = reqBody['imagen']
-    # ladoDocumento = reqBody['ladoDocumento']
-    # tipoDocumento = reqBody['tipoDocumento']
-    # nombre = reqBody['nombre']
-    # apellido = reqBody['apellido']
-    # numeroDocumento = reqBody['documento']
+    efirmaId = reqBody['id']
+    imagenPersona = reqBody['imagenPersona']
+    imagenDocumento = reqBody['imagen']
+    ladoDocumento = reqBody['ladoDocumento']
+    tipoDocumento = reqBody['tipoDocumento']
+    nombre = reqBody['nombre']
+    apellido = reqBody['apellido']
+    numeroDocumento = reqBody['documento']
     # testing = reqBody['test']
 
-    efirmaId = request.form.get('id')
-    imagenPersona = request.files.get('imagenPersona')
-    imagenDocumento = request.files.get('imagen')
-    ladoDocumento = request.form.get('ladoDocumento')
-    tipoDocumento = request.form.get('tipoDocumento')
-    nombre = request.form.get('nombre')
-    apellido = request.form.get('apellido')
-    numeroDocumento = request.form.get('documento')
+    # efirmaId = request.form.get('id')
+    # imagenPersona = request.files.get('imagenPersona')
+    # imagenDocumento = request.files.get('imagen')
+    # ladoDocumento = request.form.get('ladoDocumento')
+    # tipoDocumento = request.form.get('tipoDocumento')
+    # nombre = request.form.get('nombre')
+    # apellido = request.form.get('apellido')
+    # numeroDocumento = request.form.get('documento')
 
-    personaData = fileCv2(imagenPersona)
-    documentoData = fileCv2(imagenDocumento)
+    # personaData = fileCv2(imagenPersona)
+    # documentoData = fileCv2(imagenDocumento)
 
     # if(testing):
     #   nombre = 'test'
@@ -84,6 +85,8 @@ def verificarAnverso():
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
+    personaData = readDataURL(imagenPersona)
+    documentoData = readDataURL(imagenDocumento)
     
     # documentoData = resizeHandle(documentoData, max_dimension=1200)
 
@@ -120,14 +123,6 @@ def verificarAnverso():
 
     messages = []
 
-    #REVISION
-    isExpired = expiracyDateOCR(ocrResult,tipoDocumento)
-
-    # checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
-
-    # if(isExpired):
-    #   messages.append('El documento esta expirado.')
-
     if(confidence >= confidenceValue):
       messages.append('Los rostros no coincidén.')
 
@@ -138,6 +133,17 @@ def verificarAnverso():
 
     documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
     codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+    isExpired = None
+
+    hasExpiry, namedMonth, datePosition, keywords, dateFormat = hasExpiryDate(tipoDocumento, ladoDocumento)
+    if(hasExpiry):
+      isExpired = expiryDateOCR(ocrResult,datePosition,keywords,namedMonth,dateFormat)
+
+      checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+
+      if(isExpired):
+        messages.append('El documento esta expirado.')
 
     if(documentValidation != 'OK'):
       messages.append('El tipo de documento no coincide con el seleccionado.')
@@ -206,7 +212,7 @@ def verificarAnverso():
         'countryCheck':countryValidation,
         'type':documentType,
         'typeCheck':documentValidation,
-        'isExpired': False
+        'isExpired': isExpired
       }
     }
 
@@ -214,9 +220,12 @@ def verificarAnverso():
 
     hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(hasbarcode):
-      detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
+      detectedBarcodes = barcodeReader(documentoOrientado, efirmaId, ladoDocumento, barcodeType, barcodetbr)
+      detectedBarcodes = 'OK' if(len(detectedBarcodes) >= 1) else '!OK'
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
+      if(detectedBarcodes != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
       # if(detectedBarcodes != 'OK'):
         # messages.append('No se pudo detectar el código de barras del documento.')
     else:
@@ -299,28 +308,28 @@ def verificarReverso():
     
     messages = []
 
-    # reqBody = request.get_json()
+    reqBody = request.get_json()
 
-    # efirmaId = reqBody['id']
-    # imagenDocumento = reqBody['imagen']
-    # ladoDocumento = reqBody['ladoDocumento']
-    # tipoDocumento = reqBody['tipoDocumento']
-    # nombre = reqBody['nombre']
-    # apellido = reqBody['apellido']
-    # numeroDocumento = reqBody['documento']
-    # imagenDocumento = readDataURL(imagenDocumento)
+    efirmaId = reqBody['id']
+    imagenDocumento = reqBody['imagen']
+    ladoDocumento = reqBody['ladoDocumento']
+    tipoDocumento = reqBody['tipoDocumento']
+    nombre = reqBody['nombre']
+    apellido = reqBody['apellido']
+    numeroDocumento = reqBody['documento']
+    imagenDocumento = readDataURL(imagenDocumento)
     # imagenDocumento = resizeHandle(imagenDocumento, max_dimension=1200)
 
-    efirmaId = request.form.get('id')
-    imagenPersona = request.files.get('imagenPersona')
-    imagenDocumento = request.files.get('imagen')
-    ladoDocumento = request.form.get('ladoDocumento')
-    tipoDocumento = request.form.get('tipoDocumento')
-    nombre = request.form.get('nombre')
-    apellido = request.form.get('apellido')
-    numeroDocumento = request.form.get('documento')
+    # efirmaId = request.form.get('id')
+    # imagenPersona = request.files.get('imagenPersona')
+    # imagenDocumento = request.files.get('imagen')
+    # ladoDocumento = request.form.get('ladoDocumento')
+    # tipoDocumento = request.form.get('tipoDocumento')
+    # nombre = request.form.get('nombre')
+    # apellido = request.form.get('apellido')
+    # numeroDocumento = request.form.get('documento')
 
-    imagenDocumento = fileCv2(imagenDocumento)
+    # imagenDocumento = fileCv2(imagenDocumento)
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
@@ -402,15 +411,6 @@ def verificarReverso():
 
     codeTimeInit = time.time()
 
-    # documentBarcode = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento)
-    # if(documentBarcode):
-    #   detectedBarcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento)
-    #   resultsDict['barcode'] = detectedBarcodes
-    #   checkSide['barcode'] = detectedBarcodes
-    #   if(detectedBarcodes != 'OK'):
-    #     messages.append('No se pudo detectar el código de barras del documento.')
-    # else:
-    #   resultsDict['barcode'] = 'documento sin codigo de barras'
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento)
     if(documentMRZ):

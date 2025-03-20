@@ -5,6 +5,7 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
+from country import selectCountry
 from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
 import datetime
@@ -13,7 +14,7 @@ import re
 
 # tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-country = 'COL'
+country = selectCountry()
 
 countries = {
     'HND': ['HONDURAS'],
@@ -108,142 +109,6 @@ documentTypeHash = {
 
 # "REPUBLICA DE COLOMBIA"
 
-def extractDate(data, documentType):
-    datePattern = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b' 
-
-    if(documentType == 'Pasaporte'):
-        datePattern = r'\d{2}\s(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)\s\d{4}'
-
-    datesFound = []
-    
-    for line in data:
-        match = re.search(datePattern, line)
-        if(match is not None):
-            matchString = match.string
-            dateString = matchString[match.start():match.end()]
-            datesFound.append(dateString)
-
-    return datesFound
-
-def dateFormatter(dates):
-    monthPattern = r'(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)'
-
-    monthDict = {
-        'ENE':'1',
-        'FEB':'2',
-        'MAR':'3',
-        'ABR':'4',
-        'MAY':'5',
-        'JUN':'6',
-        'JUL':'7',
-        'AGO':'8',
-        'SEP':'9',
-        'OCT':'10',
-        'NOV':'11',
-        'DIC':'12',
-    }
-
-    datesFound = []
-
-    for date in dates:
-        match = re.search(monthPattern, date)
-        if(match is not None):
-            matchStart = match.start()
-            matchEnd = match.end()
-            matchString = match.string
-            matchLength = len(matchString)
-            monthString = matchString[matchStart:matchEnd]
-            monthSplitted = monthString.split('/')
-            monthExtracted = monthSplitted[0]
-            month = monthDict[monthExtracted]
-            day = matchString[0:matchStart]
-            year = matchString[matchEnd:matchLength]
-            date = f'{day}-{month}-{year}'
-            datesFound.append(date)
-
-    return datesFound
-
-def expiracyDateOCR(ocrData, documentType):
-
-    currentDate = datetime.date.today()
-
-    reference = None
-
-    for (coords, data, _) in ocrData:
-
-        #para cedula de extranjeria
-        # if ('VENCE' in data):
-        #     reference = (coords, data)
-        if ('' in data):
-            reference = (coords, data)
-
-    nearestCoords = None
-    min_distance = float('inf')
-
-    for (coords, data, _) in ocrData:
-        x, y = coords[0]
-        if reference:
-            refCoords, _ = reference
-            rX, rY = refCoords[0]
-            # agregar if dependiendo de la direccion (realiza un hash map como siempre)
-            # if x > rX:
-            #     distance = abs(y - rY)
-            #     if distance < min_distance:
-            #         min_distance = distance
-            #         nearestCoords = [coords, data]
-
-
-            if y > rY:
-                print(coords, data)
-                # distance = abs(y - rY)
-                # if distance < min_distance:
-                #     min_distance = distance
-                #     nearestCoords = [coords, data]
-
-    if nearestCoords:
-        print(f"Nearest coords to the reference in Y axis: {nearestCoords}")
-
-
-#  for (coords, data, _) in ocrData:
-#         x, y, w, h = coords
-#         if reference:
-#             ref_coords, _ = reference
-#             rX, rY, rW, rH = ref_coords
-#             if x > rX + rW and abs(y - rY) < h:
-#                 print(f"({x}, {y}) está al lado derecho y verticalmente más cercano a la referencia ({rX}, {rY}, {rW}, {rH}), {data}")
-
-
-    print(reference)
-
-    # extraction = extractDate(data=ocrData, documentType=documentType)
-
-    # if(documentType == 'Pasaporte'):
-    #     extraction = dateFormatter(extraction)
-
-    # extractedDates = filter(lambda x: len(x) >= 1, extraction)
-
-    # lowerDates = []
-    # higherDates = []
-
-    # for date in extractedDates:
-    #     splitedDate = date.split('-')
-
-    #     try:
-    #         day, month, year = int(splitedDate[0]), int(splitedDate[1]), int(splitedDate[2])
-
-    #         if 1 <= month <= 12:
-    #             convertedDate = datetime.date(year, month, day)
-    #             if convertedDate > currentDate:
-    #                 higherDates.append(convertedDate)
-    #             else:
-    #                 lowerDates.append(convertedDate)
-    #         else: 
-    #             raise ValueError("Month must be in 1..12") 
-    #     except ValueError as e: 
-    #         return True
-
-    # return False if(len(higherDates) >= 1) else True
-
 def verificacionRostro(dataURL: str):
 
     gray = cv2.cvtColor(dataURL, cv2.COLOR_BGR2GRAY)
@@ -286,7 +151,6 @@ def ocr(imagen: str, preprocesado):
             total_confidence += prob
         # txt: str = tess.image_to_string(imagen)
         # lineas: list[str] = txt.splitlines()
-        print(lineas)
         average_confidence = total_confidence / len(result) if result else 0
         print(average_confidence)
         return lineas
@@ -309,11 +173,10 @@ def ocr(imagen: str, preprocesado):
         for (bbox, text, prob) in result:
             upperCase = text.upper()
             lineas.append(upperCase)
+            print(upperCase)
             total_confidence += prob
-            print(text)
 
         average_confidence = total_confidence / len(result) if result else 0
-
 
         return result, lineas
 
@@ -327,7 +190,6 @@ def validateDocumentType(documentType, documentSide, ocr):
         for documentLine in document:
             lineUpper = documentLine.upper()
             if(line in lineUpper or lineUpper in line):
-                print(line, lineUpper)
                 return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
