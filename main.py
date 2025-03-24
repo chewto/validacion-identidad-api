@@ -138,11 +138,17 @@ def getUserMedia():
   pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
   
   image_files = [f for f in os.listdir(pathUsuario) if f.endswith('.jpeg')]
+  video_files = [f for f in os.listdir(pathUsuario) if f.endswith('.webm') or f.endswith('.mp4')]
 
   if not image_files:
       return jsonify({'error': 'No image found'}), 404
 
+  if not video_files:
+      return jsonify({'error': 'No video found'}), 404
+
   image_path = os.path.join(pathUsuario, image_files[0])
+  video_path = os.path.join(pathUsuario, video_files[0])
+
   with open(image_path, "rb") as image_file:
       image_data = image_file.read()
       image_data_url = f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
@@ -152,10 +158,13 @@ def getUserMedia():
   splitedTest = splitedName[1].split("-")
   lifeTest = splitedTest[0].replace('.jpeg', '')
 
-  response = {"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "lifeTest": lifeTest, "photo": image_data_url}
-
-  if(id is not None):
-     response['videoHash'] = splitedName[0]
+  response = {
+      "idCarpetaUsuario": f"{usuarioId}",
+      "idCarpetaEntidad": f"{entidadId}",
+      "lifeTest": lifeTest,
+      "photo": image_data_url,
+      "videoHash": os.path.basename(video_path)
+  }
 
   return jsonify(response)
 
@@ -320,7 +329,7 @@ def livenessTest():
     imageResultBool = True if validationSuccess == 'true' else False
 
   
-    pathVideo =f"{pathUsuario}/{hash}.{formato}" if id is None else  f"{pathUsuario}/{id}-{video.filename}"
+    pathVideo =f"{pathUsuario}/ {video.filename}" if id is None else  f"{pathUsuario}/{id}-{video.filename}"
     pathImage = f"{pathUsuario}/{hash}_{lifeTest}.jpeg" if id is None else f"{pathUsuario}/{id}-{video.filename}_{lifeTest}.jpeg"
 
     # Delete all existing .jpeg files in the user's folder before saving the new image

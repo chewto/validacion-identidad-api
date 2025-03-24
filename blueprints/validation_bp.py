@@ -1,3 +1,4 @@
+import uuid
 from flask import Blueprint, request, jsonify
 import controlador_db
 import json
@@ -62,7 +63,7 @@ def checkValidation():
     SELECT ev.id, ev.estado_verificacion 
 FROM documento_usuario AS doc
 INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
-INNER JOIN parametros_validacion AS params ON params.id = doc.id
+INNER JOIN parametros_validacion AS params ON params.parametros_hash = doc.id_usuario
 WHERE params.parametros_hash = '{userHash}'
 ORDER BY ev.id DESC
 LIMIT 1;
@@ -87,7 +88,12 @@ def validationParams():
   userHash = request.args.get('hash')
 
   if(userHash != None):
-    validationParameters = controlador_db.selectValidationParams(id=userHash, query="SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id inner join pki_validacion.documento_usuario AS du ON du.id_usuario = usu.id INNER JOIN pki_validacion.parametros_validacion AS params ON du.id = params.id WHERE params.parametros_hash = ?")
+    validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent 
+    inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id 
+    INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id 
+    WHERE params.parametros_hash = ?""")
+
+    print(validationParameters)
 
     params = {
     "validationAttendance":validationParameters[0],
@@ -262,24 +268,24 @@ def testingCal():
   documentType = reqBody['tipoDocumento']
   email = reqBody['correo']
 
+  livenessTest = reqBody['validacionVida']
+
   userInfo = controlador_db.selectAPIKey(userId)
 
   userApiKey = userInfo[0]
   isValid = True if apiKey == userApiKey else False
 
   if(isValid):
-
-    documentoUsuarioColumns = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario', 'tipo_validacion')
-    documentoValues = (name.upper(), lastName.upper(), document, documentType.upper(), email, 0, 0, userId, typeValidation)
-    documentoUsuarioId = controlador_db.insertTabla(documentoUsuarioColumns, 'documento_usuario', documentoValues)
     
-    queryParams = f'?id={documentoUsuarioId}'
+    unique_id = uuid.uuid4()
+
+    queryParams = f'?id={unique_id}'
     encodedParams = urllib.parse.quote(queryParams)
     hashParams = hashlib.sha256(encodedParams.encode())
     hashHex = hashParams.hexdigest()
 
-    paramsColumns = ('id','callback','redireccion','parametros_hash')
-    paramsValues = (documentoUsuarioId, callback, redirection, hashHex)
+    paramsColumns = ('id','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion', 'validacion_vida')
+    paramsValues = (userId,callback, redirection, hashHex, name, lastName, document, documentType, email, typeValidation, livenessTest)
     paramsInsert = controlador_db.insertTabla(paramsColumns, 'parametros_validacion', paramsValues)
 
     #callback
@@ -291,15 +297,15 @@ def testingCal():
     'estadoValidacion': 'iniciando validacion',
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
-    'idValidacion': documentoUsuarioId,
-    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}'
+    # 'idValidacion': documentoUsuarioId,
+    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
-      'idValidacion': documentoUsuarioId,
-      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}'
+      # 'idValidacion': documentoUsuarioId,
+      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
 
     return jsonify(res)
@@ -316,17 +322,19 @@ def getInfo():
   if(info == None):
     return jsonify({'dato':None})
 
+  livenessTest = True if(info[9] == 1) else False
+
   info = {
+    'idUsuario': info[0],
     'nombre': info[1],
     'apellido': info[2],
     'documento': info[3],
     'tipoDocumento': info[4],
     'correo': info[5],
-    'idValidacion': info[0],
-    'tipoValidacion': info[7],
-    'idUsuario': info[6],
-    'callback': info[8],
-    'redireccion': info[9]
+    'tipoValidacion': info[6],
+    'callback': info[7],
+    'redireccion': info[8],
+    'validacionVida': livenessTest
   }
 
   return jsonify({'dato':info})
@@ -635,12 +643,15 @@ def validationType3():
   valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUsuario)
   documentoUsuarioId = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
+  
+
   callbackData =  controlador_db.selectCallback(idUsuario,"""SELECT ent.validacion_callback, usu.clave_api,firmador.firma_electronica_id FROM usuarios.usuarios As usu 
     INNER JOIN usuarios.entidades AS ent  ON usu.entity_id = ent.entity_id 
     INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON  firma.usuario_id = usu.id 
     INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.firma_electronica_id = firma.id 
     WHERE firmador.id = ?""")
   
+
   idFirma = callbackData[2]
 
   callbackRequest([callbackData[0], callbackData[1]], {
@@ -667,9 +678,14 @@ def standoleValidation():
   idUsuario = request.args.get('idUsuario')
   idUsuario = int(idUsuario)
   idValidacion = request.args.get('id')
-  idValidacion = int(idValidacion)
   tipoValidacion = request.args.get('tipo')
   userHash = request.args.get('hash')
+
+  nombres = request.form.get('nombres')
+  apellidos = request.form.get('apellidos')
+  email = request.form.get('email')
+  tipoDocumento = request.form.get('tipo_documento')
+  documento = request.form.get('numero_documento')
 
   idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
   idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
@@ -916,6 +932,8 @@ def standoleValidation():
 
   boolResult, resultState, resultPercent = results(validatioAttendance=validationAttendance, percent=validationPercent, checksDict=checkValuesDict)
 
+  print(resultPercent, resultState)
+
   checkValuesJSON['checks'] = checkValuesDict
 
   checkValuesJSON['results_validation'] = {
@@ -952,9 +970,6 @@ def standoleValidation():
   valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
   idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
-  # #tabla evidencias adicionales
-
-  # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
   valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson)
@@ -962,7 +977,9 @@ def standoleValidation():
 
   #aqui debemos actualizar los indices y el tipo documento
 
-  documentoUsuario = controlador_db.setIDs(idEvidencias=idEvidenciasUsuario, idEvidenciasAdicionales=idEvidenciasAdicionales, tipoDocumento=tipoDocumento , idValidacion=idValidacion)
+  documentoUsuarioColumns = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario', 'tipo_validacion')
+  documentoValues = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, userHash, tipoValidacion)
+  documentoUsuarioId = controlador_db.insertTabla(documentoUsuarioColumns, 'documento_usuario', documentoValues)
 
   callbackData =  controlador_db.selectCallback(idUsuario, 'SELECT usu.clave_api FROM usuarios.usuarios as usu WHERE usu.id = ?')
 
@@ -973,12 +990,12 @@ def standoleValidation():
     'porcentajeValidacion': resultPercent,
     'tipoValidacion': int(tipoValidacion),
     'idUsuario': int(idUsuario),
-    'idValidacion': int(idValidacion),
+    'idValidacion': documentoUsuarioId,
     'parametrosValidacion': checkValuesJSON,
     'enlaceValidacion': f'https://desarrollo.e-custodia.com/resultado_validacion?hash={userHash}'
   })
 
-  return jsonify({"idValidacion":idValidacion, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
+  return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
 @validation_bp.route('/failed', methods=['POST'])
 def rejectedValidation():

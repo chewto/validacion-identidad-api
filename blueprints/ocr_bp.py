@@ -54,6 +54,7 @@ def verificarAnverso():
     reqBody = request.get_json()
 
     efirmaId = reqBody['id']
+    print(efirmaId)
     imagenPersona = reqBody['imagenPersona']
     imagenDocumento = reqBody['imagen']
     ladoDocumento = reqBody['ladoDocumento']

@@ -202,7 +202,7 @@ def insertTabla(columns: tuple, table:str, values: tuple):
       database=nombreDB
     )
   except mariadb.Error as e:
-    print(f"error en la query, error = {e}")
+    print(f"error en la conexion, error = {e}")
     return 0
 
   try:
@@ -388,6 +388,9 @@ def obtenerEntidadHash(hash):
     cursor = conn.cursor()
     query = """SELECT id_usuario FROM pki_validacion.documento_usuario AS du
     INNER JOIN pki_validacion.parametros_validacion AS pv ON pv.id= du.id
+    WHERE pv.parametros_hash = ?"""
+
+    query = """SELECT id FROM pki_validacion.parametros_validacion AS pv
     WHERE pv.parametros_hash = ?"""
 
     cursor.execute(query,(hash,))
@@ -586,14 +589,15 @@ def selectUserData(id):
     cursor = conn.cursor()
 
     queryInfo = """
-      SELECT du.id, du.nombres, du.apellidos, du.numero_documento, du.tipo_documento, du.email, du.id_usuario, du.tipo_validacion, params.callback, params.redireccion FROM pki_validacion.documento_usuario AS du 
-      INNER JOIN pki_validacion.parametros_validacion AS params ON du.id = params.id
+      SELECT params.id, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, params.validacion_vida FROM pki_validacion.parametros_validacion AS params 
       WHERE params.parametros_hash = ?
     """
 
     cursor.execute(queryInfo, (id,))
 
     callbackData = cursor.fetchone()
+
+    print(callbackData)
 
     return callbackData if(callbackData != None) else None
 
