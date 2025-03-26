@@ -46,6 +46,8 @@ def validationProvider():
 
   selectProvider = controlador_db.selectProvider(id=entityId)
 
+  print(selectProvider)
+
   validationProvider = selectProvider
 
   return jsonify({"provider": validationProvider})
@@ -268,15 +270,19 @@ def testingCal():
   documentType = reqBody['tipoDocumento']
   email = reqBody['correo']
 
-  livenessTest = reqBody['validacionVida']
-
   userInfo = controlador_db.selectAPIKey(userId)
 
   userApiKey = userInfo[0]
   isValid = True if apiKey == userApiKey else False
 
+  livenessTest = controlador_db.selectData(f'''SELECT ent.validacion_vida FROM usuarios.entidades AS ent 
+  INNER JOIN usuarios.usuarios AS usu ON usu.entity_id = ent.entity_id
+  WHERE usu.id = {userId}''', ())
+
+  livenessTest = livenessTest[0]
+  livenessTest = True if(livenessTest == 1) else False
+
   if(isValid):
-    
     unique_id = uuid.uuid4()
 
     queryParams = f'?id={unique_id}'
@@ -284,8 +290,8 @@ def testingCal():
     hashParams = hashlib.sha256(encodedParams.encode())
     hashHex = hashParams.hexdigest()
 
-    paramsColumns = ('id','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion', 'validacion_vida')
-    paramsValues = (userId,callback, redirection, hashHex, name, lastName, document, documentType, email, typeValidation, livenessTest)
+    paramsColumns = ('id','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion')
+    paramsValues = (userId,callback, redirection, hashHex, name, lastName, document, documentType, email, typeValidation)
     paramsInsert = controlador_db.insertTabla(paramsColumns, 'parametros_validacion', paramsValues)
 
     #callback
@@ -298,14 +304,14 @@ def testingCal():
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
     # 'idValidacion': documentoUsuarioId,
-    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
+    'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
       # 'idValidacion': documentoUsuarioId,
-      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash{hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
+      'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
 
     return jsonify(res)
@@ -338,6 +344,35 @@ def getInfo():
   }
 
   return jsonify({'dato':info})
+
+@validation_bp.route('/get-livenesstest', methods=['GET'])
+def getLivenessTest():
+
+  signerId = request.args.get('id')
+  userHash = request.args.get('hash')
+
+  livenessTest = None
+
+  if(signerId):
+    livenessTest = controlador_db.selectData(f'''SELECT ent.validacion_vida FROM usuarios.entidades AS ent 
+    INNER JOIN usuarios.usuarios AS usu ON usu.entity_id = ent.entity_id
+    INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON firma.usuario_id = usu.id
+    INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.firma_electronica_id = firma.id
+    WHERE firmador.id = {signerId}''', ())
+  
+  if(userHash):
+    livenessTest = controlador_db.selectData(f'''SELECT ent.validacion_vida FROM usuarios.entidades AS ent 
+    INNER JOIN usuarios.usuarios AS usu ON usu.entity_id = ent.entity_id
+    INNER JOIN pki_validacion.parametros_validacion AS params ON params.id = usu.id
+    WHERE params.parametros_hash = '{userHash}'
+    ''', ())
+
+  print(livenessTest)
+
+  livenessTest = livenessTest[0]
+  livenessTest = True if(livenessTest == 1) else False
+
+  return jsonify({'validacionVida':livenessTest})
 
 
 @validation_bp.route('/type-3', methods=['POST'])

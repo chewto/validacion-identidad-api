@@ -435,9 +435,10 @@ def selectProvider(id):
 
     entidad = cursor.fetchone()
 
+
     if(entidad != None):
 
-      if(entidad[1] == None):
+      if(entidad[1] == None or len(entidad[1]) <= 0):
         return 'EFIRMA'
       
       return entidad[1]
@@ -589,15 +590,15 @@ def selectUserData(id):
     cursor = conn.cursor()
 
     queryInfo = """
-      SELECT params.id, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, params.validacion_vida FROM pki_validacion.parametros_validacion AS params 
+      SELECT params.id, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, ent.validacion_vida FROM pki_validacion.parametros_validacion AS params 
+      INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id
+      INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id 
       WHERE params.parametros_hash = ?
     """
 
     cursor.execute(queryInfo, (id,))
 
     callbackData = cursor.fetchone()
-
-    print(callbackData)
 
     return callbackData if(callbackData != None) else None
 

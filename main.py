@@ -137,8 +137,11 @@ def getUserMedia():
   pathEntidad =f"{carpetaPruebaVida}/{pathPrueba}/{usuarioId}" if(id is  None) else f"{carpetaPruebaVida}/{pathPrueba}/{entidadId}" 
   pathUsuario = f"{pathEntidad}/{hash}" if id is  None  else f"{pathEntidad}/{usuarioId}"
   
-  image_files = [f for f in os.listdir(pathUsuario) if f.endswith('.jpeg')]
-  video_files = [f for f in os.listdir(pathUsuario) if f.endswith('.webm') or f.endswith('.mp4')]
+  try:
+      image_files = [f for f in os.listdir(pathUsuario) if f.endswith('.jpeg')]
+      video_files = [f for f in os.listdir(pathUsuario) if f.endswith('.webm') or f.endswith('.mp4')]
+  except Exception as e:
+      return jsonify({"evidencias": False})
 
   if not image_files:
       return jsonify({'error': 'No image found'}), 404
