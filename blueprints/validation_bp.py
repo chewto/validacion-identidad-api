@@ -460,6 +460,15 @@ def validationType3():
   confidenceValue = float(confidenceValue)
   # landmarks = request.form.get('landmarks')
 
+  country = request.form.get('country')
+
+  countryData = controlador_db.selectData(f'''
+      SELECT * FROM pki_validacion.pais as pais 
+    WHERE pais.codigo = "{country}"''', ())
+  
+  mrzData = json.loads(countryData[3])
+  barcodeData = json.loads(countryData[4])
+
   #leer data url
   fotoPersonaData = readDataURL(fotoPersona)
   anversoData = readDataURL(anverso)
@@ -587,17 +596,17 @@ def validationType3():
 
     test.append(backCheck)
 
-  checkHasMRZ = hasMRZ(documentType=tipoDocumento)
+  checkHasMRZ = hasMRZ(documentType=tipoDocumento, mrzData=mrzData)
   if(checkHasMRZ):
-    mrzCheck = validateMRZ(documentType=tipoDocumento, mrzData=mrz)
+    mrzCheck = validateMRZ(documentType=tipoDocumento,mrzKeys=mrzData, mrzData=mrz)
     checkValuesDict['mrz'] = mrzCheck
     test.append(mrzCheck)
 
-  checkHasBarcode = hasBarcode(documentType=tipoDocumento)
+  checkHasBarcode = hasBarcode(documentType=tipoDocumento, barcodeData=barcodeData)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
-    if(tipoDocumento != "Cédula digital"):
+    if(tipoDocumento != "CEDULA DIGITAL"):
       test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
@@ -722,6 +731,10 @@ def standoleValidation():
 
   nombres = request.form.get('nombres')
   apellidos = request.form.get('apellidos')
+
+  nombres = nombres.upper()
+  apellidos = apellidos.upper()
+
   email = request.form.get('email')
   tipoDocumento = request.form.get('tipo_documento')
   documento = request.form.get('numero_documento')
@@ -799,6 +812,14 @@ def standoleValidation():
   face = request.form.get('face')
   confidenceValue = request.form.get('confidence')
   confidenceValue = float(confidenceValue)
+
+  country = request.form.get('country')
+  countryData = controlador_db.selectData(f'''
+      SELECT * FROM pki_validacion.pais as pais 
+    WHERE pais.codigo = "{country}"''', ())
+  
+  mrzData = json.loads(countryData[3])
+  barcodeData = json.loads(countryData[4])
 
 
   #leer data url
@@ -931,17 +952,17 @@ def standoleValidation():
 
     test.append(backCheck)
 
-  checkHasMRZ = hasMRZ(documentType=tipoDocumento)
+  checkHasMRZ = hasMRZ(documentType=tipoDocumento, mrzData=mrzData)
   if(checkHasMRZ):
-    mrzCheck = validateMRZ(documentType=tipoDocumento, mrzData=mrz)
+    mrzCheck = validateMRZ(documentType=tipoDocumento,mrzKeys=mrzData, mrzData=mrz)
     checkValuesDict['mrz'] = mrzCheck
     test.append(mrzCheck)
 
-  checkHasBarcode = hasBarcode(documentType=tipoDocumento)
+  checkHasBarcode = hasBarcode(documentType=tipoDocumento, barcodeData=barcodeData)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
     checkValuesDict['barcode'] = barcodeCheck
-    if(tipoDocumento != "Cédula digital"):
+    if(tipoDocumento != "CEDULA DIGITAL"):
       test.append(barcodeCheck)
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False

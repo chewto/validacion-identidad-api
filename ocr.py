@@ -5,21 +5,16 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from country import selectCountry
 from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
 import datetime
 import re
 
-
-# tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-country = selectCountry()
-
 countries = {
     'HND': ['HONDURAS'],
     'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA'],
-    'PTY': ['PANAMA']
+    'PTY': ['PANAMA'],
+    'SLV': ['EL SALVADOR', 'SAN SALVADOR', 'AHUACHAPAN', 'SONSONATE', 'SANTA ANA', 'LA LIBERTAD', 'CHALATENANGO', 'CUSCATLAN', 'LA PAZ', 'SAN VICENTE', 'CABAÑAS', 'USULUTAN', 'SAN MIGUEL', 'MORAZAN', 'LA UNION']
 }
 
 ocrHash = {
@@ -72,6 +67,12 @@ ocrHash = {
                 "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION', '<'],
                 "reverso":[]
             }
+        },
+        "SLV":{
+            "DNI": {
+                "anverso": ['REGISTRO', 'NACIONAL','PERSONAS', 'HONDURAS', 'REGISTRO', 'DOCUMENTO', 'NACIONAL DE IDENTIFICACION', 'DOCUMENTO', 'IDENTIFICACION', 'LUGAR', 'NACIMIENTO', 'NACIONALIDAD', 'REGISTRO'],
+                "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS', '<']
+            },
         }
     }
 
@@ -79,7 +80,7 @@ ocrHash = {
 documentTypeHash = {
     'HND':{
         'DNI':{
-            'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION', 'REGISTRO NACIONAL DE LAS PERSONAS'],
+            'anverso': ['NACIONAL', 'REGISTRO NACIONAL DE LAS PERSONAS'],
             'reverso': ['HND', 'DOMICILIO / ADDRESS']
         },
         'Pasaporte': {
@@ -89,7 +90,7 @@ documentTypeHash = {
     },
     "COL": {
             "Cédula de ciudadanía": {
-                "anverso": ["IDENTIFICACION PERSONAL"],
+                "anverso": ["IDENTIFICACION", "PERSONAL"],
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO', 'LUGAR DE NACIMIENTO']
             },
             "Cédula de extranjería": {
@@ -104,8 +105,15 @@ documentTypeHash = {
                 "anverso":[ 'NUIP','Estatura','lugar', 'expiracion'],
                 "reverso":["IC"]
             }
-    }
+    },
+    "SLV":{
+            "DNI": {
+                "anverso": ['UNICO','IDENTIDAD', 'ID', 'SALVADOREÑO', 'BY', 'SALVADOREAN'],
+                "reverso": ['ID']
+            },
+        }
 }
+
 
 # "REPUBLICA DE COLOMBIA"
 
@@ -181,20 +189,21 @@ def ocr(imagen: str, preprocesado):
         return result, lineas
 
 
-def validateDocumentType(documentType, documentSide, ocr):
+def validateDocumentType(documentType, documentSide, ocr, detectionData):
 
-    document = documentTypeHash[country][documentType][documentSide]
+    documentWords = detectionData['documentDectection'][documentType][documentSide]
 
     for line in ocr:
 
-        for documentLine in document:
+        for documentLine in documentWords:
             lineUpper = documentLine.upper()
             if(line in lineUpper or lineUpper in line):
+                print(line, lineUpper, 'asdasdasdsd')
                 return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
 
-def validateDocumentCountry(ocr):
+def validateDocumentCountry(ocr, country):
     lines = ocr
 
     for line in lines:
@@ -330,13 +339,11 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
         return ocrSencillo, porcentajeSencillo
 
 
-def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, lineas):
+def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, lineas, ocrData):
 
     lineas = []
 
-    # lineas = ocr(imagen=imagen, preprocesado=preprocesado)
-
-    ladoPalabras = ocrHash[country][tipoDocumento][ladoDocumento]
+    ladoPalabras = ocrData['documentOcr'][tipoDocumento][ladoDocumento]
 
     coincidencias = 0
 

@@ -7,12 +7,9 @@ import subprocess
 import cv2
 import numpy as np
 import re
-from country import selectCountry
 
 from logs import checkLogsFile, writeLogs
 from utilidades import readDataURL
-
-country = selectCountry()
 
 barcodes = {
   "COL": {
@@ -60,6 +57,12 @@ barcodes = {
       "anverso": [True,'pdf417', '107'],
       "reverso": [False, 'none' , '']
     }
+  },
+  'SLV': {
+    "DNI":{
+      "anverso": [False,'none', ''],
+      "reverso": [True, 'pdf417', '107']
+    }
   }
 }
 
@@ -99,13 +102,13 @@ formatDefinition = {
 }
 
 
-def barcodeSide(documentType, documentSide):
-  hasBarcode, barcodeType, tbr = barcodes[country][documentType][documentSide]
+def barcodeSide(documentType, documentSide, barcodeData):
+  hasBarcode, barcodeType, tbr = barcodeData[documentType][documentSide]
   return hasBarcode, barcodeType, tbr
 
-def hasBarcode(documentType):
+def hasBarcode(documentType, barcodeData):
 
-  barcodeDocumentType = barcodes[country][documentType]
+  barcodeDocumentType = barcodeData[documentType]
 
   sideData = []
 

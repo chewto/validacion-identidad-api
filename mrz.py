@@ -1,11 +1,8 @@
 import datetime
 import re
-from country import selectCountry
 from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
-
-country = selectCountry()
 
 documentMRZ = {
   "COL": {
@@ -60,18 +57,25 @@ documentMRZ = {
       "reverso": False,
       "mrzLetter": "P<"
     }
+  },
+  'SLV': {
+    "DNI":{
+      "anverso": False,
+      "reverso": True,
+      "mrzLetter":"IDSLV"
+    }
   }
 }
 
-def MRZSide(documentType, documentSide):
-  mrz = documentMRZ[country][documentType][documentSide]
+def MRZSide(documentType, documentSide, mrzData):
+  mrz = mrzData[documentType][documentSide]
 
-  mrzLetter = documentMRZ[country][documentType]["mrzLetter"]
+  mrzLetter = mrzData[documentType]["mrzLetter"]
 
   return mrzLetter, mrz
 
-def hasMRZ(documentType):
-  mrzDocumentType = documentMRZ[country][documentType]
+def hasMRZ(documentType, mrzData):
+  mrzDocumentType = mrzData[documentType]
 
   mrzCorrespondingSide = []
 
@@ -83,8 +87,8 @@ def hasMRZ(documentType):
 
   return totalMRZ
 
-def validateMRZ(documentType, mrzData):
-  mrzDocumentType = documentMRZ[country][documentType]
+def validateMRZ(documentType, mrzKeys,mrzData):
+  mrzDocumentType = mrzKeys[documentType]
 
   mrzDataLength =True if (len(mrzData) >= 1) else False
 

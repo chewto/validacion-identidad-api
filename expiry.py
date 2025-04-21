@@ -1,10 +1,6 @@
 import re
 import datetime
 
-from country import selectCountry
-
-country = selectCountry()
-
 formats = {
     'DD/MM/YY':'DD/MM/YY',
     'YY/MM/DD':'YY/MM/DD'
@@ -27,7 +23,7 @@ documentHash = {
                 "keyword": ''
             }
         },
-        'Pasaporte': {
+        'PASAPORTE': {
             'anverso': {
                 "hasExpiry": True,
                 "namedMonth": True,
@@ -44,7 +40,7 @@ documentHash = {
         }
     },
     "COL": {
-            "Cédula de ciudadanía": {
+            "CEDULA DE CIUDADANIA": {
                 'anverso': {
                   "hasExpiry": False,
                   "namedMonth": False,
@@ -59,7 +55,7 @@ documentHash = {
                     "keyword": ''
                 }
             },
-            "Cédula de extranjería": {
+            "CEDULA DE EXTRANJERIA": {
                 'anverso': {
                     "hasExpiry": True,
                     "namedMonth": False,
@@ -74,7 +70,7 @@ documentHash = {
                     "keyword": ''
                 }
             },
-            "Pasaporte": {
+            "PASAPORTE": {
                 'anverso': {
                 "hasExpiry": True,
                 "namedMonth": True,
@@ -89,7 +85,7 @@ documentHash = {
                 "keyword": ''
             }
             },
-            "Cédula digital": {
+            "CEDULA DIGITAL": {
                 'anverso': {
                 "hasExpiry": True,
             "namedMonth": True,
@@ -104,6 +100,23 @@ documentHash = {
                 "keyword": ''
             }
             }
+    },
+    'SLV': {
+        'DNI':{
+            'anverso': {
+                "hasExpiry": True,
+                "namedMonth": False,
+                "position": 'below',
+                "keyword": ['EXPIRACIÓN', 'EXPIRATION', 'EXPIRACION'],
+                "format": formats['DD/MM/YY']
+            },
+            'reverso': {
+                "hasExpiry": False,
+                "namedMonth": False,
+                "position": 'below',
+                "keyword": ''
+            }
+        }
     }
 }
 
@@ -112,7 +125,6 @@ def dateFormatter(date, dateFormat):
     print(date)
 
     dateArray = date.split(' ')
-    print(dateArray)
     dateInt = [int(num) for num in dateArray if(len(num) >= 1)]
 
 
@@ -221,7 +233,9 @@ def dateCleaning(data, hasNamedMonths):
     date = cleanedLetters
     return date
 
-def hasExpiryDate(documentType, documentSide):
+def hasExpiryDate(documentType, documentSide, country):
+
+    print(country)
 
     data = documentHash[country][documentType][documentSide]
     
@@ -251,13 +265,9 @@ def expiryDateOCR(ocrData, datePosition, keywords, namedMonth, dateFormat):
     min_distance = float('inf')
 
     if(len(reference) <= 0):
-        print('asdasd')
         return False
-    
-    
-    reference = reference[0]
 
-    print(reference)
+    reference = reference[0]
 
     for (coords, data, _) in ocrData:
         x, y = coords[0]
@@ -286,7 +296,7 @@ def expiryDateOCR(ocrData, datePosition, keywords, namedMonth, dateFormat):
                         elif distance == min_distance:
                             nearestDates.append(data)
                 else:
-                    if y > rY and x > rX:
+                    if y > rY or y > rY and x > rX:
                         nearestDates.append(data)
 
 
@@ -294,12 +304,8 @@ def expiryDateOCR(ocrData, datePosition, keywords, namedMonth, dateFormat):
         print('no se pudo detectar la fecha de expiracion')
         return True
 
-    print(nearestDates, 'dates')
-
     cleanedDate = dateCleaning(nearestDates, namedMonth)
     day, month, year = dateFormatter(cleanedDate,dateFormat)
-
-    print(day,month, year)
 
     try:
         convertedDate = datetime.date(year, month, day)

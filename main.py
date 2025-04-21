@@ -5,13 +5,12 @@ from reconocimiento import extractFaces, getFrames, faceDetection, movementDetec
 import controlador_db
 from utilidades import readDataURL
 import os
+from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
 from lector_codigo import barcodeReader
 from PIL import Image
 import numpy as np
-import hashlib
-import time
 
 app = Flask(__name__)
 
@@ -27,6 +26,7 @@ app.config['CORS_HEADER'] = 'Content-type'
 
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
+app.register_blueprint(country_bp)
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
