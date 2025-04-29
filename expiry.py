@@ -122,10 +122,11 @@ documentHash = {
 
 def dateFormatter(date, dateFormat):
 
-    print(date)
-
     dateArray = date.split(' ')
     dateInt = [int(num) for num in dateArray if(len(num) >= 1)]
+
+    if(len(dateInt) <= 0):
+        return 1, 1, 2100
 
 
     if(formats['DD/MM/YY'] == dateFormat):
@@ -176,29 +177,6 @@ monthDict = {
         'NOV':'11',
         'DIC':'12',
 }
-# def dateFormatter(dates):
-#     monthPattern = r'(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/(?:ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)'
-
-
-#     datesFound = []
-
-#     for date in dates:
-#         match = re.search(monthPattern, date)
-#         if(match is not None):
-#             matchStart = match.start()
-#             matchEnd = match.end()
-#             matchString = match.string
-#             matchLength = len(matchString)
-#             monthString = matchString[matchStart:matchEnd]
-#             monthSplitted = monthString.split('/')
-#             monthExtracted = monthSplitted[0]
-#             month = monthDict[monthExtracted]
-#             day = matchString[0:matchStart]
-#             year = matchString[matchEnd:matchLength]
-#             date = f'{day}-{month}-{year}'
-#             datesFound.append(date)
-
-#     return datesFound
 
 def dateCleaning(data, hasNamedMonths):
 
@@ -208,11 +186,11 @@ def dateCleaning(data, hasNamedMonths):
         multipleData = ' '.join(data).upper()
         if('/' in multipleData):
             multipleData = multipleData.replace('/', ' ')
+        if('-' in multipleData):
+            multipleData = multipleData.replace('-', ' ')
 
         cleanedLetters = ''.join(char for char in multipleData if char.isdigit() or char.isspace())
-        print(len(cleanedLetters), cleanedLetters)
         cleanedLetters = cleanedLetters.strip()
-        print(len(cleanedLetters), cleanedLetters)
         date = cleanedLetters
         return date
 
@@ -234,8 +212,6 @@ def dateCleaning(data, hasNamedMonths):
     return date
 
 def hasExpiryDate(documentType, documentSide, country):
-
-    print(country)
 
     data = documentHash[country][documentType][documentSide]
     
@@ -315,47 +291,21 @@ def expiryDateOCR(ocrData, datePosition, keywords, namedMonth, dateFormat):
             return True
     except ValueError as e: 
             return True
-    print(cleanedDate)
-    # dateFormatter()
+    
+def expiryDateDetection(data, namedMonth, dateFormat):
 
+    currentDate = datetime.date.today()
+    
+    cleanedDate = dateCleaning(data, namedMonth)
+    day, month, year = dateFormatter(cleanedDate,dateFormat)
 
+    try:
+        convertedDate = datetime.date(year, month, day)
 
-#  for (coords, data, _) in ocrData:
-#         x, y, w, h = coords
-#         if reference:
-#             ref_coords, _ = reference
-#             rX, rY, rW, rH = ref_coords
-#             if x > rX + rW and abs(y - rY) < h:
-#                 print(f"({x}, {y}) está al lado derecho y verticalmente más cercano a la referencia ({rX}, {rY}, {rW}, {rH}), {data}")
-
-
-
-
-    # extraction = extractDate(data=ocrData, documentType=documentType)
-
-    # if(documentType == 'Pasaporte'):
-    #     extraction = dateFormatter(extraction)
-
-    # extractedDates = filter(lambda x: len(x) >= 1, extraction)
-
-    # lowerDates = []
-    # higherDates = []
-
-    # for date in extractedDates:
-    #     splitedDate = date.split('-')
-
-    #     try:
-    #         day, month, year = int(splitedDate[0]), int(splitedDate[1]), int(splitedDate[2])
-
-    #         if 1 <= month <= 12:
-    #             convertedDate = datetime.date(year, month, day)
-    #             if convertedDate > currentDate:
-    #                 higherDates.append(convertedDate)
-    #             else:
-    #                 lowerDates.append(convertedDate)
-    #         else: 
-    #             raise ValueError("Month must be in 1..12") 
-    #     except ValueError as e: 
-    #         return True
-
-    # return False if(len(higherDates) >= 1) else True
+        print(convertedDate)
+        if convertedDate > currentDate:
+            return False
+        else:
+            return True
+    except ValueError as e: 
+            return True

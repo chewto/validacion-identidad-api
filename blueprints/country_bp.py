@@ -12,8 +12,6 @@ def getCountry():
 
   userHash = request.args.get('hash')
 
-  print(id, userHash)
-
   data = None
 
   if(id is not None):
@@ -26,10 +24,12 @@ def getCountry():
     
   if(userHash is not None):
     data = controlador_db.selectData(f'''SELECT pais.codigo, pais.barcode FROM pki_validacion.parametros_validacion AS params
-INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id
+INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id_usuario
 INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
 WHERE params.parametros_hash = '{userHash}'
 ''', ())
+
+    print(data)
 
   if (data is not None):
 

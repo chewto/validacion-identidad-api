@@ -114,6 +114,8 @@ documentTypeHash = {
         }
 }
 
+reader = easyocr.Reader(['es'])
+
 
 # "REPUBLICA DE COLOMBIA"
 
@@ -145,7 +147,6 @@ def verificacionRostro(dataURL: str):
         return False
 
 def ocr(imagen: str, preprocesado):
-    reader = easyocr.Reader(['es'])
 
 # Read text from an image
 
@@ -181,7 +182,6 @@ def ocr(imagen: str, preprocesado):
         for (bbox, text, prob) in result:
             upperCase = text.upper()
             lineas.append(upperCase)
-            print(upperCase)
             total_confidence += prob
 
         average_confidence = total_confidence / len(result) if result else 0
@@ -204,6 +204,7 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
     return 'no detectado', '!OK'
 
 def validateDocumentCountry(ocr, country):
+
     lines = ocr
 
     for line in lines:

@@ -2,6 +2,7 @@
 import json
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
+from name_search import searchId, searchName
 from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from expiry import expiryDateOCR, hasExpiryDate
@@ -51,7 +52,8 @@ def verificarAnverso():
     apellido = reqBody['apellido']
     numeroDocumento = reqBody['documento']
     userCountry = reqBody['country']
-    # testing = reqBody['test']
+    personaData = readDataURL(imagenPersona)
+    documentoData = readDataURL(imagenDocumento)
 
     # efirmaId = request.form.get('id')
     # imagenPersona = request.files.get('imagenPersona')
@@ -66,21 +68,6 @@ def verificarAnverso():
     # personaData = fileCv2(imagenPersona)
     # documentoData = fileCv2(imagenDocumento)
 
-    # if(testing):
-    #   nombre = 'test'
-    #   apellido = 'test'
-    #   numeroDocumento = '9999'
-    #   ladoDocumento = 'anverso'
-    #   imagenPersona = imagenDocumento
-    #   tipoDocumento = 'DNI'
-
-    nombre = textNormalize(nombre)
-    apellido = textNormalize(apellido)
-    personaData = readDataURL(imagenPersona)
-    documentoData = readDataURL(imagenDocumento)
-    
-    # documentoData = resizeHandle(documentoData, max_dimension=1200)
-
     countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
@@ -92,11 +79,6 @@ def verificarAnverso():
     selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
 
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
-
-    # faceCoords = carasImagenDocumento[0][1] if (len(carasImagenDocumento) >= 1) else (0,0)
-
-    # documentoOrientado = (documentoData, reference=faceCoords, documentType=tipoDocumento, documentSide=ladoDocumento)
-    # documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
@@ -140,13 +122,16 @@ def verificarAnverso():
     if(countryValidation != 'OK'):
       messages.append('El país del documento no coincide.')
 
-    if(codeC == 'HND' or country == 'HONDURAS' and tipoDocumento != 'Pasaporte'):
+    if(codeC == 'HND' or country == 'HONDURAS' and tipoDocumento != 'Pasaporte' and numeroDocumento is not None):
       idLength = len(numeroDocumento)
       firstNums = numeroDocumento[0:4]
       middleNums = numeroDocumento[4:8]
       lastNums = numeroDocumento[8:idLength]
 
       numeroDocumento = f"{firstNums} {middleNums} {lastNums}"
+
+    nombre = textNormalize(nombre)
+    apellido = textNormalize(apellido)
 
 
     nombrePreOCR, porcentajeNombrePre = validacionOCR(documentoOCRPre, nombre)
@@ -294,8 +279,6 @@ def verificarReverso():
 
     reqBody = request.get_json()
 
-
-
     efirmaId = reqBody['id']
     imagenDocumento = reqBody['imagen']
     ladoDocumento = reqBody['ladoDocumento']
@@ -306,7 +289,7 @@ def verificarReverso():
     imagenDocumento = readDataURL(imagenDocumento)
     userCountry = reqBody['country']
 
-    # imagenDocumento = resizeHandle(imagenDocumento, max_dimension=1200)
+    print(nombre, apellido)
 
     # efirmaId = request.form.get('id')
     # imagenPersona = request.files.get('imagenPersona')
@@ -322,8 +305,6 @@ def verificarReverso():
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
-    # documentoData = readDataURL(imagenDocumento)
-
 
     countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 

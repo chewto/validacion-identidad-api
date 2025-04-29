@@ -1,9 +1,10 @@
 import base64
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
+from blueprints.document_bp import document_bp
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
-from utilidades import readDataURL
+from utilidades import fileCv2, imageToDataURL, readDataURL
 import os
 from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
@@ -11,6 +12,10 @@ from blueprints.validation_bp import validation_bp
 from lector_codigo import barcodeReader
 from PIL import Image
 import numpy as np
+
+import cv2
+from ultralytics import YOLO
+import easyocr
 
 app = Flask(__name__)
 
@@ -22,11 +27,115 @@ CORS(app, resources={
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
 
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+MODEL_PATH = 'models/modelov11-medium.pt'             # tu modelo YOLO entrenado
+OCR_LANGS = ['es', 'en']                              # idiomas OCR
+CONF_THRESHOLD = 0.3                                  # umbral de confianza YOLO
+CLASS_NAMES = ['dni_anverso','nombre','apellido','numero_documento',
+               'fecha_nacimiento','fecha_expiracion','tipo_documento',
+               'foto_persona','firma','nacionalidad','lugar_nacimiento','ghost']
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 # CORS(app, resources={r"/validation/*": {"origins": "*"}})
 
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
+app.register_blueprint(document_bp)
+
+
+# Cargar modelos
+yolo_model = YOLO(MODEL_PATH)
+ocr_reader = easyocr.Reader(OCR_LANGS, gpu=False)
+
+# HTML template
+HTML = '''
+<!doctype html>
+<title>Detección DNI Honduras</title>
+<h2>Sube imagen del anverso del DNI</h2>
+<form method=post enctype=multipart/form-data>
+  <input type=file name=file accept="image/*">
+  <input type=submit value=Subir>
+</form>
+{% if crops %}
+  <h3>Recortes detectados:</h3>
+  {% for label, img_url in crops %}
+    <div style="display:inline-block; margin:10px; text-align:center;">
+      <p>{{ label }}</p>
+      <img src="{{ img_url }}" style="max-width:200px; max-height:200px;"><br>
+    </div>
+  {% endfor %}
+{% endif %}
+{% if result_img %}
+<h3>Resultado Anotado:</h3>
+<img src="{{ result_img }}" style="max-width:500px;"><br>
+{% endif %}
+{% if ocr_text %}
+<h3>Resultado OCR (anverso):</h3>
+<pre>{{ ocr_text }}</pre>
+{% endif %}
+''' 
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def preprocess_crop(img_crop: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return thresh
+
+
+@app.route('/prueba-modelo', methods=['GET','POST'])
+def upload_and_detect():
+    result_img = None
+    ocr_text = ''
+    crops = []  # lista de (label, url)
+
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if file and allowed_file(file.filename):
+            img = fileCv2(file)
+            h, w = img.shape[:2]
+
+            # Inference YOLO
+            results = yolo_model(img)[0]
+
+            # Procesar detecciones
+            for i, (box, score, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.conf, results.boxes.cls)):
+                if score < CONF_THRESHOLD:
+                    continue
+                x1, y1, x2, y2 = map(int, box)
+                label = CLASS_NAMES[int(cls)] if int(cls) < len(CLASS_NAMES) else str(int(cls))
+                crop = img[y1:y2, x1:x2]
+
+                cropUrl = imageToDataURL(crop)
+
+                # crop_fname = f"crop_{label}{i}{filename}"
+                # crop_path = os.path.join(app.config['UPLOAD_FOLDER'], crop_fname)
+                # cv2.imwrite(crop_path, crop)
+                # crop_url = url_for('static', filename='uploads/' + crop_fname)
+                crops.append((label, cropUrl))
+
+                # Si es anverso, hacer OCR
+                if label == 'dni_anverso':
+                    proc = preprocess_crop(crop)
+                    ocr_res = ocr_reader.readtext(proc)
+                    texts = [res[1] for res in ocr_res]
+                    ocr_text = "\n".join(texts)
+
+                # Dibujar cuadro y etiqueta en la imagen principal
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+            result_img = imageToDataURL(img)
+
+    return render_template_string(HTML, result_img=result_img, ocr_text=ocr_text, crops=crops)
+
+
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -400,6 +509,7 @@ def health():
 
 if __name__ == "__main__":
   try:
+    app.static_folder = '.'
     app.run(debug=True,host="0.0.0.0", port=4000)
   finally:
     print('para reiniciar use el siguiente comando = python main.py')

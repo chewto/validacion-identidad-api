@@ -270,6 +270,8 @@ def testingCal():
   documentType = reqBody['tipoDocumento']
   email = reqBody['correo']
 
+  dataAvaible = reqBody['dataDisponible']
+
   userInfo = controlador_db.selectAPIKey(userId)
 
   userApiKey = userInfo[0]
@@ -291,7 +293,7 @@ def testingCal():
     hashHex = hashParams.hexdigest()
 
     paramsColumns = ('id','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion')
-    paramsValues = (userId,callback, redirection, hashHex, name, lastName, document, documentType, email, typeValidation)
+    paramsValues = (userId,callback, redirection, hashHex, name if(dataAvaible) else None, lastName if(dataAvaible) else None, document if(dataAvaible) else None, documentType, email, typeValidation)
     paramsInsert = controlador_db.insertTabla(paramsColumns, 'parametros_validacion', paramsValues)
 
     #callback
@@ -303,14 +305,14 @@ def testingCal():
     'estadoValidacion': 'iniciando validacion',
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
-    # 'idValidacion': documentoUsuarioId,
+    'idValidacion': hashHex,
     'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
-      # 'idValidacion': documentoUsuarioId,
+      'idValidacion': hashHex,
       'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
 
@@ -340,7 +342,8 @@ def getInfo():
     'tipoValidacion': info[6],
     'callback': info[7],
     'redireccion': info[8],
-    'validacionVida': livenessTest
+    'validacionVida': livenessTest,
+    'usoModelo': not all(value is not None for value in [info[1], info[2], info[3]])
   }
 
   return jsonify({'dato':info})
@@ -731,13 +734,10 @@ def standoleValidation():
 
   nombres = request.form.get('nombres')
   apellidos = request.form.get('apellidos')
-
-  nombres = nombres.upper()
-  apellidos = apellidos.upper()
-
-  email = request.form.get('email')
   tipoDocumento = request.form.get('tipo_documento')
   documento = request.form.get('numero_documento')
+
+  email = request.form.get('email')
 
   idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
   idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
@@ -790,6 +790,14 @@ def standoleValidation():
   dataOCRApellido = request.form.get('apellido_ocr')
   dataOCRDocumento = request.form.get('documento_ocr')
 
+  if(nombres == 'NULL' or nombres == 'null' and apellidos == 'NULL' or apellidos == 'null' and documento == 'NULL' or documento == 'null'):
+    nombres = dataOCRNombre
+    apellidos = dataOCRApellido
+    documento = dataOCRDocumento
+  else:
+    nombres = nombres.upper()
+    apellidos = apellidos.upper()
+
   mrz = request.form.get('mrz')
   mrzName = request.form.get('mrz_name')
   mrzLastname = request.form.get('mrz_lastname')
@@ -808,6 +816,7 @@ def standoleValidation():
   failedFront = request.form.get('failed_front')
 
   callback = request.form.get('callback')
+
 
   face = request.form.get('face')
   confidenceValue = request.form.get('confidence')
