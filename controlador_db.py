@@ -590,8 +590,8 @@ def selectUserData(id):
     cursor = conn.cursor()
 
     queryInfo = """
-      SELECT params.id, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, ent.validacion_vida FROM pki_validacion.parametros_validacion AS params 
-      INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id
+      SELECT params.id_usuario, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, ent.validacion_vida, params.uso_modelo FROM pki_validacion.parametros_validacion AS params 
+      INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id_usuario
       INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id 
       WHERE params.parametros_hash = ?
     """

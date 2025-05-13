@@ -126,7 +126,7 @@ def dateFormatter(date, dateFormat):
     dateInt = [int(num) for num in dateArray if(len(num) >= 1)]
 
     if(len(dateInt) <= 0):
-        return 1, 1, 2100
+        return 1, 1, 2000
 
 
     if(formats['DD/MM/YY'] == dateFormat):

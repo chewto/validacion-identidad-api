@@ -22,7 +22,7 @@ documentClasses = {
 }
 
 
-modelPath = '../models/modelo-m-uni.pt'
+modelPath = './models/modelo-large.pt'
 
 def getClasses(country:str ,side:str, type:str):
   
@@ -57,7 +57,7 @@ def getForename(data):
   foreName = [entry for entry in data if entry["class"] == 'nombre']
 
   if(len(foreName) <= 0):
-    return None, False
+    return '', False
 
   foreName = foreName[0]
   foreName = foreName['dataOcr']
@@ -70,7 +70,7 @@ def getSurname(data):
 
   surName = [entry for entry in data if entry["class"] == 'apellido']
   if(len(surName) <= 0):
-    return None, False
+    return '', False
   surName = surName[0]
   surName = surName['dataOcr']
 
@@ -88,7 +88,7 @@ def getID(data):
 
   iD = [entry for entry in data if entry["class"] == 'numero_documento']
   if(len(iD) <= 0):
-    return None, False
+    return '', False
   iD = iD[0]
   iD = iD['dataOcr']
 
@@ -117,6 +117,7 @@ def getExpiry(data):
     return ''
   expiry = expiry[0]
   expiry = expiry['dataOcr']
+  print(expiry)
 
   expiryCleaned = cleanExpiry(expiry)
 
@@ -125,6 +126,12 @@ def getExpiry(data):
 def cleanExpiry(input):
 
   patterns = re.findall(r"\b\d{2}[- ]\d{2}[- ]\d{4}\b", input)
+
+  if not patterns:
+    patterns = re.findall(r"\b\d{2}\s*[-]\s*\d{2}\s*\d{4}\b", input)
+
+  if not patterns:
+    patterns = re.findall(r"\b\d{2}\s*[-]\s*\d{2}\s*[-]\s*\d{4}\b", input)
 
   return patterns
 
@@ -139,10 +146,10 @@ def getCountry(data):
 def getMrz(data):
   mrz = [entry for entry in data if entry["class"] == "mrz"]
   if(len(mrz) <= 0):
-    return 'Requiere verificar – DATOS INCOMPLETOS'
+    return 'Requiere verificar – DATOS INCOMPLETOS', False
   mrz = mrz[0]
   mrz = mrz['dataOcr']
-  return mrz
+  return mrz, True
 
 def detection(img, classes:list[str], classesOcr:list[str]):
 

@@ -22,13 +22,7 @@ def webhook():
 
   reqBody = request.get_json()
 
-  userCoords = reqBody['coords'].split(',')
-
-  userLatitude = '0'
-
-  userLongitude = '0' 
-
-  return jsonify({'latitude': userLatitude,'longitude':userLongitude })
+  return jsonify({'180.45':'no response'})
 
 @validation_bp.route('/callback', methods=['POST'])
 def callback():
@@ -92,7 +86,7 @@ def validationParams():
   if(userHash != None):
     validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent 
     inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id 
-    INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id 
+    INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id_usuario 
     WHERE params.parametros_hash = ?""")
 
     print(validationParameters)
@@ -283,6 +277,7 @@ def testingCal():
 
   livenessTest = livenessTest[0]
   livenessTest = True if(livenessTest == 1) else False
+  print(livenessTest)
 
   if(isValid):
     unique_id = uuid.uuid4()
@@ -292,8 +287,8 @@ def testingCal():
     hashParams = hashlib.sha256(encodedParams.encode())
     hashHex = hashParams.hexdigest()
 
-    paramsColumns = ('id','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion')
-    paramsValues = (userId,callback, redirection, hashHex, name if(dataAvaible) else None, lastName if(dataAvaible) else None, document if(dataAvaible) else None, documentType, email, typeValidation)
+    paramsColumns = ('id_usuario','callback','redireccion','parametros_hash', 'nombre', 'apellido', 'documento', 'tipo_documento', 'email', 'tipo_validacion', 'uso_modelo')
+    paramsValues = (userId,callback, redirection, hashHex, name if(dataAvaible) else None, lastName if(dataAvaible) else None, document if(dataAvaible) else None, documentType, email, typeValidation, 'modelo' if(not dataAvaible) else None)
     paramsInsert = controlador_db.insertTabla(paramsColumns, 'parametros_validacion', paramsValues)
 
     #callback
@@ -305,14 +300,16 @@ def testingCal():
     'estadoValidacion': 'iniciando validacion',
     'tipoValidacion': typeValidation,
     'idUsuario': int(userId),
-    'idValidacion': hashHex,
+    'idValidacion': paramsInsert,
+    'hashValidacion': hashHex,
     'direccionValidacion': f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
     )
 
     res = {
       'idUsuario': int(userId),
-      'idValidacion': hashHex,
+      'idValidacion': paramsInsert,
+      'hashValidacion': hashHex,
       'direccionValidacion':  f'https://{subdomain}.e-custodia.com/validacion-vida?hash={hashHex}' if(livenessTest) else f'https://{subdomain}.e-custodia.com/validacion/#/ekyc/validation/{hashHex}'
     }
 
@@ -343,7 +340,7 @@ def getInfo():
     'callback': info[7],
     'redireccion': info[8],
     'validacionVida': livenessTest,
-    'usoModelo': not all(value is not None for value in [info[1], info[2], info[3]])
+    'usoModelo': info[10]
   }
 
   return jsonify({'dato':info})
@@ -366,7 +363,7 @@ def getLivenessTest():
   if(userHash):
     livenessTest = controlador_db.selectData(f'''SELECT ent.validacion_vida FROM usuarios.entidades AS ent 
     INNER JOIN usuarios.usuarios AS usu ON usu.entity_id = ent.entity_id
-    INNER JOIN pki_validacion.parametros_validacion AS params ON params.id = usu.id
+    INNER JOIN pki_validacion.parametros_validacion AS params ON params.id_usuario = usu.id
     WHERE params.parametros_hash = '{userHash}'
     ''', ())
 

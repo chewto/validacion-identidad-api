@@ -1,6 +1,7 @@
 from PIL import Image
 from io import BytesIO
 import easyocr
+import imutils
 import pytesseract as tess
 import base64
 import cv2
@@ -146,7 +147,30 @@ def verificacionRostro(dataURL: str):
     if not found:
         return False
 
-def ocr(imagen: str, preprocesado):
+
+def adjustBrightness(image_array):
+
+    current_brightness = np.mean(image_array)
+    
+    # Definir rango objetivo
+    target_min = 130
+    target_max = 180
+    target_mid = (target_min + target_max) / 2
+    
+    # Calcular factor de ajuste
+    if current_brightness < target_min:
+        adjustment_factor = target_mid / max(current_brightness, 1)
+    elif current_brightness > target_max:
+        adjustment_factor = target_mid / current_brightness
+    else:
+        adjustment_factor = 1.0
+    
+    # Ajustar brillo y limitar al rango válido
+    adjusted_image = np.clip(image_array * adjustment_factor, 0, 255)
+    
+    return adjusted_image.astype(np.uint8), current_brightness, np.mean(adjusted_image), adjustment_factor
+
+def ocr(imagen, preprocesado):
 
 # Read text from an image
 
@@ -162,23 +186,41 @@ def ocr(imagen: str, preprocesado):
         # lineas: list[str] = txt.splitlines()
         average_confidence = total_confidence / len(result) if result else 0
         print(average_confidence)
-        return lineas
+        return result, lineas
 
     if(preprocesado):
 
-        gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-        kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]]) 
-        sharpened = cv2.filter2D(gris, -1, kernel)
-        invertedImage = cv2.bitwise_not(sharpened)
-        enhancedImage = cv2.convertScaleAbs(invertedImage, alpha=1.0, beta=-25)
-        # threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
-        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-        # opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
+        gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+        adjustedImage , _, _, _ = adjustBrightness(gray)
+
+        kernel3 = np.array([[0, -1,  0],
+                        [-1,  5, -1],
+                            [0, -1,  0]])
+        sharp_img = cv2.filter2D(src=adjustedImage, ddepth=-1, kernel=kernel3)
+
+        cnts = cv2.findContours(sharp_img.copy(), cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        chars = []
+        for c in cnts:
+            (x, y, w, h) = cv2.boundingRect(c)
+            if w >= 35 and h >= 100:
+                chars.append(c)
+
+        chars = np.vstack([chars[i] for i in range(0, len(chars))])
+        hull = cv2.convexHull(chars)
+
+        mask = np.zeros(imagen.shape[:2], dtype="uint8")
+        cv2.drawContours(mask, [hull], -1, 255, -1)
+        mask = cv2.dilate(mask, None, iterations=2)
+
+        final = cv2.bitwise_and(sharp_img, sharp_img, mask=mask)
 
         lineas = []
         
         total_confidence = 0
-        result = reader.readtext(enhancedImage)
+        result = reader.readtext(final)
         for (bbox, text, prob) in result:
             upperCase = text.upper()
             lineas.append(upperCase)
@@ -197,9 +239,10 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
 
         for documentLine in documentWords:
             lineUpper = documentLine.upper()
-            if(line in lineUpper or lineUpper in line):
-                print(line, lineUpper, 'asdasdasdsd')
-                return f'{documentType}', 'OK'
+            if(len(line) >= 1 and len(lineUpper) >= 1):
+                if(line in lineUpper or lineUpper in line):
+                    print(line, lineUpper, 'asdasdasdsd')
+                    return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
 

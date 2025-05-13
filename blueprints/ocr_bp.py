@@ -202,23 +202,18 @@ def verificarAnverso():
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
-      # mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
-      mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+      mrz, detected =  extractMRZ(documentoData)
 
-      if(mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(detected == 'Requiere verificar – DATOS INCOMPLETOS'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
+      nameMRZ = comparisonMRZInfo([mrz['name']], nombre)
+      lastNameMRZ = comparisonMRZInfo([mrz['surname']], apellido)
 
-      extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
-      extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
-
-      nameMRZ = comparisonMRZInfo([ extractNamePre], nombre)
-      lastNameMRZ = comparisonMRZInfo([ extractLastnamePre], apellido)
-
-    
+      # resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code':  mrzPre,
+        'code': mrz['code'] if(detected) else 'Requiere verificar – DATOS INCOMPLETOS',
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -236,7 +231,6 @@ def verificarAnverso():
         messages.append('No se encontró el nombre en el codigo mrz.')
       if(lastNameMRZ['percent']<= 50):
         messages.append('No se encontró el apellido en el codigo mrz.')
-
 
     else:
       resultsDict['mrz'] = {
@@ -289,7 +283,7 @@ def verificarReverso():
     imagenDocumento = readDataURL(imagenDocumento)
     userCountry = reqBody['country']
 
-    print(nombre, apellido)
+    # print(nombre, apellido)
 
     # efirmaId = request.form.get('id')
     # imagenPersona = request.files.get('imagenPersona')
@@ -326,6 +320,11 @@ def verificarReverso():
 
     }
 
+    temp = {
+      'barcode': None,
+      'mrz': None
+    }
+
     documentBarcode, barcodeType, barcodetbr = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
     if(documentBarcode):
       barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
@@ -336,8 +335,14 @@ def verificarReverso():
       documentoData = rotatedImage
       resultsDict['barcode'] = detectedBarcodes
       resultsDict['image'] = imageToDataURL(rotatedImage)
-      checkSide['barcode'] = detectedBarcodes
-      if(detectedBarcodes != 'OK'):
+
+      if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
+        checkSide['barcode'] = detectedBarcodes
+
+      if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+        temp['barcode']= detectedBarcodes
+
+      if(detectedBarcodes != 'OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detectar el código de barras del documento.')
     else:
       resultsDict['barcode'] = 'documento sin codigo de barras'
@@ -395,42 +400,18 @@ def verificarReverso():
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
 
+      mrz, detected =  extractMRZ(documentoData)
 
-      nameHasK = nombre.find("k")
-      lastNamehasK = apellido.find("k")
-
-      # mrz = extractMRZ(ocr=documentoOCRSencillo, mrzStartingLetter=mrzLetter)
-      mrzPre =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
-
-      if(nameHasK == -1 or lastNamehasK == -1):
-        # mrz = mrz.replace('K', ' ')
-        mrzPre = mrzPre.replace('K', ' ')
-
-      if(mrzPre == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(detected == 'Requiere verificar – DATOS INCOMPLETOS' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      # extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
-      # extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
-
-      extractNamePre = mrzInfo(mrz=mrzPre, searchTerm=nombre)
-      extractLastnamePre = mrzInfo(mrz=mrzPre, searchTerm=apellido)
-
-
-      nameMRZ = comparisonMRZInfo([extractNamePre], nombre)
-      lastNameMRZ = comparisonMRZInfo([extractLastnamePre], apellido)
-
-      #REVISION
-      # isExpired = expiracyDateMRZ([*documentoOCRSencillo, *documentoOCRPre])
-
-      # checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
-
-      # if(isExpired):
-      #   messages.append('El documento esta expirado.')
+      nameMRZ = comparisonMRZInfo([mrz['name']], nombre)
+      lastNameMRZ = comparisonMRZInfo([mrz['surname']], apellido)
 
       resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code': mrzPre,
+        'code': mrz['code'] if(detected) else 'Requiere verificar – DATOS INCOMPLETOS',
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -441,12 +422,19 @@ def verificarReverso():
         }
       }
 
-      checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
-      checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+      if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
+        checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
+        checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+      
+      if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+        temp['mrz']= {
+          'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
+          'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+        }
 
-      if(nameMRZ['percent']<= 50):
+      if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se encontró el nombre en el codigo mrz.')
-      if(lastNameMRZ['percent']<= 50):
+      if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se encontró el apellido en el codigo mrz.')
     else:
       resultsDict['mrz'] = {
@@ -460,7 +448,17 @@ def verificarReverso():
           'lastName': 0
         }
       }
-  
+
+    if(tipoDocumento == 'CEDULA DE CIUDADANIA' and documentMRZ and documentBarcode):
+      if (temp['barcode'] != None):
+        checkSide['barcode'] =temp['barcode']
+        messages.append('No se pudo detectar el código de barras del documento.')
+      if(temp['mrz'] != None):
+        messages.append('No se encontró el codigo mrz.')
+        checkSide['mrzNamePercent'] = temp['mrz']['mrzNamePercent']
+        checkSide['mrzLastNamePercent'] = temp['mrz']['mrzLastNamePercent']
+
+
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
     codeTimeEnd = time.time()
@@ -470,8 +468,6 @@ def verificarReverso():
     resultsDict['messages'] = messages
 
     resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
-
-    # resultsDict['validSide'] = 'OK' 
 
     return jsonify(resultsDict)
 

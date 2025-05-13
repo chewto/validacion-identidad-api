@@ -199,6 +199,9 @@ def antiSpoofing():
 
   photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
+  if(len(photoDataURL) <= 0):
+    return jsonify({'messages': ['intentelo de nuevo']}), 201
+
   photoAccess = readDataURL(photoDataURL)
 
   result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
@@ -214,7 +217,7 @@ def antiSpoofing():
   if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
     messages.append('Por favor, tome la foto de un rostro real.')
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages})
+  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
 
 
 @app.route('/get-media', methods=['GET'])

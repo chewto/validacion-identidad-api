@@ -1,8 +1,17 @@
 import datetime
 import re
+
+import PIL.Image
 from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
+import io
+import PIL
+import cv2
+from passporteye import read_mrz
+from passporteye.mrz.text import MRZ
+import pytesseract as tess
+
 
 documentMRZ = {
   "COL": {
@@ -105,67 +114,33 @@ def validateMRZ(documentType, mrzKeys,mrzData):
 
   return mrzValidationResult
 
-def extractMRZ(ocr, mrzStartingLetter):
-  stringOCR = listToText(ocr)
-  stringOCR = stringOCR.replace(' ','')
-  stringOCR = stringOCR.upper()
+def extractMRZ(mrzImage):
 
-  ocrLength = len(stringOCR)
+  tess.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
 
-  findMrzIndex = stringOCR.find(mrzStartingLetter)
+  mrzRGB = cv2.cvtColor(mrzImage, cv2.COLOR_BGR2RGB)
+  pilImage = PIL.Image.fromarray(mrzRGB)
 
-  if(findMrzIndex == -1):
-    findMrzIndex = stringOCR.find("<")
+  imageBytes = io.BytesIO()
+  pilImage.save(imageBytes, format='JPEG')
+  imageBytes.seek(0)
 
-    if(findMrzIndex == -1):
-      return 'Requiere verificar – DATOS INCOMPLETOS'
+  mrz = read_mrz(imageBytes)
 
-  mrz = stringOCR[findMrzIndex:ocrLength]
+  if(mrz is None):
+    return {'name': '', 'surname': ''}, False
 
-  mrz = mrzClean(mrz)
+  mrzData = mrz.to_dict()
 
-  return mrz
+  data = {
+    'name': mrzData['names'],
+    'surname': mrzData['surname'],
+    'code':  mrzData['raw_text']
+  }
 
-def parse_mrz(mrz:str):
-    splitMRZ = mrz.split(' ')
-    # print(mrz)
+  return data, True
 
-    # newMrz = mrz.replace('<', ' ')
-    # print(newMrz)
 
-    # firstLine = mrz[0:30] if isLetter else mrz[0:29]
-    # print(firstLine)
-    # secondLine = mrz[30:60] if isLetter else mrz[29:]
-    # print(secondLine)
-    # thirdLine = mrz[60:90] if isLetter else mrz[0:29]
-    # print(thirdLine)
-    # # Line 1
-    # document_type = firstLine[0]
-    # issuing_country = firstLine[2:5]
-    # document_number = firstLine[5:14].replace('<', '')
-    
-    # # Line 2
-    # birth_date = secondLine[0:6]
-    # sex = secondLine[7]
-    # expiry_date = secondLine[8:14]
-    # nationality = secondLine[15:18].replace('<', '')
-    
-    # # Line 3
-    # names = thirdLine.split('<<')
-    # surname = names[0].replace('<', ' ').strip()
-    # given_names = names[1].replace('<', ' ').strip()
-
-    # print({
-    #     'Document Type': document_type,
-    #     'Issuing Country': issuing_country,
-    #     'Document Number': document_number,
-    #     'Date of Birth': birth_date,
-    #     'Sex': sex,
-    #     'Expiry Date': expiry_date,
-    #     'Nationality': nationality,
-    #     'Surname': surname,
-    #     'Given Names': given_names
-    # })
 
 def mrzClean(mrz: str) -> str:
   translationTable = str.maketrans('KX', '<<')
@@ -175,22 +150,11 @@ def mrzClean(mrz: str) -> str:
 
 def mrzInfo(mrz, searchTerm):
 
-
-  splitData = mrz.split('<')
-  cleanedData = []
-
-  for data in splitData:
-    if(len(data) > 1):
-      cleanedData.append(re.sub(r'\d', '', data))
-
-
-  searchSplit = searchTerm.split(' ')
-
   found = []
-  for search in searchSplit:
-    for data in cleanedData:
-      if data in search:
-        found.append(data)
+  
+  if mrz in searchTerm or searchTerm in mrz:
+    stripData = mrz.strip()
+    found.append(stripData)
 
   joinedFounds = ' '.join(found)
 
@@ -202,6 +166,7 @@ def comparisonMRZInfo(termList,  comparisonTerm):
 
   for term in termList:
     percent = extraerPorcentaje(comparisonTerm, term)
+    print({'percent': percent, 'data': term})
     percentages.append({'percent': percent, 'data': term})
 
   maxPercentage = max(percentages, key=lambda x: x['percent'])
