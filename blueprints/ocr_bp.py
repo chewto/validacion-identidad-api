@@ -3,7 +3,7 @@ import json
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
 from name_search import searchId, searchName
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType
+from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
@@ -11,6 +11,7 @@ from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2
 from check_result import testingCountry, testingType, results
 import time
 import controlador_db
+import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
@@ -52,6 +53,7 @@ def verificarAnverso():
     apellido = reqBody['apellido']
     numeroDocumento = reqBody['documento']
     userCountry = reqBody['country']
+    tries = reqBody['tries']
     personaData = readDataURL(imagenPersona)
     documentoData = readDataURL(imagenDocumento)
 
@@ -63,10 +65,12 @@ def verificarAnverso():
     # nombre = request.form.get('nombre')
     # apellido = request.form.get('apellido')
     # numeroDocumento = request.form.get('documento')
-    # userCountry = request.form.get('country')
+    # userCountry = 
 
     # personaData = fileCv2(imagenPersona)
     # documentoData = fileCv2(imagenDocumento)
+
+    resolution = 1080
 
     countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
@@ -80,10 +84,14 @@ def verificarAnverso():
 
     documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
 
+    preprocessedDocument = preprocessing(documentoOrientado, resolution, filters='sharp')
+
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
     timeOcrInit = time.time()
-    ocrResult, documentoOCRPre = ocr(documentoOrientado, preprocesado=True)
+    ocrResult, documentoOCRPre = ocr(preprocessedDocument)
+    timeOcrEnd = time.time()
+    print(f"{timeOcrInit - timeOcrEnd} tiempo ocr")
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
     totalValidacionLado = validarLadoPre 
@@ -107,14 +115,14 @@ def verificarAnverso():
 
     isExpired = None
 
-    hasExpiry, namedMonth, datePosition, keywords, dateFormat = hasExpiryDate(tipoDocumento, ladoDocumento, country=userCountry)
-    if(hasExpiry):
-      isExpired = expiryDateOCR(ocrResult,datePosition,keywords,namedMonth,dateFormat)
+    # hasExpiry, namedMonth, datePosition, keywords, dateFormat = hasExpiryDate(tipoDocumento, ladoDocumento, country=userCountry)
+    # if(hasExpiry):
+    #   isExpired = expiryDateOCR(ocrResult,datePosition,keywords,namedMonth,dateFormat)
 
-      checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
+    #   checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
 
-      if(isExpired):
-        messages.append('El documento esta expirado.')
+    #   if(isExpired):
+    #     messages.append('El documento esta expirado.')
 
     if(documentValidation != 'OK'):
       messages.append('El tipo de documento no coincide con el seleccionado.')
@@ -138,9 +146,6 @@ def verificarAnverso():
     apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido)
     numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento)
 
-    timeOcrEnd = time.time()
-    OCRtime = timeOcrInit - timeOcrEnd
-    print('ocr time ', OCRtime)
 
     checkSide['documentValidation'] = documentValidation
     checkSide['countryValidation'] = countryValidation
@@ -189,7 +194,7 @@ def verificarAnverso():
 
     hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
     if(hasbarcode):
-      detectedBarcodes = barcodeReader(documentoOrientado, efirmaId, ladoDocumento, barcodeType, barcodetbr)
+      detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
       detectedBarcodes = 'OK' if(len(detectedBarcodes) >= 1) else '!OK'
       resultsDict['barcode'] = detectedBarcodes
       checkSide['barcode'] = detectedBarcodes
@@ -202,18 +207,21 @@ def verificarAnverso():
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
-      mrz, detected =  extractMRZ(documentoData)
+      mrz =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
 
-      if(detected == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      nameMRZ = comparisonMRZInfo([mrz['name']], nombre)
-      lastNameMRZ = comparisonMRZInfo([mrz['surname']], apellido)
+      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+
+      nameMRZ = comparisonMRZInfo([extractName], nombre)
+      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
 
       # resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code': mrz['code'] if(detected) else 'Requiere verificar – DATOS INCOMPLETOS',
+        'code': mrz,
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -282,6 +290,7 @@ def verificarReverso():
     numeroDocumento = reqBody['documento']
     imagenDocumento = readDataURL(imagenDocumento)
     userCountry = reqBody['country']
+    tries = reqBody['tries']
 
     # print(nombre, apellido)
 
@@ -297,6 +306,14 @@ def verificarReverso():
 
     # imagenDocumento = fileCv2(imagenDocumento)
 
+    resolution = 1080
+
+    print(tries) 
+
+    print(resolution)
+
+    preprocessedDocument = preprocessing(imagenDocumento, resolution, filters='sharp')
+
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
@@ -307,8 +324,6 @@ def verificarReverso():
     mrzData = json.loads(countryData[3])
     barcodeData = json.loads(countryData[4])
     ocrData = json.loads(countryData[5])
-
-    print(mrzData, barcodeData, ocrData)
 
     documentoData = None
 
@@ -330,9 +345,9 @@ def verificarReverso():
       barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
 
       rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
+
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
-  
-      documentoData = rotatedImage
+
       resultsDict['barcode'] = detectedBarcodes
       resultsDict['image'] = imageToDataURL(rotatedImage)
 
@@ -351,7 +366,7 @@ def verificarReverso():
 
     timeOcrInit = time.time()
 
-    ocrResult, documentoOCRPre = ocr(documentoData, preprocesado=True)
+    ocrResult, documentoOCRPre = ocr(preprocessedDocument)
 
     # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
@@ -400,18 +415,28 @@ def verificarReverso():
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
 
-      mrz, detected =  extractMRZ(documentoData)
+      nameHasK = nombre.find("k")
+      lastNamehasK = apellido.find("k")
 
-      if(detected == 'Requiere verificar – DATOS INCOMPLETOS' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+      mrz =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+
+      if(nameHasK == -1 or lastNamehasK == -1):
+        mrz = mrz.replace('K', ' ')
+
+      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      nameMRZ = comparisonMRZInfo([mrz['name']], nombre)
-      lastNameMRZ = comparisonMRZInfo([mrz['surname']], apellido)
+      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
 
-      resultsDict['document']['isExpired'] = False
+
+      nameMRZ = comparisonMRZInfo([extractName], nombre)
+      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
+
+      # resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code': mrz['code'] if(detected) else 'Requiere verificar – DATOS INCOMPLETOS',
+        'code': mrz,
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''

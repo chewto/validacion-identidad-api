@@ -115,11 +115,6 @@ documentTypeHash = {
         }
 }
 
-reader = easyocr.Reader(['es'])
-
-
-# "REPUBLICA DE COLOMBIA"
-
 def verificacionRostro(dataURL: str):
 
     gray = cv2.cvtColor(dataURL, cv2.COLOR_BGR2GRAY)
@@ -170,57 +165,44 @@ def adjustBrightness(image_array):
     
     return adjusted_image.astype(np.uint8), current_brightness, np.mean(adjusted_image), adjustment_factor
 
-def ocr(imagen, preprocesado):
+reader = easyocr.Reader(['es'])
 
-# Read text from an image
 
-    if(preprocesado == False):
-        lineas = []
-        total_confidence = 0
-        result = reader.readtext(imagen)
-        for (bbox, text, prob) in result:
-            upperCase = text.upper()
-            lineas.append(upperCase)
-            total_confidence += prob
-        # txt: str = tess.image_to_string(imagen)
-        # lineas: list[str] = txt.splitlines()
-        average_confidence = total_confidence / len(result) if result else 0
-        print(average_confidence)
-        return result, lineas
+def preprocessing(img, resolution, filters):
 
-    if(preprocesado):
+    h0, w0 = img.shape[:2]
 
-        gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+    print(img.shape[:2], 'previo')
+    if resolution < w0:
+        h1 = int(h0 * resolution / w0)
+        img = cv2.resize(img, (resolution, h1), interpolation=cv2.INTER_AREA)
 
-        adjustedImage , _, _, _ = adjustBrightness(gray)
+    proc = img.copy()
+    print(proc.shape[:2], 'post')
+    if 'gray' in filters:
+        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    if 'hist' in filters:
+        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    if 'sharp' in filters:
+        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+        proc = cv2.filter2D(proc, -1, kernel)
+    if 'blur' in filters:
+        proc = cv2.medianBlur(proc, 3)
+    if 'thresh' in filters:
+        if proc.ndim == 2:
+            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        kernel3 = np.array([[0, -1,  0],
-                        [-1,  5, -1],
-                            [0, -1,  0]])
-        sharp_img = cv2.filter2D(src=adjustedImage, ddepth=-1, kernel=kernel3)
+    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
 
-        cnts = cv2.findContours(sharp_img.copy(), cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        chars = []
-        for c in cnts:
-            (x, y, w, h) = cv2.boundingRect(c)
-            if w >= 35 and h >= 100:
-                chars.append(c)
+    return proc_rgb
 
-        chars = np.vstack([chars[i] for i in range(0, len(chars))])
-        hull = cv2.convexHull(chars)
-
-        mask = np.zeros(imagen.shape[:2], dtype="uint8")
-        cv2.drawContours(mask, [hull], -1, 255, -1)
-        mask = cv2.dilate(mask, None, iterations=2)
-
-        final = cv2.bitwise_and(sharp_img, sharp_img, mask=mask)
+def ocr(img):
 
         lineas = []
         
         total_confidence = 0
-        result = reader.readtext(final)
+        result = reader.readtext(img)
         for (bbox, text, prob) in result:
             upperCase = text.upper()
             lineas.append(upperCase)

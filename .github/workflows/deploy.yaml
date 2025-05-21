@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      development
+      testing
+      produccion
+
+jobs:
+  deploy-development:
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    environment: HONDUCERT_DEV  # entorno configurado en Settings > Environments con sus secretos
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Desplegar en servidor de desarrollo
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEV_HOST }}        # secreto del entorno "desarrollo"
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH }}
+          script: |
+            cd /ruta/al/proyecto
+            git pull origin development
+            docker compose up -d --build
+
+  deploy-testing:
+    if: github.ref == 'refs/heads/testing'
+    runs-on: ubuntu-latest
+    environment: HONDUCERT_TESTING_PROD         # entorno de pruebas (o staging)
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Desplegar en servidor de pruebas
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.TEST_HOST }}       # secretos configurados para el ambiente de pruebas
+          username: ${{ secrets.TEST_USER }}
+          key: ${{ secrets.TEST_SSH_KEY }}
+          script: |
+            cd /ruta/al/proyecto
+            git pull origin testing
+            docker compose up -d --build
+
+  deploy-production:
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment: HONDUCERT_TESTING_PROD      # entorno de producción, al que puedes agregar aprobaciones adicionales
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Desplegar en servidor de producción
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}       # secretos para producción
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /ruta/al/proyecto
+            git pull origin production
+            docker compose up -d --build

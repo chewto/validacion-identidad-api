@@ -8,9 +8,6 @@ from utilidades import extraerPorcentaje
 import io
 import PIL
 import cv2
-from passporteye import read_mrz
-from passporteye.mrz.text import MRZ
-import pytesseract as tess
 
 
 documentMRZ = {
@@ -114,31 +111,72 @@ def validateMRZ(documentType, mrzKeys,mrzData):
 
   return mrzValidationResult
 
-def extractMRZ(mrzImage):
+#REVISION
+# def validateMRZ(documentType, mrzKeys,mrzData):
+#   mrzDocumentType = mrzKeys[documentType]
 
-  tess.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+#   mrzDataLength =True if (len(mrzData) >= 1) else False
 
-  mrzRGB = cv2.cvtColor(mrzImage, cv2.COLOR_BGR2RGB)
-  pilImage = PIL.Image.fromarray(mrzRGB)
+#   mrzVerify = False
 
-  imageBytes = io.BytesIO()
-  pilImage.save(imageBytes, format='JPEG')
-  imageBytes.seek(0)
+#   if(mrzData.find(mrzDocumentType['mrzLetter']) != -1 ):
+#     mrzVerify = True
+#   elif(mrzData.find('<') != -1 ):
+#     mrzVerify = True
 
-  mrz = read_mrz(imageBytes)
+#   mrzParameters = [mrzDataLength, mrzVerify]
 
-  if(mrz is None):
-    return {'name': '', 'surname': ''}, False
+#   mrzValidationResult = all(mrzParameters)
 
-  mrzData = mrz.to_dict()
+#   return mrzValidationResult
 
-  data = {
-    'name': mrzData['names'],
-    'surname': mrzData['surname'],
-    'code':  mrzData['raw_text']
-  }
+def extractMRZ(ocr, mrzStartingLetter):
+  stringOCR = listToText(ocr)
+  stringOCR = stringOCR.replace(' ','')
+  stringOCR = stringOCR.upper()
 
-  return data, True
+  ocrLength = len(stringOCR)
+
+  findMrzIndex = stringOCR.find(mrzStartingLetter)
+
+  if(findMrzIndex == -1):
+    findMrzIndex = stringOCR.find("<")
+
+    if(findMrzIndex == -1):
+      return 'Requiere verificar – DATOS INCOMPLETOS'
+
+  mrz = stringOCR[findMrzIndex:ocrLength]
+
+  mrz = mrzClean(mrz)
+
+  return mrz
+
+#REVISION
+# def extractMRZ(mrzImage):
+
+#   tess.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+
+#   mrzRGB = cv2.cvtColor(mrzImage, cv2.COLOR_BGR2RGB)
+#   pilImage = PIL.Image.fromarray(mrzRGB)
+
+#   imageBytes = io.BytesIO()
+#   pilImage.save(imageBytes, format='JPEG')
+#   imageBytes.seek(0)
+
+#   mrz = read_mrz(imageBytes)
+
+#   if(mrz is None):
+#     return {'name': '', 'surname': ''}, False
+
+#   mrzData = mrz.to_dict()
+
+#   data = {
+#     'name': mrzData['names'],
+#     'surname': mrzData['surname'],
+#     'code':  mrzData['raw_text']
+#   }
+
+#   return data, True
 
 
 
@@ -150,15 +188,39 @@ def mrzClean(mrz: str) -> str:
 
 def mrzInfo(mrz, searchTerm):
 
+
+  splitData = mrz.split('<')
+  cleanedData = []
+
+  for data in splitData:
+    if(len(data) > 1):
+      cleanedData.append(re.sub(r'\d', '', data))
+
+
+  searchSplit = searchTerm.split(' ')
+
   found = []
-  
-  if mrz in searchTerm or searchTerm in mrz:
-    stripData = mrz.strip()
-    found.append(stripData)
+  for search in searchSplit:
+    for data in cleanedData:
+      if data in search:
+        found.append(data)
 
   joinedFounds = ' '.join(found)
 
   return joinedFounds
+
+#REVISION
+# def mrzInfo(mrz, searchTerm):
+
+#   found = []
+  
+#   if mrz in searchTerm or searchTerm in mrz:
+#     stripData = mrz.strip()
+#     found.append(stripData)
+
+#   joinedFounds = ' '.join(found)
+
+#   return joinedFounds
 
 def comparisonMRZInfo(termList,  comparisonTerm):
 

@@ -15,15 +15,14 @@ def getCountry():
   data = None
 
   if(id is not None):
-    data = controlador_db.selectData(f'''SELECT pais.codigo, pais.barcode FROM pki_validacion.documento_usuario AS du 
-  INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.id = du.id_usuario_efirma
-  INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON firma.id = firmador.firma_electronica_id
-  INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
-  INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
-  WHERE du.id_usuario_efirma = {id}''', ())
+    data = controlador_db.selectData(f'''SELECT pais.codigo, pais.tipo_documento_validacion  FROM pki_firma_electronica.firmador_pki AS firmador
+INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON firma.id = firmador.firma_electronica_id
+INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
+INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
+WHERE firmador.id =  {id}''', ())
     
   if(userHash is not None):
-    data = controlador_db.selectData(f'''SELECT pais.codigo, pais.barcode FROM pki_validacion.parametros_validacion AS params
+    data = controlador_db.selectData(f'''SELECT pais.codigo, pais.tipo_documento_validacion FROM pki_validacion.parametros_validacion AS params
 INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id_usuario
 INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
 WHERE params.parametros_hash = '{userHash}'
@@ -37,23 +36,9 @@ WHERE params.parametros_hash = '{userHash}'
       return 'no retreive'
     code, documentTypes = data
     
-    documentsJson = json.loads(documentTypes)
+    documentsArray = documentTypes.split(',')
 
-    documents = []
-
-    for key, value in documentsJson.items():
-
-
-
-      for innerKey, innerValue in value.items():
-        hasBarcode = innerValue[0]
-        if(hasBarcode):
-          documents.append({
-            'type': key,
-            'barcode': innerValue[1]
-          })
-
-    return jsonify({"country": code, "documentList": documents})
+    return jsonify({"country": code, "documentList": documentsArray})
   else:
     return 'no coutry assign'
 

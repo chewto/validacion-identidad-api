@@ -518,27 +518,13 @@ def validationType3():
 
   checkValuesJSON['face_validation'] = faceValidation
 
-  checkValuesJSON['mrz_validation'] = {
-    'code': mrz,
-    'data': {
-      'name': mrzName,
-      'lastName': mrzLastname
-    },
-    'percentage':{
-      'name': mrzNamePercent,
-      'lastName': mrzLastnamePercent
-    }
-  }
+  if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
+    mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
+    checkValuesDict['mrz_name'] = mrzNameCheck
 
-  checkValuesJSON['barcode_validation'] = {
-    'barcode': barcode
-  }
+    mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
+    checkValuesDict['mrz_lastname'] = mrzLastnameCheck
 
-  mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
-  checkValuesDict['mrz_name'] = mrzNameCheck
-
-  mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
-  checkValuesDict['mrz_lastname'] = mrzLastnameCheck
 
   fCountryCheck = True if(frontCountryCheck == 'OK') else False
   checkValuesDict['front_country'] = fCountryCheck
@@ -546,12 +532,13 @@ def validationType3():
   fTypeCheck = True if(frontTypeCheck == 'OK') else False
   checkValuesDict['front_type'] = fTypeCheck
 
+
   fIsExpired = True if(frontIsExpired == 'OK') else False
   checkValuesDict['front_isExpired'] = fIsExpired
   frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
 
-  # frontCheck = all([fCountryCheck, fTypeCheck])
   checkValuesDict['front'] = frontCheck
+    # frontCheck = all([fCountryCheck, fTypeCheck])
 
   checkValuesJSON['sides_validation'] = {
     'front': {
@@ -559,11 +546,13 @@ def validationType3():
       'code': frontCode,
       'country': frontCountry,
       'type': frontType,
-      'isExpired': not fIsExpired
+        # 'isExpired': not fIsExpired
     }
   }
 
   test.append(frontCheck)
+
+
 
   if(tipoDocumento != 'Pasaporte'):
 
@@ -596,18 +585,95 @@ def validationType3():
 
     test.append(backCheck)
 
+  checkID = []
+
   checkHasMRZ = hasMRZ(documentType=tipoDocumento, mrzData=mrzData)
   if(checkHasMRZ):
     mrzCheck = validateMRZ(documentType=tipoDocumento,mrzKeys=mrzData, mrzData=mrz)
-    checkValuesDict['mrz'] = mrzCheck
-    test.append(mrzCheck)
+    if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
+      checkValuesDict['mrz'] = mrzCheck
+      checkValuesJSON['mrz_validation'] = {
+        'code': mrz,
+        'data': {
+          'name': mrzName,
+          'lastName': mrzLastname
+        },
+        'percentage':{
+          'name': mrzNamePercent,
+          'lastName': mrzLastnamePercent
+        }
+      }
+
+      test.append(mrzCheck)
+    if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+      checkID.append({'type':'mrz', 'check': mrzCheck})
+
 
   checkHasBarcode = hasBarcode(documentType=tipoDocumento, barcodeData=barcodeData)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
-    checkValuesDict['barcode'] = barcodeCheck
     if(tipoDocumento != "CEDULA DIGITAL"):
       test.append(barcodeCheck)
+      checkValuesDict['barcode'] = barcodeCheck
+      checkValuesJSON['barcode_validation'] = {
+        'barcode': barcode
+      }
+
+    if(tipoDocumento == "CEDULA DIGITAL"):
+      checkID.append({'type':'barcode', 'check': barcodeCheck})
+
+  if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+
+    avaibleCode = None
+    unavaibleCode = []
+
+    for check in checkID:
+      for key, value in check.items():
+        if(value == True):
+          avaibleCode = {'key':key, 'value':value}
+        if(value == False):
+          unavaibleCode.append({'key':key, 'value':value})
+
+    if(avaibleCode['key'] == 'mrz'):
+      mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
+      checkValuesDict['mrz_name'] = mrzNameCheck
+      mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
+      checkValuesDict['mrz_lastname'] = mrzLastnameCheck
+
+      checkValuesDict['mrz'] = avaibleCode['value']
+
+      checkValuesJSON['mrz_validation'] = {
+        'code': mrz,
+        'data': {
+          'name': mrzName,
+          'lastName': mrzLastname
+        },
+        'percentage':{
+          'name': mrzNamePercent,
+          'lastName': mrzLastnamePercent
+        }
+      }
+
+      test.append(avaibleCode['value'])
+
+    if(avaibleCode['key'] == 'barcode'):
+      checkValuesDict['barcode'] = avaibleCode['value']
+      test.append(avaibleCode['value'])
+
+      checkValuesJSON['barcode_validation'] = {
+        'barcode': barcode
+      }
+
+    if(len(unavaibleCode) >= 2):
+
+      checkValuesJSON['barcode_validation'] = {
+        'barcode': barcode
+      }
+
+      test.append(False)
+
+
+
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck

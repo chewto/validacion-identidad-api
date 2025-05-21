@@ -1,6 +1,8 @@
 import base64
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
+import requests
+# from blueprints.test_bp import test_bp
 from blueprints.document_bp import document_bp
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
@@ -26,6 +28,7 @@ CORS(app, resources={
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -45,6 +48,7 @@ app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
 app.register_blueprint(document_bp)
+# app.register_blueprint(test_bp)
 
 
 # Cargar modelos
@@ -136,6 +140,139 @@ def upload_and_detect():
     return render_template_string(HTML, result_img=result_img, ocr_text=ocr_text, crops=crops)
 
 
+
+OCR_READER = easyocr.Reader(['es'], gpu=False)
+@app.route('/ocr', methods=['POST'])
+def ocr():
+    file = request.files['image']
+    resolution = int(request.form.get('resolution', 1080))
+    filters = request.form.get('filters', '').split(',')
+
+    file_bytes = file.read()
+    np_arr = np.frombuffer(file_bytes, np.uint8)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+    h0, w0 = img.shape[:2]
+    if resolution < w0:
+        h1 = int(h0 * resolution / w0)
+        img = cv2.resize(img, (resolution, h1), interpolation=cv2.INTER_AREA)
+
+    proc = img.copy()
+    if 'gray' in filters:
+        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    if 'hist' in filters:
+        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    if 'sharp' in filters:
+        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+        proc = cv2.filter2D(proc, -1, kernel)
+    if 'blur' in filters:
+        proc = cv2.medianBlur(proc, 3)
+    if 'thresh' in filters:
+        if proc.ndim == 2:
+            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
+    text = '\n'.join(OCR_READER.readtext(proc_rgb, detail=0))
+
+    _, buffer = cv2.imencode('.png', proc_rgb)
+    annotated_b64 = base64.b64encode(buffer).decode('ascii')
+
+    return jsonify({'text': text, 'annotated': annotated_b64})
+
+
+TEMPLATE = """
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>OCR con EasyOCR</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <h1 class="mb-4">OCR con EasyOCR</h1>
+    <form method="POST" enctype="multipart/form-data" class="card p-4 mb-4 bg-white">
+      <div class="mb-3">
+        <label class="form-label">Subir imagen</label>
+        <input type="file" class="form-control" name="image" required accept="image/*">
+      </div>
+      <div class="mb-3">
+        <label for="resolution" class="form-label">Resolución: <span id="resVal">{{ resolution }}</span> px</label>
+        <input type="range" class="form-range" id="resolution" name="resolution"
+               min="300" max="4000" value="{{ resolution }}"
+               oninput="resVal.innerText=this.value">
+      </div>
+      <fieldset class="mb-3">
+        <legend class="col-form-label">Filtros</legend>
+        {% for f in filters %}
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="f_{{ f }}" name="filter_{{ f }}" {% if defaults['filter_' + f] %}checked{% endif %}>
+          <label class="form-check-label" for="f_{{ f }}">{{ labels[f] }}</label>
+        </div>
+        {% endfor %}
+      </fieldset>
+      <button type="submit" class="btn btn-primary">Realizar OCR</button>
+    </form>
+
+    {% if result %}
+    <div class="card p-3 bg-white">
+      <h5>Texto Reconocido</h5>
+      <pre>{{ result.text }}</pre>
+      <h5>Imagen Procesada</h5>
+      <img src="data:image/png;base64,{{ result.annotated }}" class="img-fluid">
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>
+"""
+
+filters = ['gray', 'thresh', 'blur', 'hist', 'sharp']
+labels = {
+    'gray': 'Escala de grises',
+    'thresh': 'Umbralización',
+    'blur': 'Desenfoque',
+    'hist': 'Equalización (CLAHE)',
+    'sharp': 'Enfoque'
+}
+
+
+@app.route('/front-ocr', methods=['GET', 'POST'])
+def nuevaRuta():
+    result = None
+    defaults = {f'filter_{f}': f == 'sharp' for f in filters}
+    resolution = 1080
+
+    if request.method == 'POST':
+        image = request.files['image']
+        resolution = int(request.form.get('resolution', 1080))
+        applied_filters = {f: f'filter_{f}' in request.form for f in filters}
+
+        files = {'image': (image.filename, image.stream, image.mimetype)}
+        data = {
+            'resolution': resolution,
+            'filters': ','.join([f for f, v in applied_filters.items() if v])
+        }
+
+        try:
+            # response = requests.post('http://localhost:4000/ocr', files=files, data=data)
+            response = requests.post('https://desarrollo.e-custodia.com/validacion-back/ocr', files=files, data=data)
+            if response.ok:
+                result = response.json()
+        except Exception as e:
+            result = {'text': f'Error comunicando con backend: {e}', 'annotated': ''}
+
+        defaults.update({f'filter_' + f: applied_filters[f] for f in filters})
+
+    return render_template_string(
+        TEMPLATE,
+        result=result,
+        filters=filters,
+        labels=labels,
+        defaults=defaults,
+        resolution=resolution
+    )
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):

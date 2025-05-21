@@ -132,10 +132,8 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   if not folderExistance:
     os.makedirs(folderBarcodes)
 
-  gray = cv2.cvtColor(photo, cv2.COLOR_BGR2GRAY)
-
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
-  cv2.imwrite(imagePath, gray)
+  cv2.imwrite(imagePath, photo)
 
   exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
