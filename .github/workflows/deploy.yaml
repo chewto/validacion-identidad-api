@@ -47,7 +47,7 @@ jobs:
             docker compose up -d --build
 
   deploy-production:
-    if: github.ref == 'refs/heads/production'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: HONDUCERT_TESTING_PROD      # entorno de producción, al que puedes agregar aprobaciones adicionales
     steps:
