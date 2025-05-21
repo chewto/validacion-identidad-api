@@ -2,6 +2,7 @@ import mariadb
 import base64
 import socket
 import requests
+import logs
 
 credencialesDB = {
   "desarrollo":{
@@ -18,7 +19,7 @@ credencialesDB = {
     "port":3306,
     "user":'administrador'
   },
-  "eFirmaPanama":{
+  "panama-desarrollo":{
     "password":'10830921',
     "nombre":'pki_validacion',
     "host":'74.208.221.227',
@@ -36,15 +37,22 @@ credencialesDB = {
     "password":'10830921',
     "nombre":'pki_validacion',
     "host":'154.38.190.87',
-    "port":3306,
+    "port":3300,
     "user":'root'
   },
   "honducert-desarrollo":{
     "password":'10830921',
     "nombre":'pki_validacion',
     "host":'154.38.190.87',
-    "port":3307,
+    "port":3306,
     "user":'root'
+  },
+  "efirma-plus":{
+    "password":'10830921',
+    "nombre":'pki_validacion',
+    "host":'69.48.200.78',
+    "port":3306,
+    "user":'administrador'
   }
 }
 
@@ -63,7 +71,7 @@ credencialesDBEntidad = {
     "port":3306,
     "user":'administrador'
   },
-  "eFirmaPanama":{
+  "panama-desarrollo":{
     "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'74.208.221.227',
@@ -81,16 +89,23 @@ credencialesDBEntidad = {
     "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'154.38.190.87',
-    "port":3306,
+    "port":3300,
     "user":'root'
   },
   "honducert-desarrollo":{
     "password":'10830921',
     "nombre":'pki_firma_electronica',
     "host":'154.38.190.87',
-    "port":3307,
+    "port":3306,
     "user":'root'
-  }
+  },
+  "efirma-plus":{
+    "password":'10830921',
+    "nombre":'pki_firma_electronica',
+    "host":'69.48.200.78',
+    "port":3306,
+    "user":'administrador'
+  },
 }
 
 credenciales = 'honducert-desarrollo'
@@ -116,11 +131,6 @@ def obtenerIpPublica():
   ip = requests.get('https://api.ipify.org').text
 
   return ip
-
-#query para obtener porcentajes
-"""
-SELECT ent.tipo_validacion, ent.porcentaje_acierto from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = 18502;
-"""
 
 def selectData(query, *values):
   try:
@@ -192,7 +202,7 @@ def insertTabla(columns: tuple, table:str, values: tuple):
       database=nombreDB
     )
   except mariadb.Error as e:
-    print(f"error en la query, error = {e}")
+    print(f"error en la conexion, error = {e}")
     return 0
 
   try:
@@ -215,8 +225,10 @@ def insertTabla(columns: tuple, table:str, values: tuple):
     return documentoUsuarioID
 
   except mariadb.Error as e:
+    print(e)
+    logsPath = logs.checkLogsFile()
+    logs.writeLogs(logsPath, e)
 
-    print("error =", e)
     return 0
 
   finally:
@@ -274,7 +286,7 @@ def comprobarProceso(id):
     cursor.close()
     conn.close()
 
-def checkValidation(id):
+def checkValidation(query):
 
   try:
     conn = mariadb.connect(
@@ -291,13 +303,7 @@ def checkValidation(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f"""SELECT ev.id, ev.estado_verificacion 
-    FROM documento_usuario AS doc
-    INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
-    WHERE id_usuario_efirma = {id}
-    ORDER BY ev.id DESC
-    LIMIT 1;
-    """
+    queryInfo = query
     
     cursor.execute(queryInfo)
 
@@ -327,7 +333,7 @@ def checkValidation(id):
     cursor.close()
     conn.close()
 
-def obtenerEntidad(id):
+def obtenerEntidad(query):
 
   try:
     conn = mariadb.connect(
@@ -344,9 +350,7 @@ def obtenerEntidad(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f'SELECT fe.usuario_id,usu.entity_id from pki_firma_electronica.firma_electronica_pki as fe INNER JOIN pki_firma_electronica.firmador_pki fi ON fe.id=fi.firma_electronica_id INNER JOIN usuarios.usuarios usu ON usu.id=fe.usuario_id WHERE fi.id={id}'
-
-    cursor.execute(queryInfo)
+    cursor.execute(query)
 
     entidad = cursor.fetchone()
 
@@ -359,6 +363,49 @@ def obtenerEntidad(id):
   except mariadb.Error as e:
     print(e)
     return 0,0
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def obtenerEntidadHash(hash):
+
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    print(e)
+    return 0
+
+  try:
+    cursor = conn.cursor()
+    query = """SELECT id_usuario FROM pki_validacion.documento_usuario AS du
+    INNER JOIN pki_validacion.parametros_validacion AS pv ON pv.id= du.id
+    WHERE pv.parametros_hash = ?"""
+
+    query = """SELECT id FROM pki_validacion.parametros_validacion AS pv
+    WHERE pv.parametros_hash = ?"""
+
+    cursor.execute(query,(hash,))
+
+    entidad = cursor.fetchone()
+
+    if(entidad):
+      return entidad[0]
+    else:
+      return 0
+
+
+  except mariadb.Error as e:
+    print(e)
+    return 0
 
   finally:
     conn.commit()
@@ -388,9 +435,10 @@ def selectProvider(id):
 
     entidad = cursor.fetchone()
 
+
     if(entidad != None):
 
-      if(entidad[1] == None):
+      if(entidad[1] == None or len(entidad[1]) <= 0):
         return 'EFIRMA'
       
       return entidad[1]
@@ -409,7 +457,7 @@ def selectProvider(id):
     conn.close()
 
 
-def selectValidationParams(id):
+def selectValidationParams(id, query):
   
   try:
     conn = mariadb.connect(
@@ -433,9 +481,7 @@ def selectValidationParams(id):
   try:
     cursor = conn.cursor()
 
-    queryInfo = f"SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?"
-
-    cursor.execute(queryInfo, (id,))
+    cursor.execute(query, (id,))
 
     entidad = cursor.fetchone()
 
@@ -449,3 +495,155 @@ def selectValidationParams(id):
     cursor.close()
     conn.close()
 
+
+def selectCallback(id, query):
+
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+
+  except mariadb.Error as e:
+    print(e)
+    return (None, None, None)
+
+  try:
+    cursor = conn.cursor()
+
+    cursor.execute(query, (id,))
+
+    callbackData = cursor.fetchone()
+
+    return callbackData if(callbackData != None) else (None, None, None)
+
+  except mariadb.Error as e:
+    print(e)
+    return (None, None, None)
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def selectAPIKey(id):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+
+  except mariadb.Error as e:
+    print(e)
+    return (None)
+  
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = """
+      SELECT usu.clave_api FROM usuarios.usuarios AS usu WHERE usu.id = ?
+    """
+
+    cursor.execute(queryInfo, (id,))
+
+    callbackData = cursor.fetchone()
+
+    print(callbackData)
+
+    return callbackData if(callbackData != None) else (None)
+
+  except mariadb.Error as e:
+    print(e)
+    return (None)
+
+  
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+
+def selectUserData(id):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+
+  except mariadb.Error as e:
+    print(e)
+    return None
+  
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = """
+      SELECT params.id_usuario, params.nombre, params.apellido, params.documento, params.tipo_documento, params.email, params.tipo_validacion, params.callback, params.redireccion, ent.validacion_vida, params.uso_modelo FROM pki_validacion.parametros_validacion AS params 
+      INNER JOIN usuarios.usuarios AS usu ON usu.id = params.id_usuario
+      INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id 
+      WHERE params.parametros_hash = ?
+    """
+
+    cursor.execute(queryInfo, (id,))
+
+    callbackData = cursor.fetchone()
+
+    return callbackData if(callbackData != None) else None
+
+  except mariadb.Error as e:
+    return None
+
+  
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def setIDs(idEvidencias, idEvidenciasAdicionales, tipoDocumento, idValidacion):
+  
+  try:
+    conn = mariadb.connect(
+      user=userDBEntidad,
+      password=passwordDBEntidad,
+      host=hostDBEntidad,
+      port=portDBEntidad,
+      database=nombreDBEntidad
+    )
+  except mariadb.Error as e:
+    return 'error'
+
+  try:
+    cursor = conn.cursor()
+
+    queryInfo = """UPDATE pki_validacion.documento_usuario AS du
+      SET du.id_evidencias = ?,
+      du.id_evidencias_adicionales = ?,
+      du.tipo_documento = ?
+      WHERE du.id = ?"""
+
+    cursor.execute(queryInfo, (idEvidencias, idEvidenciasAdicionales, tipoDocumento, idValidacion,))
+
+    return 'success'
+
+
+  except mariadb.Error as e:
+    print(e)
+    return 'error'
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()

@@ -1,9 +1,13 @@
+#carpetas
 virtual_env/
 __pycache__/
 entorno/
+evidencias-vida/
+models/
+logs/
 
+#archivos
 prueba.py
-
 dlib_face_recognition_resnet_model_v1.dat
 shape_predictor_68_face_landmarks.dat
 test.py

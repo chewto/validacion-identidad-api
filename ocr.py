@@ -1,32 +1,32 @@
 from PIL import Image
 from io import BytesIO
+import easyocr
+import imutils
 import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
 from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
-
-
-tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-country = 'HND'
+import datetime
+import re
 
 countries = {
-    'HND': 'HONDURAS',
-    'COL': 'COLOMBIA',
-    'PTY': 'PANAMA'
+    'HND': ['HONDURAS'],
+    'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA'],
+    'PTY': ['PANAMA'],
+    'SLV': ['EL SALVADOR', 'SAN SALVADOR', 'AHUACHAPAN', 'SONSONATE', 'SANTA ANA', 'LA LIBERTAD', 'CHALATENANGO', 'CUSCATLAN', 'LA PAZ', 'SAN VICENTE', 'CABAÑAS', 'USULUTAN', 'SAN MIGUEL', 'MORAZAN', 'LA UNION']
 }
 
 ocrHash = {
         "COL": {
             "Cédula de ciudadanía": {
-                "anverso": ["IDENTIFICACION PERSONAL", "CEDULA DE CIUDADANIA", "REPUBLICA DE COLOMBIA"],
+                "anverso": ["IDENTIFICACION PERSONAL"],
                 "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO']
             },
             "Cédula de extranjería": {
                 "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'NACIONALIDAD', 'EXPEDICION', 'VENCE', 'NO.', "REPUBLICA", "COLOMBIA", "MIGRANTE"],
-                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "COLOMBIA", "www.migracioncolombia.gov.co", "<", "document", "titular", "documento"]
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "www.migracioncolombia.gov.co", "document", "titular", "documento"]
             },
             "Permiso por protección temporal": {
                 "anverso": [],
@@ -35,6 +35,10 @@ ocrHash = {
             "Pasaporte":{
                 "anverso":['REPUBLICA DE COLOMBIA', 'PASAPORTE', 'PASSPORT'],
                 "reverso":[]
+            },
+            "Cédula digital": {
+                "anverso":['NUIP','Estatura','Fecha y lugar', 'expiracion'],
+                "reverso":["IC"]
             }
         },
         "PTY":{
@@ -64,6 +68,12 @@ ocrHash = {
                 "anverso":['HONDURAS', 'REPUBLICA', 'TIPO', 'TYPE', 'EMISOR','PASAPORTE','PASSPORT', 'NACIONALIDAD', 'NATIONALITY','HONDURENA', 'HONDUREÑA', 'INSTITUTO', 'NACIONAL', 'MIGRACION', '<'],
                 "reverso":[]
             }
+        },
+        "SLV":{
+            "DNI": {
+                "anverso": ['REGISTRO', 'NACIONAL','PERSONAS', 'HONDURAS', 'REGISTRO', 'DOCUMENTO', 'NACIONAL DE IDENTIFICACION', 'DOCUMENTO', 'IDENTIFICACION', 'LUGAR', 'NACIMIENTO', 'NACIONALIDAD', 'REGISTRO'],
+                "reverso": ['HND', 'COMISIONADOS', 'PROPIETARIOS', '<']
+            },
         }
     }
 
@@ -71,14 +81,38 @@ ocrHash = {
 documentTypeHash = {
     'HND':{
         'DNI':{
-            'anverso': ['DOCUMENTO NACIONAL DE IDENTIFICACION', 'REGISTRO NACIONAL DE LAS PERSONAS'],
-            'reverso': ['<', 'HND']
+            'anverso': ['NACIONAL', 'REGISTRO NACIONAL DE LAS PERSONAS'],
+            'reverso': ['HND', 'DOMICILIO / ADDRESS']
         },
         'Pasaporte': {
             'anverso': ['PASAPORTE',  'PASSPORT'],
             'reverso': []
         }
-    }
+    },
+    "COL": {
+            "Cédula de ciudadanía": {
+                "anverso": ["IDENTIFICACION", "PERSONAL"],
+                "reverso": ['FECHA Y LUGAR DE EXPEDICION', 'FECHA Y LUGAR', 'INDICE DERECHO', 'ESTATURA', 'FECHA DE NACIMIENTO', 'LUGAR DE NACIMIENTO']
+            },
+            "Cédula de extranjería": {
+                "anverso": ["Cedula de Extranjeria","Cédula", "Extranjeria", 'EXPEDICION', 'VENCE', 'NO.', "MIGRANTE"],
+                "reverso": ["MIGRACION", 'DOCUMENTO', 'NOTIFICAR', 'CAMBIO', 'MIGRATORIA', 'HOLDER', 'STATUS', 'MIGRATION', 'INFORMACION', "www.migracioncolombia.gov.co", "migracioncolombia", "www.migracioncolombia", 'status', "document", "titular", "documento"]
+            },
+            "Pasaporte": {
+                "anverso": ["Passport", "PASAPORTE", "PASSPORT", "Pasaporte", "REPUBLICA DE COLOMBIA"],
+                "reverso": []
+            },
+            "Cédula digital": {
+                "anverso":[ 'NUIP','Estatura','lugar', 'expiracion'],
+                "reverso":["IC"]
+            }
+    },
+    "SLV":{
+            "DNI": {
+                "anverso": ['UNICO','IDENTIDAD', 'ID', 'SALVADOREÑO', 'BY', 'SALVADOREAN'],
+                "reverso": ['ID']
+            },
+        }
 }
 
 def verificacionRostro(dataURL: str):
@@ -108,54 +142,105 @@ def verificacionRostro(dataURL: str):
     if not found:
         return False
 
-def ocr(imagen: str, preprocesado):
 
-    if(preprocesado == False):
-        txt: str = tess.image_to_string(imagen)
-        lineas: list[str] = txt.splitlines()
-        return lineas
+def adjustBrightness(image_array):
 
-    if(preprocesado):
+    current_brightness = np.mean(image_array)
+    
+    # Definir rango objetivo
+    target_min = 130
+    target_max = 180
+    target_mid = (target_min + target_max) / 2
+    
+    # Calcular factor de ajuste
+    if current_brightness < target_min:
+        adjustment_factor = target_mid / max(current_brightness, 1)
+    elif current_brightness > target_max:
+        adjustment_factor = target_mid / current_brightness
+    else:
+        adjustment_factor = 1.0
+    
+    # Ajustar brillo y limitar al rango válido
+    adjusted_image = np.clip(image_array * adjustment_factor, 0, 255)
+    
+    return adjusted_image.astype(np.uint8), current_brightness, np.mean(adjusted_image), adjustment_factor
 
-        gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-        kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]]) 
-        sharpened = cv2.filter2D(gris, -1, kernel)
-        invertedImage = cv2.bitwise_not(sharpened)
-        enhancedImage = cv2.convertScaleAbs(invertedImage, alpha=1.0, beta=-25)
-        # threshold = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 7)
-        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-        # opened = cv2.morphologyEx(threshold, cv2.MORPH_RECT, kernel, iterations=1)
-
-        txt: str = tess.image_to_string(enhancedImage)
-
-        lineas: list[str] = txt.splitlines()
-        return lineas
+reader = easyocr.Reader(['es'])
 
 
-def validateDocumentType(documentType, documentSide, ocr):
+def preprocessing(img, resolution, filters):
 
-    document = documentTypeHash[country][documentType][documentSide]
+    h0, w0 = img.shape[:2]
+
+    print(img.shape[:2], 'previo')
+    if resolution < w0:
+        h1 = int(h0 * resolution / w0)
+        img = cv2.resize(img, (resolution, h1), interpolation=cv2.INTER_AREA)
+
+    proc = img.copy()
+    print(proc.shape[:2], 'post')
+    if 'gray' in filters:
+        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    if 'hist' in filters:
+        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    if 'sharp' in filters:
+        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+        proc = cv2.filter2D(proc, -1, kernel)
+    if 'blur' in filters:
+        proc = cv2.medianBlur(proc, 3)
+    if 'thresh' in filters:
+        if proc.ndim == 2:
+            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
+
+    return proc_rgb
+
+def ocr(img):
+
+        lineas = []
+        
+        total_confidence = 0
+        result = reader.readtext(img)
+        for (bbox, text, prob) in result:
+            upperCase = text.upper()
+            lineas.append(upperCase)
+            total_confidence += prob
+
+        average_confidence = total_confidence / len(result) if result else 0
+
+        return result, lineas
+
+
+def validateDocumentType(documentType, documentSide, ocr, detectionData):
+
+    documentWords = detectionData['documentDectection'][documentType][documentSide]
 
     for line in ocr:
 
-        for documentLine in document:
-            if(len(line) >= 1 and (line in documentLine or documentLine in line)):
-
-                return f'{documentType}', 'OK'
+        for documentLine in documentWords:
+            lineUpper = documentLine.upper()
+            if(len(line) >= 1 and len(lineUpper) >= 1):
+                if(line in lineUpper or lineUpper in line):
+                    print(line, lineUpper, 'asdasdasdsd')
+                    return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
 
-def validateDocumentCountry(ocr):
+def validateDocumentCountry(ocr, country):
+
     lines = ocr
 
     for line in lines:
         for key, value in countries.items():
-            if(value in line):
-                if(key == country):
-                    return key,value,'OK'
+            for location in value:
+                if(location in line):
+                    if(key == country):
+                        return key,value[0],'OK'
             if(key in line):
                 if(key == country):
-                    return key,value,'OK'
+                    return key,value[0],'OK'
 
     return 'no detectado','no detectado', '!OK'
 
@@ -280,13 +365,11 @@ def comparacionOCR(porcentajePre,ocrPre, porcentajeSencillo, ocrSencillo):
         return ocrSencillo, porcentajeSencillo
 
 
-def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, imagen:str, preprocesado: bool):
+def validarLadoDocumento(tipoDocumento: str, ladoDocumento: str, lineas, ocrData):
 
     lineas = []
 
-    lineas = ocr(imagen=imagen, preprocesado=preprocesado)
-
-    ladoPalabras = ocrHash[country][tipoDocumento][ladoDocumento]
+    ladoPalabras = ocrData['documentOcr'][tipoDocumento][ladoDocumento]
 
     coincidencias = 0
 

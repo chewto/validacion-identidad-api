@@ -1,14 +1,21 @@
+import datetime
+import re
+
+import PIL.Image
 from ocr import ocr
 from utilidades import listToText
 from utilidades import extraerPorcentaje
+import io
+import PIL
+import cv2
 
-country = 'HND'
 
 documentMRZ = {
   "COL": {
             "Cédula de ciudadanía": {
                 "anverso": False,
-                "reverso": False
+                "reverso": False,
+                "mrzLetter":"I<"
             },
             "Cédula de extranjería": {
                 "anverso": False,
@@ -23,6 +30,11 @@ documentMRZ = {
                 "anverso":True,
                 "reverso":False,
                 "mrzLetter":"P<"
+            },
+            "Cédula digital": {
+                "anverso":False,
+                "reverso":True,
+                "mrzLetter": "IC"
             }
         },
         "PTY":{
@@ -51,18 +63,25 @@ documentMRZ = {
       "reverso": False,
       "mrzLetter": "P<"
     }
+  },
+  'SLV': {
+    "DNI":{
+      "anverso": False,
+      "reverso": True,
+      "mrzLetter":"IDSLV"
+    }
   }
 }
 
-def MRZSide(documentType, documentSide):
-  mrz = documentMRZ[country][documentType][documentSide]
+def MRZSide(documentType, documentSide, mrzData):
+  mrz = mrzData[documentType][documentSide]
 
-  mrzLetter = documentMRZ[country][documentType]["mrzLetter"]
+  mrzLetter = mrzData[documentType]["mrzLetter"]
 
   return mrzLetter, mrz
 
-def hasMRZ(documentType):
-  mrzDocumentType = documentMRZ[country][documentType]
+def hasMRZ(documentType, mrzData):
+  mrzDocumentType = mrzData[documentType]
 
   mrzCorrespondingSide = []
 
@@ -74,8 +93,8 @@ def hasMRZ(documentType):
 
   return totalMRZ
 
-def validateMRZ(documentType, mrzData):
-  mrzDocumentType = documentMRZ[country][documentType]
+def validateMRZ(documentType, mrzKeys,mrzData):
+  mrzDocumentType = mrzKeys[documentType]
 
   mrzDataLength =True if (len(mrzData) >= 1) else False
 
@@ -92,8 +111,29 @@ def validateMRZ(documentType, mrzData):
 
   return mrzValidationResult
 
+#REVISION
+# def validateMRZ(documentType, mrzKeys,mrzData):
+#   mrzDocumentType = mrzKeys[documentType]
+
+#   mrzDataLength =True if (len(mrzData) >= 1) else False
+
+#   mrzVerify = False
+
+#   if(mrzData.find(mrzDocumentType['mrzLetter']) != -1 ):
+#     mrzVerify = True
+#   elif(mrzData.find('<') != -1 ):
+#     mrzVerify = True
+
+#   mrzParameters = [mrzDataLength, mrzVerify]
+
+#   mrzValidationResult = all(mrzParameters)
+
+#   return mrzValidationResult
+
 def extractMRZ(ocr, mrzStartingLetter):
   stringOCR = listToText(ocr)
+  stringOCR = stringOCR.replace(' ','')
+  stringOCR = stringOCR.upper()
 
   ocrLength = len(stringOCR)
 
@@ -107,25 +147,80 @@ def extractMRZ(ocr, mrzStartingLetter):
 
   mrz = stringOCR[findMrzIndex:ocrLength]
 
+  mrz = mrzClean(mrz)
+
   return mrz
+
+#REVISION
+# def extractMRZ(mrzImage):
+
+#   tess.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+
+#   mrzRGB = cv2.cvtColor(mrzImage, cv2.COLOR_BGR2RGB)
+#   pilImage = PIL.Image.fromarray(mrzRGB)
+
+#   imageBytes = io.BytesIO()
+#   pilImage.save(imageBytes, format='JPEG')
+#   imageBytes.seek(0)
+
+#   mrz = read_mrz(imageBytes)
+
+#   if(mrz is None):
+#     return {'name': '', 'surname': ''}, False
+
+#   mrzData = mrz.to_dict()
+
+#   data = {
+#     'name': mrzData['names'],
+#     'surname': mrzData['surname'],
+#     'code':  mrzData['raw_text']
+#   }
+
+#   return data, True
+
+
+
+def mrzClean(mrz: str) -> str:
+  translationTable = str.maketrans('KX', '<<')
+  cleanedMrz = mrz.translate(translationTable)
+  return cleanedMrz
 
 
 def mrzInfo(mrz, searchTerm):
 
+
   splitData = mrz.split('<')
+  cleanedData = []
+
+  for data in splitData:
+    if(len(data) > 1):
+      cleanedData.append(re.sub(r'\d', '', data))
+
 
   searchSplit = searchTerm.split(' ')
 
   found = []
-
   for search in searchSplit:
-    for data in splitData:
-      if(search in data):
+    for data in cleanedData:
+      if data in search:
         found.append(data)
 
   joinedFounds = ' '.join(found)
 
   return joinedFounds
+
+#REVISION
+# def mrzInfo(mrz, searchTerm):
+
+#   found = []
+  
+#   if mrz in searchTerm or searchTerm in mrz:
+#     stripData = mrz.strip()
+#     found.append(stripData)
+
+#   joinedFounds = ' '.join(found)
+
+#   return joinedFounds
 
 def comparisonMRZInfo(termList,  comparisonTerm):
 
@@ -133,8 +228,50 @@ def comparisonMRZInfo(termList,  comparisonTerm):
 
   for term in termList:
     percent = extraerPorcentaje(comparisonTerm, term)
+    print({'percent': percent, 'data': term})
     percentages.append({'percent': percent, 'data': term})
 
   maxPercentage = max(percentages, key=lambda x: x['percent'])
 
   return maxPercentage
+
+def extractDate(data):
+    datePattern = r'\d+[MF]\d+'
+
+    datesFound = []
+    
+    for line in data:
+        match = re.search(datePattern, line)
+        if(match is not None):
+            datesFound.append(match.string)
+
+    dates = ' '.join(datesFound)
+
+    return dates
+
+def expiracyDateMRZ(ocrData):
+
+    currentDate = datetime.date.today()
+
+    extraction = extractDate(data=ocrData)
+
+    expiracyDateFound = ''
+
+    searchChars = ['M', 'F']
+
+    for char in searchChars:
+      find = extraction.find(char)
+      if(find != -1):
+        substringStart = find + 1
+        substringEnd = substringStart + 6
+        dateFound = extraction[substringStart:substringEnd]
+        year = int('20'+dateFound[0:2])
+        month = int(dateFound[2:4])
+        day = int(dateFound[4:6])
+        date = datetime.date(year, month, day)
+        expiracyDateFound = date
+    
+    if(expiracyDateFound <= currentDate):
+      return True
+
+    return False

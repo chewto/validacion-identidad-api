@@ -12,18 +12,18 @@ def results(percent, validatioAttendance, checksDict):
   valuePercent = 100 / valuesLength
 
   for value in values:
-    print(value)
     if value == True or value == 'OK':
       totalPercent += valuePercent
 
   if totalPercent >= percent and validatioAttendance == 'AUTOMATICA':
     return True,'verificado', totalPercent
   elif totalPercent >= percent and validatioAttendance == 'MIXTA':
-    return True,'iniciando segunda validacion', totalPercent
+    return True,'iniciando segunda validación', totalPercent
   elif validatioAttendance == 'MANUAL':
-    return True,'esperando aprobacion', totalPercent
+    return True,'esperando aprobación', totalPercent
   else:
-    return False,'No verificado', totalPercent
+    return False,'validación fallida', totalPercent
+    # return False,'Procesando validación', totalPercent
 
 def testingType(array):
 
