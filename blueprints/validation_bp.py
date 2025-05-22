@@ -569,9 +569,9 @@ def validationType3():
     backCheck = all([bTypeCheck,bCountryCheck])
     checkValuesDict['back'] = backCheck
 
-    checkValuesDict['sides_country_confidence'] = True if(frontCountry == backCountry) else False
+    checkValuesDict['sides_country_confidence'] = True if(fCountryCheck == True  and bCountryCheck == True) else False
     
-    checkValuesDict['sides_type_confidence'] = True if(frontTypeCheck == backTypeCheck) else False
+    checkValuesDict['sides_type_confidence'] = True if(fTypeCheck == True and bTypeCheck == True) else False
 
     # checkValuesDict['both_sides_isExpired'] = all([fIsExpired, bIsExpired])
 
@@ -624,7 +624,7 @@ def validationType3():
 
   if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
 
-    avaibleCode = None
+    avaibleCode = {}
     unavaibleCode = []
 
     for check in checkID:
@@ -634,7 +634,7 @@ def validationType3():
         if(value == False):
           unavaibleCode.append({'key':key, 'value':value})
 
-    if(avaibleCode['key'] == 'mrz'):
+    if avaibleCode and 'key' in avaibleCode and avaibleCode['key'] == 'mrz':
       mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
       checkValuesDict['mrz_name'] = mrzNameCheck
       mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
@@ -656,7 +656,7 @@ def validationType3():
 
       test.append(avaibleCode['value'])
 
-    if(avaibleCode['key'] == 'barcode'):
+    if avaibleCode and 'key' in avaibleCode and avaibleCode['key'] == 'barcode':
       checkValuesDict['barcode'] = avaibleCode['value']
       test.append(avaibleCode['value'])
 
@@ -671,9 +671,6 @@ def validationType3():
       }
 
       test.append(False)
-
-
-
 
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck

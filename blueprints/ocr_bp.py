@@ -70,7 +70,7 @@ def verificarAnverso():
     # personaData = fileCv2(imagenPersona)
     # documentoData = fileCv2(imagenDocumento)
 
-    resolution = 1080
+    resolution = 600 if tries <=1 else 1080
 
     countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
@@ -306,9 +306,9 @@ def verificarReverso():
 
     # imagenDocumento = fileCv2(imagenDocumento)
 
-    resolution = 1080
+    resolution = 600 if tries <=1 else 1080
 
-    print(tries) 
+    print(tries)
 
     print(resolution)
 
