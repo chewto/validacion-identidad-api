@@ -166,3 +166,11 @@ def leerFileStorage(archivo):
   return data
 
 
+def orientation(image):
+  height, width = image.shape[:2]
+  if height > width:
+    # Rotate the image 90 degrees to make it horizontal
+    rotated = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return rotated
+  
+  return image

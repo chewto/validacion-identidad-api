@@ -7,7 +7,7 @@ from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, valida
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
-from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2
+from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation
 from check_result import testingCountry, testingType, results
 import time
 import controlador_db
@@ -42,33 +42,35 @@ def verificarAnverso():
 
     confidenceValue = 0.6
 
-    reqBody = request.get_json()
+    # reqBody = request.get_json()
 
-    efirmaId = reqBody['id']
-    imagenPersona = reqBody['imagenPersona']
-    imagenDocumento = reqBody['imagen']
-    ladoDocumento = reqBody['ladoDocumento']
-    tipoDocumento = reqBody['tipoDocumento']
-    nombre = reqBody['nombre']
-    apellido = reqBody['apellido']
-    numeroDocumento = reqBody['documento']
-    userCountry = reqBody['country']
-    tries = reqBody['tries']
-    personaData = readDataURL(imagenPersona)
-    documentoData = readDataURL(imagenDocumento)
+    # efirmaId = reqBody['id']
+    # imagenPersona = reqBody['imagenPersona']
+    # imagenDocumento = reqBody['imagen']
+    # ladoDocumento = reqBody['ladoDocumento']
+    # tipoDocumento = reqBody['tipoDocumento']
+    # nombre = reqBody['nombre']
+    # apellido = reqBody['apellido']
+    # numeroDocumento = reqBody['documento']
+    # userCountry = reqBody['country']
+    # tries = reqBody['tries']
+    # personaData = readDataURL(imagenPersona)
+    # documentoData = readDataURL(imagenDocumento)
 
-    # efirmaId = request.form.get('id')
-    # imagenPersona = request.files.get('imagenPersona')
-    # imagenDocumento = request.files.get('imagen')
-    # ladoDocumento = request.form.get('ladoDocumento')
-    # tipoDocumento = request.form.get('tipoDocumento')
-    # nombre = request.form.get('nombre')
-    # apellido = request.form.get('apellido')
-    # numeroDocumento = request.form.get('documento')
-    # userCountry = 
+    efirmaId = request.form.get('id')
+    imagenPersona = request.files.get('imagenPersona')
+    imagenDocumento = request.files.get('imagen')
+    ladoDocumento = request.form.get('ladoDocumento')
+    tipoDocumento = request.form.get('tipoDocumento')
+    nombre = request.form.get('nombre')
+    apellido = request.form.get('apellido')
+    numeroDocumento = request.form.get('documento')
+    userCountry = request.form.get('country')
+    tries = request.form.get('tries')
+    tries = int(tries)
 
-    # personaData = fileCv2(imagenPersona)
-    # documentoData = fileCv2(imagenDocumento)
+    personaData = fileCv2(imagenPersona)
+    documentoData = fileCv2(imagenDocumento)
 
     resolution = 600 if tries <=1 else 1080
 
@@ -207,13 +209,13 @@ def verificarAnverso():
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
-      mrz =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+      mrz =  extractMRZ(documentoData)
 
-      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS'):
+      if(mrz == "No se pudo detectar MRZ válido en la imagen."):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
-      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+      extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
       nameMRZ = comparisonMRZInfo([extractName], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
@@ -221,7 +223,7 @@ def verificarAnverso():
       # resultsDict['document']['isExpired'] = False
 
       resultsDict['mrz'] = {
-        'code': mrz,
+        'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -279,38 +281,36 @@ def verificarReverso():
     
     messages = []
 
-    reqBody = request.get_json()
+    # reqBody = request.get_json()
 
-    efirmaId = reqBody['id']
-    imagenDocumento = reqBody['imagen']
-    ladoDocumento = reqBody['ladoDocumento']
-    tipoDocumento = reqBody['tipoDocumento']
-    nombre = reqBody['nombre']
-    apellido = reqBody['apellido']
-    numeroDocumento = reqBody['documento']
-    imagenDocumento = readDataURL(imagenDocumento)
-    userCountry = reqBody['country']
-    tries = reqBody['tries']
+    # efirmaId = reqBody['id']
+    # imagenDocumento = reqBody['imagen']
+    # ladoDocumento = reqBody['ladoDocumento']
+    # tipoDocumento = reqBody['tipoDocumento']
+    # nombre = reqBody['nombre']
+    # apellido = reqBody['apellido']
+    # numeroDocumento = reqBody['documento']
+    # imagenDocumento = readDataURL(imagenDocumento)
+    # userCountry = reqBody['country']
+    # tries = reqBody['tries']
 
     # print(nombre, apellido)
 
-    # efirmaId = request.form.get('id')
-    # imagenPersona = request.files.get('imagenPersona')
-    # imagenDocumento = request.files.get('imagen')
-    # ladoDocumento = request.form.get('ladoDocumento')
-    # tipoDocumento = request.form.get('tipoDocumento')
-    # nombre = request.form.get('nombre')
-    # apellido = request.form.get('apellido')
-    # numeroDocumento = request.form.get('documento')
-    # userCountry = request.form.get('country')
+    efirmaId = request.form.get('id')
+    imagenPersona = request.files.get('imagenPersona')
+    imagenDocumento = request.files.get('imagen')
+    ladoDocumento = request.form.get('ladoDocumento')
+    tipoDocumento = request.form.get('tipoDocumento')
+    nombre = request.form.get('nombre')
+    apellido = request.form.get('apellido')
+    numeroDocumento = request.form.get('documento')
+    userCountry = request.form.get('country')
+    tries = request.form.get('tries')
+    tries = int(tries)
 
-    # imagenDocumento = fileCv2(imagenDocumento)
+    imagenDocumento = fileCv2(imagenDocumento)
 
     resolution = 600 if tries <=1 else 1080
-
-    print(tries)
-
-    print(resolution)
 
     preprocessedDocument = preprocessing(imagenDocumento, resolution, filters='sharp')
 
@@ -344,9 +344,11 @@ def verificarReverso():
     if(documentBarcode):
       barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
 
-      rotatedImage = rotateBarcode(imagenDocumento, barcodes=barcodes)
-
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
+
+      print(detectedBarcodes)
+
+      rotatedImage = orientation(imagenDocumento) if detectedBarcodes == '!OK' else rotateBarcode(imagenDocumento, barcodes=barcodes)
 
       resultsDict['barcode'] = detectedBarcodes
       resultsDict['image'] = imageToDataURL(rotatedImage)
@@ -360,6 +362,8 @@ def verificarReverso():
       if(detectedBarcodes != 'OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detectar el código de barras del documento.')
     else:
+      rotatedImage = orientation(imagenDocumento)
+      resultsDict['image'] = imageToDataURL(rotatedImage)
       resultsDict['barcode'] = 'documento sin codigo de barras'
 
     # rotatedImage = orientation(documentoData)
@@ -418,25 +422,29 @@ def verificarReverso():
       nameHasK = nombre.find("k")
       lastNamehasK = apellido.find("k")
 
-      mrz =  extractMRZ(ocr=documentoOCRPre, mrzStartingLetter=mrzLetter)
+      mrz =  extractMRZ(imagenDocumento)
 
-      if(nameHasK == -1 or lastNamehasK == -1):
-        mrz = mrz.replace('K', ' ')
+      # if(nameHasK == -1 or lastNamehasK == -1):
+      #   mrz = mrz['raw_text'].replace('K', ' ')
 
-      if(mrz == 'Requiere verificar – DATOS INCOMPLETOS' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+      if(mrz == "No se pudo detectar MRZ válido en la imagen." and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      extractName = mrzInfo(mrz=mrz, searchTerm=nombre)
-      extractLastname = mrzInfo(mrz=mrz, searchTerm=apellido)
+      extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
+      extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
+      # extractName = mrz['names'] if 'names' in mrz else ''
+      # extractLastname = mrz['surname'] if 'surname' in mrz else ''
 
       nameMRZ = comparisonMRZInfo([extractName], nombre)
       lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
 
       # resultsDict['document']['isExpired'] = False
 
+      # print(mrz['raw_text'])
+
       resultsDict['mrz'] = {
-        'code': mrz,
+        'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
         'data': {
           'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
           'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
@@ -495,6 +503,17 @@ def verificarReverso():
     resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
 
     return jsonify(resultsDict)
+
+
+@ocr_bp.route('/mrz', methods=['POST'])
+def mrzReader():
+  image = request.files.get('image')
+  imageData = fileCv2(image)
+
+  result = extractMRZ(imageData)
+
+  return jsonify(result)
+
 
 @ocr_bp.route('/barcode-reader', methods=['POST'])
 def reader():

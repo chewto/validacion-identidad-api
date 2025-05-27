@@ -369,7 +369,7 @@ def getLivenessTest():
 
   print(livenessTest)
 
-  livenessTest = livenessTest[0]
+  livenessTest = livenessTest[0] if (len(livenessTest) >=1 ) else 0
   livenessTest = True if(livenessTest == 1) else False
 
   return jsonify({'validacionVida':livenessTest})
@@ -681,7 +681,7 @@ def validationType3():
 
   ocrTotal = int(ocrNombre) + int(ocrApellido) + int(ocrDocumento)
   average = ocrTotal / 3
-  ocrAverageCheck = True if(int(average) >= 75) else False
+  ocrAverageCheck = True if(int(average) >= 55) else False
   test.append(ocrAverageCheck)
   checkValuesDict['ocr_average'] = ocrAverageCheck
 
@@ -778,7 +778,7 @@ def validationType3():
     'documento': documento,
     'tipo': tipoDocumento,
     'parametrosValidacion': checkValuesJSON,
-    'enlaceFirma': f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
+    'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
   })
 
   return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
@@ -1125,7 +1125,7 @@ def standoleValidation():
     'idUsuario': int(idUsuario),
     'idValidacion': documentoUsuarioId,
     'parametrosValidacion': checkValuesJSON,
-    'enlaceValidacion': f'https://desarrollo.e-custodia.com/resultado_validacion?hash={userHash}'
+    'enlaceValidacion': f'https://honducert.firma.e-custodia.com/resultado_validacion?hash={userHash}'
   })
 
   return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})

@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.DEV_USER }}
           key: ${{ secrets.DEV_SSH }}
           script: |
-            cd /ruta/al/proyecto
+            cd /root/fe-honducert-desarrollo/app-python
             git pull origin development
             docker compose up -d --build
 
@@ -42,9 +42,8 @@ jobs:
           username: ${{ secrets.TEST_USER }}
           key: ${{ secrets.TEST_SSH_KEY }}
           script: |
-            cd /ruta/al/proyecto
+            cd /root/fe-honducert-desarrollo/app-python
             git pull origin testing
-            docker compose up -d --build
 
   deploy-production:
     if: github.ref == 'refs/heads/production'
@@ -61,6 +60,6 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd /ruta/al/proyecto
+            cd /root/fe-honducert/app-python
             git pull origin production
             docker compose up -d --build

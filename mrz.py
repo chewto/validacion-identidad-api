@@ -1,14 +1,17 @@
 import datetime
 import re
-
+import numpy as np
+from passporteye import read_mrz
 import PIL.Image
 from ocr import ocr
+import pytesseract as tess
 from utilidades import listToText
 from utilidades import extraerPorcentaje
 import io
-import PIL
+from PIL import ImageFilter, Image
 import cv2
 
+tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 documentMRZ = {
   "COL": {
@@ -130,26 +133,69 @@ def validateMRZ(documentType, mrzKeys,mrzData):
 
 #   return mrzValidationResult
 
-def extractMRZ(ocr, mrzStartingLetter):
-  stringOCR = listToText(ocr)
-  stringOCR = stringOCR.replace(' ','')
-  stringOCR = stringOCR.upper()
 
-  ocrLength = len(stringOCR)
+def aplicar_filtro_sharp(imagen_pil):
+  return imagen_pil.filter(ImageFilter.SHARPEN)
 
-  findMrzIndex = stringOCR.find(mrzStartingLetter)
+def extractMRZ(img):
 
-  if(findMrzIndex == -1):
-    findMrzIndex = stringOCR.find("<")
+  # Convierte la imagen de formato Mat (OpenCV) a PIL
+  if isinstance(img, (np.ndarray,)):
+    img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+  else:
+    img_pil = img
 
-    if(findMrzIndex == -1):
-      return 'Requiere verificar – DATOS INCOMPLETOS'
+  # Aplica el filtro sharpen
+  img_pil = aplicar_filtro_sharp(img_pil)
 
-  mrz = stringOCR[findMrzIndex:ocrLength]
+  best_result = None
+  best_score = -1
 
-  mrz = mrzClean(mrz)
+  for i in range(4):
+    # Convierte de nuevo a bytes para passporteye
+    img_bytes = io.BytesIO()
+    img_pil.save(img_bytes, format='JPEG')
+    img_bytes.seek(0)
 
-  return mrz
+    mrz = read_mrz(img_bytes)
+    if mrz is not None:
+      score = mrz.valid_score
+      if score is None:
+        score = 0
+      if score > best_score:
+        best_score = score
+        best_result = mrz.to_dict()
+      if score >= 80:
+        break
+
+    # Rota la imagen para el siguiente intento
+    img_pil = img_pil.rotate(-90, expand=True)
+
+  if best_result:
+    return best_result
+  else:
+    return "No se pudo detectar MRZ válido en la imagen."
+
+
+  # stringOCR = listToText(ocr)
+  # stringOCR = stringOCR.replace(' ','')
+  # stringOCR = stringOCR.upper()
+
+  # ocrLength = len(stringOCR)
+
+  # findMrzIndex = stringOCR.find(mrzStartingLetter)
+
+  # if(findMrzIndex == -1):
+  #   findMrzIndex = stringOCR.find("<")
+
+  #   if(findMrzIndex == -1):
+  #     return 'Requiere verificar – DATOS INCOMPLETOS'
+
+  # mrz = stringOCR[findMrzIndex:ocrLength]
+
+  # mrz = mrzClean(mrz)
+
+  # return mrz
 
 #REVISION
 # def extractMRZ(mrzImage):
@@ -185,29 +231,38 @@ def mrzClean(mrz: str) -> str:
   cleanedMrz = mrz.translate(translationTable)
   return cleanedMrz
 
-
 def mrzInfo(mrz, searchTerm):
+    # Split the searchTerm into words
+    search_terms = [term.strip().upper() for term in searchTerm.split() if term.strip()]
 
+    # Clean MRZ: remove digits and extra '<', split by '<'
+    mrz_parts = [re.sub(r'\d', '', part).strip('<').upper() for part in mrz.split('<') if part.strip('<')]
 
-  splitData = mrz.split('<')
-  cleanedData = []
+    found = []
 
-  for data in splitData:
-    if(len(data) > 1):
-      cleanedData.append(re.sub(r'\d', '', data))
+    for search in search_terms:
+      best_match = ""
+      best_percent = 0
+      for i, part in enumerate(mrz_parts):
+        percent = extraerPorcentaje(search, part)
+        if percent > best_percent:
+          best_percent = percent
+          best_match = part
+      # Try joining with next part if not a good match
+      if best_percent < 80:  # threshold, adjust as needed
+        for i in range(len(mrz_parts) - 1):
+          combined = mrz_parts[i] + mrz_parts[i + 1]
+          percent = extraerPorcentaje(search, combined)
+          if percent > best_percent:
+            best_percent = percent
+            best_match = combined
+      if best_match:
+        found.append(best_match)
 
+    # Remove duplicates and empty strings
+    found = list(dict.fromkeys([f for f in found if f]))
 
-  searchSplit = searchTerm.split(' ')
-
-  found = []
-  for search in searchSplit:
-    for data in cleanedData:
-      if data in search:
-        found.append(data)
-
-  joinedFounds = ' '.join(found)
-
-  return joinedFounds
+    return ' '.join(found)
 
 #REVISION
 # def mrzInfo(mrz, searchTerm):
@@ -222,16 +277,30 @@ def mrzInfo(mrz, searchTerm):
 
 #   return joinedFounds
 
-def comparisonMRZInfo(termList,  comparisonTerm):
+def comparisonMRZInfo(termList, comparisonTerm):
+  """
+  Compares a list of terms against a comparison term using extraerPorcentaje,
+  returning the term with the highest percentage match and the list of all percentages.
+
+  Args:
+    termList (list): List of terms to compare.
+    comparisonTerm (str): The term to compare against.
+
+  Returns:
+    dict: {
+      'best_match': {'percent': float, 'data': str},
+      'all_matches': [{'percent': float, 'data': str}, ...]
+    }
+  """
+  if not termList or not comparisonTerm:
+    return  {'percent': 0, 'data': ''}
 
   percentages = []
-
   for term in termList:
     percent = extraerPorcentaje(comparisonTerm, term)
-    print({'percent': percent, 'data': term})
     percentages.append({'percent': percent, 'data': term})
 
-  maxPercentage = max(percentages, key=lambda x: x['percent'])
+  maxPercentage = max(percentages, key=lambda x: x['percent'], default={'percent': 0, 'data': ''})
 
   return maxPercentage
 
