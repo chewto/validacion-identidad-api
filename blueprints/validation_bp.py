@@ -369,7 +369,7 @@ def getLivenessTest():
 
   print(livenessTest)
 
-  livenessTest = livenessTest[0]
+  livenessTest = livenessTest[0] if (len(livenessTest) >=1 ) else 0
   livenessTest = True if(livenessTest == 1) else False
 
   return jsonify({'validacionVida':livenessTest})
@@ -569,9 +569,9 @@ def validationType3():
     backCheck = all([bTypeCheck,bCountryCheck])
     checkValuesDict['back'] = backCheck
 
-    checkValuesDict['sides_country_confidence'] = True if(frontCountry == backCountry) else False
+    checkValuesDict['sides_country_confidence'] = True if(fCountryCheck == True  and bCountryCheck == True) else False
     
-    checkValuesDict['sides_type_confidence'] = True if(frontTypeCheck == backTypeCheck) else False
+    checkValuesDict['sides_type_confidence'] = True if(fTypeCheck == True and bTypeCheck == True) else False
 
     # checkValuesDict['both_sides_isExpired'] = all([fIsExpired, bIsExpired])
 
@@ -624,7 +624,7 @@ def validationType3():
 
   if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
 
-    avaibleCode = None
+    avaibleCode = {}
     unavaibleCode = []
 
     for check in checkID:
@@ -634,7 +634,7 @@ def validationType3():
         if(value == False):
           unavaibleCode.append({'key':key, 'value':value})
 
-    if(avaibleCode['key'] == 'mrz'):
+    if avaibleCode and 'key' in avaibleCode and avaibleCode['key'] == 'mrz':
       mrzNameCheck = True if(int(mrzNamePercent) >= 75) else False
       checkValuesDict['mrz_name'] = mrzNameCheck
       mrzLastnameCheck = True if(int(mrzLastnamePercent) >= 75) else False
@@ -656,7 +656,7 @@ def validationType3():
 
       test.append(avaibleCode['value'])
 
-    if(avaibleCode['key'] == 'barcode'):
+    if avaibleCode and 'key' in avaibleCode and avaibleCode['key'] == 'barcode':
       checkValuesDict['barcode'] = avaibleCode['value']
       test.append(avaibleCode['value'])
 
@@ -672,9 +672,6 @@ def validationType3():
 
       test.append(False)
 
-
-
-
   ocrNameCheck = True if(int(ocrNombre) >= 50) else False
   checkValuesDict['ocr_name'] = ocrNameCheck
   ocrLastNameCheck = True if(int(ocrApellido) >= 50) else False
@@ -684,7 +681,7 @@ def validationType3():
 
   ocrTotal = int(ocrNombre) + int(ocrApellido) + int(ocrDocumento)
   average = ocrTotal / 3
-  ocrAverageCheck = True if(int(average) >= 75) else False
+  ocrAverageCheck = True if(int(average) >= 55) else False
   test.append(ocrAverageCheck)
   checkValuesDict['ocr_average'] = ocrAverageCheck
 
@@ -781,7 +778,7 @@ def validationType3():
     'documento': documento,
     'tipo': tipoDocumento,
     'parametrosValidacion': checkValuesJSON,
-    'enlaceFirma': f'https://desarrollo.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
+    'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
   })
 
   return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
@@ -1128,7 +1125,7 @@ def standoleValidation():
     'idUsuario': int(idUsuario),
     'idValidacion': documentoUsuarioId,
     'parametrosValidacion': checkValuesJSON,
-    'enlaceValidacion': f'https://desarrollo.e-custodia.com/resultado_validacion?hash={userHash}'
+    'enlaceValidacion': f'https://honducert.firma.e-custodia.com/resultado_validacion?hash={userHash}'
   })
 
   return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
