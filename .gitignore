@@ -3,7 +3,6 @@ virtual_env/
 __pycache__/
 entorno/
 evidencias-vida/
-models/
 logs/
 
 #archivos
