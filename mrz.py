@@ -10,8 +10,10 @@ from utilidades import extraerPorcentaje
 import io
 from PIL import ImageFilter, Image
 import cv2
+import os
 
-tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+if os.name == 'nt':
+  tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 documentMRZ = {
   "COL": {
