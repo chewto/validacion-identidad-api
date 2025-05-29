@@ -28,7 +28,7 @@ jobs:
             docker compose up -d --build
 
   deploy-testing:
-    if: github.ref == 'refs/heads/testing'
+    if: github.event.ref == 'refs/heads/testing'
     runs-on: ubuntu-latest
     environment: HONDUCERT_TESTING_PROD         # entorno de pruebas (o staging)
     steps:
