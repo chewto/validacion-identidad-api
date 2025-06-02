@@ -1,4 +1,3 @@
-import face_recognition
 import cv2
 from utilidades import cv2Blob
 from PIL import Image
@@ -190,61 +189,6 @@ def movementDetection(rostroReferencia, rostros):
         return 'OK'
     else:
         return '!OK'
-
-def pruebaVida(imagenBase, imagenComparacion):
-   
-    imagenBaseEncode = face_recognition.face_encodings(imagenBase)
-    if len(imagenBaseEncode) ==0:
-        return False, 0
-    else:
-        imagenBaseEncode = imagenBaseEncode[0]
-
-    imagenComparacionEncode = face_recognition.face_encodings(imagenComparacion)
-    if len(imagenComparacionEncode) == 0:
-        return False, 0
-    else:
-        imagenComparacionEncode = imagenComparacionEncode[0]
-
-    comparacion = face_recognition.compare_faces([imagenBaseEncode], imagenComparacionEncode)
-
-    comparacion = comparacion[0]
-
-    if comparacion:
-        return comparacion, 12.5
-    else:
-        return comparacion, 0
-
-def reconocimiento(imgPersona, imgDocumento):
-
-    if(len(imgPersona) <= 0 or len(imgDocumento) <= 0):
-        return False
-
-    reconocimientos = []
-
-    for selfie in imgPersona:
-        for documento in imgDocumento:
-            comparacion = face_recognition.compare_faces([selfie], documento)
-            similitud = comparacion[0]
-
-            reconocimientos.append(similitud)
-
-    coincidencias = any(reconocimientos)
-
-    return coincidencias
-
-def obtencionEncodings(encodings: list):
-
-    carasValidas = []
-
-    if(len(encodings) <= 0):
-        return []
-
-    for cara in encodings:
-        testEncodings = face_recognition.face_encodings(cara)
-        if(len(testEncodings) >= 1):
-            carasValidas.append(testEncodings[0])
-
-    return carasValidas
 
 def orientacionImagen(imagen):
 

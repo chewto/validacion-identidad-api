@@ -5,7 +5,7 @@ import base64
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
 import requests
-# from blueprints.test_bp import test_bp
+from blueprints.test_bp import test_bp
 from blueprints.document_bp import document_bp
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
@@ -35,7 +35,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-MODEL_PATH = 'models/modelov11-medium.pt'             # tu modelo YOLO entrenado
+MODEL_PATH = 'models/modelo-large.pt'             # tu modelo YOLO entrenado
 OCR_LANGS = ['es', 'en']                              # idiomas OCR
 CONF_THRESHOLD = 0.3                                  # umbral de confianza YOLO
 CLASS_NAMES = ['dni_anverso','nombre','apellido','numero_documento',
@@ -51,7 +51,7 @@ app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
 app.register_blueprint(document_bp)
-# app.register_blueprint(test_bp)
+app.register_blueprint(test_bp)
 
 
 # Cargar modelos

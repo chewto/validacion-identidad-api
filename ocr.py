@@ -2,6 +2,7 @@ from PIL import Image
 from io import BytesIO
 import easyocr
 import imutils
+from paddleocr import PaddleOCR
 import pytesseract as tess
 import base64
 import cv2
@@ -165,7 +166,7 @@ def adjustBrightness(image_array):
     
     return adjusted_image.astype(np.uint8), current_brightness, np.mean(adjusted_image), adjustment_factor
 
-reader = easyocr.Reader(['es'])
+# reader = easyocr.Reader(['es'])
 
 
 def preprocessing(img, resolution, filters):
@@ -199,18 +200,17 @@ def preprocessing(img, resolution, filters):
 
 def ocr(img):
 
-        lineas = []
-        
-        total_confidence = 0
-        result = reader.readtext(img)
-        for (bbox, text, prob) in result:
-            upperCase = text.upper()
-            lineas.append(upperCase)
-            total_confidence += prob
+    lines = []
 
-        average_confidence = total_confidence / len(result) if result else 0
+    readerPaddle = PaddleOCR(use_angle_cls=True, lang='es')
 
-        return result, lineas
+    results = readerPaddle.predict(img)
+    for line in results:
+        texts = line['rec_texts']
+        for text in texts:
+            lines.append(text)
+
+    return [''], lines
 
 
 def validateDocumentType(documentType, documentSide, ocr, detectionData):

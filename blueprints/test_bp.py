@@ -1,9 +1,11 @@
-from flask import Blueprint, Flask, render_template_string, request
+from flask import Blueprint, Flask, render_template_string, request, jsonify
 from PIL import Image
 import io, time, base64
 import cv2
 import numpy as np
 import easyocr
+from paddleocr import PaddleOCR
+import utilidades
 
 test_bp = Blueprint('test', __name__, url_prefix='/test')
 
@@ -97,6 +99,7 @@ labels = {
 
 reader = easyocr.Reader(['es'], gpu=False)
 
+
 def pil_to_base64(img: Image.Image) -> str:
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -162,10 +165,16 @@ def index():
 
         # OCR (detail=0, parámetros de contraste por defecto)
         
+
+
         ocr_start = time.time()
         results = reader.readtext(enc, detail=0)
         ocr_end = time.time()
 
+        
+        
+        
+        
         # Anotación (sólo conversión de espacio de color)
         ann = cv2.cvtColor(enc, cv2.COLOR_BGR2RGB)
         text_out = "\n".join(results)
@@ -214,3 +223,31 @@ def index():
         filters=filters,
         labels=labels
     )
+
+readerPaddle = PaddleOCR(use_angle_cls=True, lang='es')
+
+@test_bp.route('/ocr', methods=['POST'])
+def ocr_test():
+
+  ocr = request.args.get('ocr')
+  image = request.files.get('image')
+  matlike_image = utilidades.fileCv2(image)
+  extracted_data = []
+
+  if(ocr == 'easy'):
+    start_time = time.time()
+    results = reader.readtext(matlike_image, detail=0)
+    end_time = time.time()
+    return jsonify({"readingTime": end_time - start_time , "results": results})
+  
+  if(ocr == 'paddle'):
+    start_time = time.time()
+    results = readerPaddle.predict(matlike_image)
+    end_time = time.time()
+    for line in results:
+      texts = line['rec_texts']
+      for text in texts:
+        extracted_data.append(text)
+
+    return jsonify({"readingTime": end_time - start_time, "results": extracted_data})
+
