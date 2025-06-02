@@ -28,12 +28,12 @@ jobs:
             docker compose up -d --build
 
   deploy-testing:
-    if: github.event.ref == 'refs/heads/testing'
+    if: github.ref_name == 'testing'
     runs-on: ubuntu-latest
     environment: HONDUCERT_TESTING_PROD         # entorno de pruebas (o staging)
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Desplegar en servidor de pruebas
         uses: appleboy/ssh-action@master
