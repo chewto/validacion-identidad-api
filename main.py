@@ -1,6 +1,3 @@
-#prueba github actions
-#version 1.1
-
 import base64
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
