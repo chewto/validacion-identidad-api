@@ -327,8 +327,8 @@ def antiSpoofing():
   pathPrueba = ""
 
   if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    # pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
-    pathPrueba = f"video.{formato}"
+    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
+    # pathPrueba = f"video.{formato}"
 
     video.save(pathPrueba)
 
