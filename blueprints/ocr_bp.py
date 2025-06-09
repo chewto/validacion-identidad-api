@@ -199,6 +199,8 @@ def verificarAnverso():
     if(documentMRZ):
       mrz =  extractMRZ(documentoData)
 
+      print(mrz)
+
       if(mrz == "No se pudo detectar MRZ válido en la imagen."):
         messages.append('No se pudo detecar el código mrz del documento.')
 
@@ -333,8 +335,8 @@ def verificarReverso():
     userCountry = request.form.get('country')
     tries = request.form.get('tries')
     tries = int(tries)
-
     imagenDocumento = fileCv2(imagenDocumento)
+
 
     resolution = 600 if tries <=1 else 1080
 
@@ -439,6 +441,8 @@ def verificarReverso():
       lastNamehasK = apellido.find("k")
 
       mrz =  extractMRZ(imagenDocumento)
+
+      print(mrz)
 
       # if(nameHasK == -1 or lastNamehasK == -1):
       #   mrz = mrz['raw_text'].replace('K', ' ')
