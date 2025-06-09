@@ -135,7 +135,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
   cv2.imwrite(imagePath, photo)
 
-  exe = '../BarcodeReaderCLI/bin/BarcodeReaderCLI'
+  exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
   args = []
   args.append(exe)
