@@ -41,36 +41,37 @@ messages = {
 def verificarAnverso():
 
     confidenceValue = 0.6
+    is_testing = request.args.get('testing', 'false').lower() == 'true'
 
-    # reqBody = request.get_json()
-
-    # efirmaId = reqBody['id']
-    # imagenPersona = reqBody['imagenPersona']
-    # imagenDocumento = reqBody['imagen']
-    # ladoDocumento = reqBody['ladoDocumento']
-    # tipoDocumento = reqBody['tipoDocumento']
-    # nombre = reqBody['nombre']
-    # apellido = reqBody['apellido']
-    # numeroDocumento = reqBody['documento']
-    # userCountry = reqBody['country']
-    # tries = reqBody['tries']
-    # personaData = readDataURL(imagenPersona)
-    # documentoData = readDataURL(imagenDocumento)
-
-    efirmaId = request.form.get('id')
-    imagenPersona = request.files.get('imagenPersona')
-    imagenDocumento = request.files.get('imagen')
-    ladoDocumento = request.form.get('ladoDocumento')
-    tipoDocumento = request.form.get('tipoDocumento')
-    nombre = request.form.get('nombre')
-    apellido = request.form.get('apellido')
-    numeroDocumento = request.form.get('documento')
-    userCountry = request.form.get('country')
-    tries = request.form.get('tries')
-    tries = int(tries)
-
-    personaData = fileCv2(imagenPersona)
-    documentoData = fileCv2(imagenDocumento)
+    if is_testing:
+      efirmaId = request.form.get('id')
+      imagenPersona = request.files.get('imagenPersona')
+      imagenDocumento = request.files.get('imagen')
+      ladoDocumento = request.form.get('ladoDocumento')
+      tipoDocumento = request.form.get('tipoDocumento')
+      nombre = request.form.get('nombre')
+      apellido = request.form.get('apellido')
+      numeroDocumento = request.form.get('documento')
+      userCountry = request.form.get('country')
+      tries = request.form.get('tries')
+      tries = int(tries)
+      personaData = fileCv2(imagenPersona)
+      documentoData = fileCv2(imagenDocumento)
+    else:
+      reqBody = request.get_json()
+      efirmaId = reqBody.get('id')
+      imagenPersona = reqBody.get('imagenPersona')
+      imagenDocumento = reqBody.get('imagen')
+      ladoDocumento = reqBody.get('ladoDocumento')
+      tipoDocumento = reqBody.get('tipoDocumento')
+      nombre = reqBody.get('nombre')
+      apellido = reqBody.get('apellido')
+      numeroDocumento = reqBody.get('documento')
+      userCountry = reqBody.get('country')
+      tries = reqBody.get('tries')
+      tries = int(tries)
+      personaData = readDataURL(imagenPersona)
+      documentoData = readDataURL(imagenDocumento)
 
     resolution = 600 if tries <=1 else 1080
 
@@ -309,33 +310,35 @@ def verificarReverso():
     
     messages = []
 
-    # reqBody = request.get_json()
+    is_testing = request.args.get('testing', 'false').lower() == 'true'
 
-    # efirmaId = reqBody['id']
-    # imagenDocumento = reqBody['imagen']
-    # ladoDocumento = reqBody['ladoDocumento']
-    # tipoDocumento = reqBody['tipoDocumento']
-    # nombre = reqBody['nombre']
-    # apellido = reqBody['apellido']
-    # numeroDocumento = reqBody['documento']
-    # imagenDocumento = readDataURL(imagenDocumento)
-    # userCountry = reqBody['country']
-    # tries = reqBody['tries']
-
-    # print(nombre, apellido)
-
-    efirmaId = request.form.get('id')
-    imagenPersona = request.files.get('imagenPersona')
-    imagenDocumento = request.files.get('imagen')
-    ladoDocumento = request.form.get('ladoDocumento')
-    tipoDocumento = request.form.get('tipoDocumento')
-    nombre = request.form.get('nombre')
-    apellido = request.form.get('apellido')
-    numeroDocumento = request.form.get('documento')
-    userCountry = request.form.get('country')
-    tries = request.form.get('tries')
-    tries = int(tries)
-    imagenDocumento = fileCv2(imagenDocumento)
+    if is_testing:
+      efirmaId = request.form.get('id')
+      imagenPersona = request.files.get('imagenPersona')
+      imagenDocumento = request.files.get('imagen')
+      ladoDocumento = request.form.get('ladoDocumento')
+      tipoDocumento = request.form.get('tipoDocumento')
+      nombre = request.form.get('nombre')
+      apellido = request.form.get('apellido')
+      numeroDocumento = request.form.get('documento')
+      userCountry = request.form.get('country')
+      tries = request.form.get('tries')
+      tries = int(tries)
+      imagenDocumento = fileCv2(imagenDocumento)
+    else:
+      reqBody = request.get_json()
+      efirmaId = reqBody.get('id')
+      imagenPersona = None  # Not used in non-testing
+      imagenDocumento = reqBody.get('imagen')
+      ladoDocumento = reqBody.get('ladoDocumento')
+      tipoDocumento = reqBody.get('tipoDocumento')
+      nombre = reqBody.get('nombre')
+      apellido = reqBody.get('apellido')
+      numeroDocumento = reqBody.get('documento')
+      userCountry = reqBody.get('country')
+      tries = reqBody.get('tries')
+      tries = int(tries)
+      imagenDocumento = readDataURL(imagenDocumento)
 
 
     resolution = 600 if tries <=1 else 1080
