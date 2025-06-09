@@ -279,26 +279,21 @@ def mrzInfo(mrz, searchTerm):
 
 #   return joinedFounds
 
-def comparisonMRZInfo(termList, comparisonTerm):
-  """
-  Compares a list of terms against a comparison term using extraerPorcentaje,
-  returning the term with the highest percentage match and the list of all percentages.
+def comparisonMRZInfo(termList:list, comparisonTerm:str, type:str):
+  
+  if(type == 'name'):
+    comparisonLen = len(comparisonTerm.split(" "))
+    comparisonTerm = comparisonTerm.split(" ")[0] if comparisonLen >= 2 else comparisonTerm
 
-  Args:
-    termList (list): List of terms to compare.
-    comparisonTerm (str): The term to compare against.
 
-  Returns:
-    dict: {
-      'best_match': {'percent': float, 'data': str},
-      'all_matches': [{'percent': float, 'data': str}, ...]
-    }
-  """
   if not termList or not comparisonTerm:
     return  {'percent': 0, 'data': ''}
 
   percentages = []
   for term in termList:
+    if(type == 'name'):
+      termLen = len(term.split(" "))
+      term = term.split(" ")[0] if termLen >= 2 else term
     percent = extraerPorcentaje(comparisonTerm, term)
     percentages.append({'percent': percent, 'data': term})
 

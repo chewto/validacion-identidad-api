@@ -207,8 +207,8 @@ def verificarAnverso():
       extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
       extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
-      nameMRZ = comparisonMRZInfo([extractName], nombre)
-      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
+      nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
+      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
 
       # resultsDict['document']['isExpired'] = False
 
@@ -456,8 +456,8 @@ def verificarReverso():
       # extractName = mrz['names'] if 'names' in mrz else ''
       # extractLastname = mrz['surname'] if 'surname' in mrz else ''
 
-      nameMRZ = comparisonMRZInfo([extractName], nombre)
-      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido)
+      nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
+      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
 
       # resultsDict['document']['isExpired'] = False
 
