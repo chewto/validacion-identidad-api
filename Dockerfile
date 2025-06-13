@@ -1,8 +1,8 @@
-FROM python:3.10.14-bookworm
+FROM python:3.11-slim-bookworm
 
 # RUN apt update && apt install ffmpeg libsm6 libxext6 -y
 
-RUN apt update && apt install -y python3-opencv libgl1 libopencv-dev python3-pil tesseract-ocr ffmpeg cmake
+RUN apt update && apt install -y python3-opencv libgl1 libopencv-dev python3-pil tesseract-ocr ffmpeg cmake libmariadb-dev-compat libmariadb-dev
 
 WORKDIR /usr/src/app
 
