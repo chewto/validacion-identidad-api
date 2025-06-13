@@ -297,49 +297,49 @@ carpetaPruebaVida = "./evidencias-vida"
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
   
-  id = request.args.get("id")
+  path = request.args.get("path")
 
-  formato = "webm"
+  # formato = "webm"
 
-  video = request.files.get("video")
+  # video = request.files.get("video")
 
-  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
+  # usuarioId, entidadId = controlador_db.obtenerEntidad(id)
 
-  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
+  # pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
 
-  pathUsuario = f"{pathEntidad}/{usuarioId}"
+  # pathUsuario = f"{pathEntidad}/{usuarioId}"
 
-  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
+  # existenciaCarpetaEntidad = os.path.exists(pathEntidad)
 
-  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
+  # existenciaCarpetaUsuario = os.path.exists(pathUsuario)
 
-  creadoEntidad = False
-  creadoUsuario = False
+  # creadoEntidad = False
+  # creadoUsuario = False
 
-  if(not existenciaCarpetaEntidad):
-    os.mkdir(pathEntidad)
-    creadoEntidad = True
+  # if(not existenciaCarpetaEntidad):
+  #   os.mkdir(pathEntidad)
+  #   creadoEntidad = True
 
-  if(not existenciaCarpetaUsuario):
-    os.mkdir(pathUsuario)
-    creadoUsuario = True
+  # if(not existenciaCarpetaUsuario):
+  #   os.mkdir(pathUsuario)
+  #   creadoUsuario = True
 
-  pathPrueba = ""
+  # pathPrueba = ""
 
-  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
-    # pathPrueba = f"video.{formato}"
+  # if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
+  #   pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
+  #   # pathPrueba = f"video.{formato}"
 
-    video.save(pathPrueba)
+  #   video.save(pathPrueba)
 
   messages = []
 
-  frames = getFrames(pathPrueba)
+  frames = getFrames(path)
 
   photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
-  if(len(photoDataURL) <= 0):
-    return jsonify({'messages': ['intentelo de nuevo']}), 201
+  # if(len(photoDataURL) <= 0):
+  #   return jsonify({'messages': ['intentelo de nuevo']}), 201
 
   photoAccess = readDataURL(photoDataURL)
 
@@ -356,7 +356,7 @@ def antiSpoofing():
   if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
     messages.append('Por favor, tome la foto de un rostro real.')
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
+  return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
 
 
 @app.route('/get-media', methods=['GET'])
