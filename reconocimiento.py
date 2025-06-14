@@ -101,12 +101,16 @@ def verifyFaces(imageArray1, imageArray2):
 
 
 def getFrames(video_path):
+    import os
     dataURL = ""
     framesCapturados = []
+    if not os.path.isfile(video_path):
+        print(f"Error: File does not exist {video_path}")
+        return "path invalido"
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Error: Cannot open video file {video_path}")
-        return framesCapturados
+        return "no hay"
     contadorFrames = 0
     while cap.isOpened():
         ret, frame = cap.read()

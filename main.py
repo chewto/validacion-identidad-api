@@ -292,12 +292,14 @@ def obtenerFirmador(id):
     }
 })
 
-carpetaPruebaVida = "./evidencias-vida"
+videos = "/root/fe-honducert-desarrollo"
 
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
   
   path = request.args.get("path")
+
+  videoPath = f"{videos}{path}"
 
   # formato = "webm"
 
@@ -334,7 +336,13 @@ def antiSpoofing():
 
   messages = []
 
-  frames = getFrames(path)
+  frames = getFrames(videoPath)
+
+  if(frames == 'no hay'):
+    return 'no se pudo abrir el video'
+  
+  if(frames == 'path invalido'):
+    return 'path invalido'
 
   photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
