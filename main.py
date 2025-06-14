@@ -292,14 +292,10 @@ def obtenerFirmador(id):
     }
 })
 
-videos = "/root/fe-honducert-desarrollo"
-
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
   
   path = request.args.get("path")
-
-  videoPath = f"{videos}{path}"
 
   # formato = "webm"
 
@@ -336,7 +332,7 @@ def antiSpoofing():
 
   messages = []
 
-  frames = getFrames(videoPath)
+  frames = getFrames(path)
 
   if(frames == 'no hay'):
     return 'no se pudo abrir el video'

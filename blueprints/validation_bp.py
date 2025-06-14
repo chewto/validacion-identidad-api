@@ -57,9 +57,9 @@ def checkValidation():
 
     checkVal = controlador_db.checkValidation(f"""
     SELECT ev.id, ev.estado_verificacion 
-FROM documento_usuario AS doc
-INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
-INNER JOIN parametros_validacion AS params ON params.parametros_hash = doc.id_usuario
+FROM pki_validacion.documento_usuario AS doc
+INNER JOIN pki_validacion.evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
+INNER JOIN pki_validacion.parametros_validacion AS params ON params.parametros_hash = doc.id_usuario
 WHERE params.parametros_hash = '{userHash}'
 ORDER BY ev.id DESC
 LIMIT 1;
@@ -68,11 +68,12 @@ LIMIT 1;
     return jsonify({'results':checkVal})
 
   checkVal = controlador_db.checkValidation(f"""SELECT ev.id, ev.estado_verificacion 
-    FROM documento_usuario AS doc
-    INNER JOIN evidencias_adicionales ev ON doc.id_evidencias_adicionales = ev.id
-    WHERE id_usuario_efirma = {userSignId}
+    FROM pki_validacion.documento_usuario AS doc
+    INNER JOIN pki_validacion.evidencias_adicionales AS ev ON doc.id_evidencias_adicionales = ev.id
+    WHERE doc.id_usuario_efirma = {userSignId}
     ORDER BY ev.id DESC
     LIMIT 1;""")
+
 
   return jsonify({"results": checkVal})
 
