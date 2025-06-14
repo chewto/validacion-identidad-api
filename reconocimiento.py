@@ -104,6 +104,9 @@ def getFrames(video_path):
     dataURL = ""
     framesCapturados = []
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"Error: Cannot open video file {video_path}")
+        return framesCapturados
     contadorFrames = 0
     while cap.isOpened():
         ret, frame = cap.read()
@@ -112,10 +115,12 @@ def getFrames(video_path):
         if contadorFrames % 10 == 0:
             # frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             framesCapturados.append(frame)
+            print(f"Captured frame {contadorFrames}")
 
         contadorFrames += 1
 
     cap.release()
+    print(f"Total frames captured: {len(framesCapturados)}")
     return framesCapturados
 
 def faceDetection(frames):
