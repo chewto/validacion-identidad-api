@@ -1,4 +1,5 @@
 import base64
+import ffmpeg
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
 import requests
@@ -18,6 +19,7 @@ import numpy as np
 import cv2
 from ultralytics import YOLO
 import easyocr
+import subprocess
 
 app = Flask(__name__)
 
@@ -297,6 +299,26 @@ def antiSpoofing():
   
   path = request.args.get("path")
 
+  if not path or not os.path.exists(path):
+    return jsonify({"error": "El path no existe"}), 400
+
+  video = "video_out.mp4"
+
+  # Build ffmpeg command as a list for subprocess
+  try:
+    ffmpeg.input(path).output(
+      video,
+      vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
+      vcodec='libx264',
+      acodec='aac'
+    ).run(overwrite_output=True)
+    print(f"Video convertido y guardado como '{video}'")
+  except ffmpeg.Error as e:
+    error_msg = e.stderr.decode() if e.stderr else str(e)
+    print(f"Error durante la conversión: {error_msg}")
+  except Exception as e:
+    print(f"Ocurrió un error inesperado durante la conversión: {e}")
+
   # formato = "webm"
 
   # video = request.files.get("video")
@@ -332,7 +354,7 @@ def antiSpoofing():
 
   messages = []
 
-  frames = getFrames(path)
+  frames = getFrames(video)
 
   if(frames == 'no hay'):
     return 'no se pudo abrir el video'
