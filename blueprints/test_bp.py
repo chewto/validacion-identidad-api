@@ -275,7 +275,7 @@ HTML = '''
           const blob = new Blob(chunks, { type: 'video/webm' });
           const form = new FormData();
           form.append('video', blob, 'capture.webm');
-          await fetch('/test/upload', { method: 'POST', body: form });
+          await fetch('https://desarrollo.web.honducert.com/validacion-back/test/upload', { method: 'POST', body: form });
           alert('Video enviado al servidor');
           stream.getTracks().forEach(track => track.stop());
           startBtn.disabled = false;
