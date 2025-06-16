@@ -1,4 +1,6 @@
-from flask import Blueprint, Flask, render_template_string, request
+from datetime import datetime
+import os
+from flask import Blueprint, Flask, jsonify, render_template_string, request
 from PIL import Image
 import io, time, base64
 import cv2
@@ -214,3 +216,103 @@ def index():
         filters=filters,
         labels=labels
     )
+
+
+HTML = '''
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captura de Video 4s</title>
+  <link rel="icon" href="data:,">
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    video { border: 1px solid #ccc; margin-top: 10px; }
+    button { padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Capturar 4 segundos de video</h2>
+  <button id="startBtn" disabled>Iniciar grabación</button>
+  <div>
+    <video id="preview" width="320" height="240" autoplay muted playsinline></video>
+  </div>
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const videoElem = document.getElementById('preview');
+    let permissionGranted = false;
+
+    // Pre-request permission on load
+    async function initPermission() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // Immediately stop tracks to free camera
+        stream.getTracks().forEach(track => track.stop());
+        permissionGranted = true;
+        startBtn.disabled = false;
+      } catch (err) {
+        console.error('Permiso inicial denegado:', err);
+        alert('No se pudieron solicitar permisos de cámara/micrófono automáticamente. Usa el botón para intentar de nuevo.');
+        startBtn.disabled = false;
+      }
+    }
+
+    async function startCapture() {
+      if (!permissionGranted) {
+        // Try to request again in case first init failed
+        await initPermission();
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoElem.srcObject = stream;
+        const recorder = new MediaRecorder(stream);
+        let chunks = [];
+
+        recorder.ondataavailable = event => chunks.push(event.data);
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const form = new FormData();
+          form.append('video', blob, 'capture.webm');
+          await fetch('/test/upload', { method: 'POST', body: form });
+          alert('Video enviado al servidor');
+          stream.getTracks().forEach(track => track.stop());
+          startBtn.disabled = false;
+          startBtn.textContent = 'Iniciar grabación';
+        };
+
+        startBtn.disabled = true;
+        startBtn.textContent = 'Grabando...';
+        recorder.start();
+        setTimeout(() => recorder.stop(), 4000);
+      } catch (err) {
+        console.error('Error accediendo a la cámara', err);
+        alert(`Error al acceder a la cámara: ${err.message}`);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Iniciar grabación';
+      }
+    }
+
+    startBtn.addEventListener('click', startCapture);
+    window.addEventListener('load', initPermission);
+  </script>
+</body>
+</html>
+'''
+
+out_folder = os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(out_folder, exist_ok=True)
+
+@test_bp.route('/camara')
+def wh():
+    return render_template_string(HTML)
+
+@test_bp.route('/upload', methods=['POST'])
+def upload():
+    file = request.files.get('video')
+    if not file:
+        return jsonify({'error': 'No se recibió video'}), 400
+    filename = datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + file.filename
+    file.save(f'./videos/{filename}')
+    return jsonify({'status': 'guardado', 'filename': filename})
