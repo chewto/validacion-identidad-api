@@ -737,7 +737,7 @@ def validationType3():
 
   #tabla evidencias 
   columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
-  tablaEvidencias = 'evidencias_usuario'
+  tablaEvidencias = 'pki_validacion.evidencias_usuario'
   valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
   idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
@@ -745,13 +745,13 @@ def validationType3():
 
   # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso')
-  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  tablaEvidenciasAdicionales = 'pki_validacion.evidencias_adicionales'
   valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries)
   # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
-  tablaDocumento = 'documento_usuario'
+  tablaDocumento = 'pki_validacion.documento_usuario'
   valoresDocumento = (nombres, apellidos, documento, tipoDocumento, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUsuario)
   documentoUsuarioId = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 
@@ -1195,19 +1195,19 @@ def rejectedValidation():
 
   #tabla evidencias 
   columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
-  tablaEvidencias = 'evidencias_usuario'
+  tablaEvidencias = 'pki_validacion.evidencias_usuario'
   valoresEvidencias = (anverse, reverse, selfie, '', '')
   idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
   #tabla evidencias adicionales
 
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras')
-  tablaEvidenciasAdicionales = 'evidencias_adicionales'
+  tablaEvidenciasAdicionales = 'pki_validacion.evidencias_adicionales'
   valoresEvidenciasAdicionales = (state, device, browser, publicIp, privateIp, latitude, longitude, hour,date, percentageOCR['name'], percentageOCR['lastName'],percentageOCR['ID'] , dataOCR['name'], dataOCR['lastName'], dataOCR['ID'],  movement, idFolderEntity, idFolderUser ,'eFirma', '', '')
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
-  tablaDocumento = 'documento_usuario'
+  tablaDocumento = 'pki_validacion.documento_usuario'
   valoresDocumento = (name, lastName, documentID, documentType, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUser)
   documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
 

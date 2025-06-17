@@ -30,7 +30,7 @@ CORS(app, resources={
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
