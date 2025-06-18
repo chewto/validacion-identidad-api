@@ -36,3 +36,5 @@
 2025-06-17 10:47:30.676745 | No database selected
 2025-06-17 10:47:31.256948 | No database selected
 2025-06-17 10:47:31.829922 | No database selected
+2025-06-18 15:41:15.612718 | Incorrect integer value: 'tries' for column `pki_validacion`.`evidencias_adicionales`.`intentos_anverso` at row 1
+2025-06-18 15:44:42.454867 | Incorrect integer value: 'tries' for column `pki_validacion`.`evidencias_adicionales`.`intentos_anverso` at row 1

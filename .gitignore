@@ -5,8 +5,9 @@ entorno/
 evidencias-vida/
 logs/
 BarcodeReaderCLI/
+videos/
 
-
+video_out.mp4
 #archivos
 prueba.py
 dlib_face_recognition_resnet_model_v1.dat

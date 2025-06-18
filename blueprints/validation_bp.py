@@ -376,92 +376,147 @@ def getLivenessTest():
   return jsonify({'validacionVida':livenessTest})
 
 
+@validation_bp.route('/test', methods=['POST'])
+def test():
+
+  length = request.headers.get('Content-Length')
+
+  print(f"peso del contenido: {length}")
+
+  return ''
+
 @validation_bp.route('/type-3', methods=['POST'])
-def validationType3():
+def validate():
+
+  length = request.headers.get('Content-Length')
+
+  print(f"peso del contenido: {length}")
+
+  reqBody = request.get_json()
+
   idUsuario = request.args.get('idUsuario')
   idUsuario = int(idUsuario)
   tipo = request.args.get('tipo')
 
-  idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
-  idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
-  movimiento = request.form.get('movement_test')
+  info = reqBody['info']
+  signer = reqBody['signInfo']
+  livesnessT = reqBody['livenessTest']
+  params = reqBody['params']
+  documentValidation = reqBody['documentValidation']
 
-  #documento usuario
-  nombres = request.form.get('nombres')
-  apellidos = request.form.get('apellidos')
-  email = request.form.get('email')
-  tipoDocumento = request.form.get('tipo_documento')
-  documento = request.form.get('numero_documento')
+  # nombres = info['']
+  # apellidos = request.form.get('apellidos')
+  # email = request.form.get('email')
+  # documento = request.form.get('numero_documento')
 
-  #evidencias adicionales
-  ipPrivada = controlador_db.obtenerIpPrivada()
-  ipPublica = request.form.get('ip')
 
-  dispositivo = request.form.get('dispositivo')
-  navegador = request.form.get('navegador')
-  latitud = request.form.get('latitud')
-  longitud = request.form.get('longitud')
-  hora = request.form.get('hora')
-  fecha = request.form.get('fecha')
+  nombres = signer['nombre']
+  apellidos = signer['apellido']
+  documento = signer['documento']
+  email = signer['correo']
+  country = signer['pais']
 
-  #evidencias usuario
-  fotoPersona = request.form.get('foto_persona')
-  anverso = request.form.get('anverso')
-  reverso = request.form.get('reverso')
 
-  frontCode = request.form.get('front_code')
-  frontCountry = request.form.get('front_country')
-  frontCountryCheck = request.form.get('front_country_check')
-  frontType = request.form.get('front_type')
-  frontTypeCheck = request.form.get('front_type_check')
-  frontIsExpired = request.form.get('front_isExpired')
-  frontTries = request.form.get('front_tries')
-  frontTries = int(frontTries) if frontTries is not None else None
+  tipoDocumento = info['tipoDocumento']
+  fotoPersona = info['foto_persona']
+  anverso = info['anverso']
+  reverso = info['reverso']
+  dispositivo = info['dispositivo']
+  navegador = info['navegador']
+  ipPublica = info['ip']
+  latitud = info['latitud']
+  longitud = info['longitud']
+  hora = info['hora']
+  fecha = info['fecha']
 
-  backCode = request.form.get('back_code')
-  backCountry = request.form.get('back_country')
-  backCountryCheck = request.form.get('back_country_check')
-  backType = request.form.get('back_type')
-  backTypeCheck = request.form.get('back_type_check')
-  backIsExpired = request.form.get('back_isExpired')
-  backTries = request.form.get('back_tries')
-  backTries = int(backTries) if backTries is not None else None
+  idCarpetaEntidad = 0
+  idCarpetaUsuario = 0
+  movementTest = livesnessT['movimiento']
+  videoHash =  livesnessT['videoHash']
 
-  movementTest = request.form.get('movement_test')
-
-  #validacion del ocr
-  ocrNombre = request.form.get('porcentaje_nombre_ocr')
-  ocrApellido = request.form.get('porcentaje_apellido_ocr')
-  ocrDocumento = request.form.get('porcentaje_documento_ocr')
-
-  dataOCRNombre = request.form.get('nombre_ocr')
-  dataOCRApellido = request.form.get('apellido_ocr')
-  dataOCRDocumento = request.form.get('documento_ocr')
-
-  mrz = request.form.get('mrz')
-  mrzName = request.form.get('mrz_name')
-  mrzLastname = request.form.get('mrz_lastname')
-  mrzNamePercent = request.form.get('mrz_name_percent')
-  mrzLastnamePercent = request.form.get('mrz_lastname_percent')
-
-  barcode = request.form.get('codigo_barras')
-
-  validationAttendance = request.form.get('validation_attendance')
-  validationPercent = request.form.get('validation_percent')
+  validationAttendance = params['validationAttendance']
+  validationPercent = params['validationPercent']
   validationPercent = int(validationPercent)
 
-  videoHash =  request.form.get('video_hash')
 
-  failed = request.form.get('failed')
-  failedBack = request.form.get('failed_back')
-  failedFront = request.form.get('failed_front')
+  # #evidencias adicionales
+  ipPrivada = controlador_db.obtenerIpPrivada()
 
-  face = request.form.get('face')
-  confidenceValue = request.form.get('confidence')
+  front = documentValidation['sides']['front']
+
+
+  frontCode = front['code']
+  frontCountry = front['country']
+  frontCountryCheck = front['countryCheck']
+  frontType = front['type']
+  frontTypeCheck = front['typeCheck']
+  frontIsExpired = front['isExpired']
+  frontTries = front['tries']
+  # frontTries = int(frontTries) if frontTries is not None else None
+
+  back = documentValidation['sides']['back']
+
+  backCode = back['code']
+  backCountry = back['country']
+  backCountryCheck = back['countryCheck']
+  backType = back['type']
+  backTypeCheck = back['typeCheck']
+  # backIsExpired = request.form.get('back_isExpired')
+  backTries = back['tries']
+  # backTries = int(backTries) if backTries is not None else None
+
+
+  ocr = documentValidation['ocr']
+
+  dataOcr = ocr['data']
+  percentagesOcr = ocr['percentage']
+
+  dataOCRNombre = dataOcr['name']
+  dataOCRApellido = dataOcr['lastName']
+  dataOCRDocumento = dataOcr['ID']
+
+  ocrNombre = percentagesOcr['name']
+  ocrApellido = percentagesOcr['lastName']
+  ocrDocumento = percentagesOcr['ID']
+
+  # #validacion del ocr
+  # ocrNombre = request.form.get('porcentaje_nombre_ocr')
+  # ocrApellido = request.form.get('porcentaje_apellido_ocr')
+  # ocrDocumento = request.form.get('porcentaje_documento_ocr')
+
+  # dataOCRNombre = request.form.get('nombre_ocr')
+  # dataOCRApellido = request.form.get('apellido_ocr')
+  # dataOCRDocumento = request.form.get('documento_ocr')
+
+  mrzData = documentValidation['mrz']
+
+  mrz = mrzData['code']
+  dataMrz = mrzData['data']
+  percentagesMrz = mrzData['percentages']
+
+  mrzName = dataMrz['name']
+  mrzLastname = dataMrz['lastName']
+
+  mrzNamePercent = percentagesMrz['name']
+  mrzLastnamePercent = percentagesMrz['lastName']
+
+  # mrz = request.form.get('mrz')
+  # mrzName = request.form.get('mrz_name')
+  # mrzLastname = request.form.get('mrz_lastname')
+  # mrzNamePercent = request.form.get('mrz_name_percent')
+  # mrzLastnamePercent = request.form.get('mrz_lastname_percent')
+
+  # barcode = request.form.get('codigo_barras')
+
+  barcode = documentValidation['barcode']
+
+  # failed = request.form.get('failed')
+  # failedBack = request.form.get('failed_back')
+  # failedFront = request.form.get('failed_front')
+
+  face = documentValidation['face']
+  confidenceValue = documentValidation['confidence']
   confidenceValue = float(confidenceValue)
-  # landmarks = request.form.get('landmarks')
-
-  country = request.form.get('country')
 
   countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
@@ -555,7 +610,7 @@ def validationType3():
 
 
 
-  if(tipoDocumento != 'Pasaporte'):
+  if(tipoDocumento != 'PASAPORTE'):
 
     bCountryCheck = True if(backCountryCheck == 'OK') else False
     checkValuesDict['back_country'] = bCountryCheck
@@ -718,14 +773,14 @@ def validationType3():
   if(not final and validationAttendance == 'AUTOMATICA'):
     resultState = 'validación fallida'
   
-  if(failed == 'OK'):
+  # if(failed == 'OK'):
 
-    resultState = 'validación fallida'
+  #   resultState = 'validación fallida'
     
-    if(failedBack == '!OK'):
-      resultState += ' el anverso no es válido'
-    if(failedFront == '!OK'):
-      resultState += ' el reverso no es válido'
+  #   if(failedBack == '!OK'):
+  #     resultState += ' el anverso no es válido'
+  #   if(failedFront == '!OK'):
+  #     resultState += ' el reverso no es válido'
 
   checkValuesJson = json.dumps(checkValuesJSON)
 
@@ -746,7 +801,7 @@ def validationType3():
   # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
   columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso')
   tablaEvidenciasAdicionales = 'pki_validacion.evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movementTest, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries)
   # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 

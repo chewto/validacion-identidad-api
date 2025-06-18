@@ -156,7 +156,9 @@ def verificarAnverso():
     if(porcentajeDocumentoPre <= 50):
       messages.append('El número del identificación no se ha encontrado en el documento.')
 
-    image = imageToDataURL(documentoOrientado)
+
+  
+    image = imageToDataURL(preprocessedDocument)
 
     resultsDict = {
       'image': image,
@@ -379,7 +381,7 @@ def verificarReverso():
 
       print(detectedBarcodes)
 
-      rotatedImage = orientation(imagenDocumento) if detectedBarcodes == '!OK' else rotateBarcode(imagenDocumento, barcodes=barcodes)
+      rotatedImage = orientation(preprocessedDocument) if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       resultsDict['barcode'] = detectedBarcodes
       resultsDict['image'] = imageToDataURL(rotatedImage)
