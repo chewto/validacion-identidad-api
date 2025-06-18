@@ -95,11 +95,6 @@ def verifyFaces(imageArray1, imageArray2):
 
         return landmarks,0.99, False
 
-
-
-#viejos reconocimientos
-
-
 def getFrames(video_path):
     import os
     dataURL = ""
