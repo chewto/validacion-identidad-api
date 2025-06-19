@@ -540,9 +540,9 @@ def validate():
 
   faceValidation = {}
 
-  isIdentical = True if(face == 'OK') else False
+  # isIdentical = True if(face == 'OK') else False
 
-  checkValuesDict['confidence'] = isIdentical
+  checkValuesDict['confidence'] = face
 
   movementCheck = True if(movementTest == 'OK') else False
   checkValuesDict['movement'] = movementCheck
@@ -550,7 +550,7 @@ def validate():
   antiSpoof = antiSpoofingTest(selfie)
   checkValuesDict['antiSpoofing'] = antiSpoof
 
-  test = [movementCheck, antiSpoof, isIdentical]
+  test = [movementCheck, antiSpoof, face]
 
 
   faceValidation['liveness_test'] = {
@@ -561,7 +561,7 @@ def validate():
 
   faceValidation['confidence_test'] = {
     'confidence': confidenceValue,
-    'value': isIdentical
+    'value': face
   }
 
   # faceValidation['img1_data'] = {
@@ -589,9 +589,9 @@ def validate():
   checkValuesDict['front_type'] = fTypeCheck
 
 
-  fIsExpired = True if(frontIsExpired == 'OK') else False
-  checkValuesDict['front_isExpired'] = fIsExpired
-  frontCheck = all([fCountryCheck, fTypeCheck, fIsExpired])
+  # fIsExpired = True if(frontIsExpired == 'OK') else False
+  # checkValuesDict['front_isExpired'] = fIsExpired
+  frontCheck = all([fCountryCheck, fTypeCheck])
 
   checkValuesDict['front'] = frontCheck
     # frontCheck = all([fCountryCheck, fTypeCheck])
@@ -737,7 +737,7 @@ def validate():
 
   ocrTotal = int(ocrNombre) + int(ocrApellido) + int(ocrDocumento)
   average = ocrTotal / 3
-  ocrAverageCheck = True if(int(average) >= 55) else False
+  ocrAverageCheck = True if(int(average) >= 51) else False
   test.append(ocrAverageCheck)
   checkValuesDict['ocr_average'] = ocrAverageCheck
 
@@ -837,7 +837,7 @@ def validate():
     'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
   })
 
-  return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
+  return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":face, "estadoVerificacion":resultState})
 
 
 @validation_bp.route('/standalone', methods=['POST'])
