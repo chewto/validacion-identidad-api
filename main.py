@@ -169,7 +169,7 @@ def antiSpoofing():
     messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
   if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
-    messages.append('Por favor, tome la foto de un rostro real.')
+    messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
   return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
 

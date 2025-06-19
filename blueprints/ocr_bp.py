@@ -379,8 +379,6 @@ def verificarReverso():
 
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
 
-      print(detectedBarcodes)
-
       rotatedImage = orientation(preprocessedDocument) if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       resultsDict['barcode'] = detectedBarcodes
@@ -392,7 +390,8 @@ def verificarReverso():
       if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
         temp['barcode']= detectedBarcodes
 
-      if(detectedBarcodes != 'OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+
+      if(detectedBarcodes == '!OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detectar el código de barras del documento.')
     else:
       rotatedImage = orientation(imagenDocumento)
@@ -458,15 +457,9 @@ def verificarReverso():
       extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
       extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
-      # extractName = mrz['names'] if 'names' in mrz else ''
-      # extractLastname = mrz['surname'] if 'surname' in mrz else ''
 
       nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
       lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
-
-      # resultsDict['document']['isExpired'] = False
-
-      # print(mrz['raw_text'])
 
       resultsDict['mrz'] = {
         'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
@@ -486,6 +479,7 @@ def verificarReverso():
       
       if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
         temp['mrz']= {
+          'mrz': 'OK' if 'raw_text' in mrz else '!OK',
           'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
           'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
         }
@@ -545,14 +539,44 @@ def verificarReverso():
       }
 
     if(tipoDocumento == 'CEDULA DE CIUDADANIA' and documentMRZ and documentBarcode):
-      if (temp['barcode'] != None):
-        checkSide['barcode'] =temp['barcode']
-        messages.append('No se pudo detectar el código de barras del documento.')
-      if(temp['mrz'] != None):
-        messages.append('No se encontró el codigo mrz.')
+
+      print(temp)
+
+      # Si se detecta MRZ y no código de barras, solo usar MRZ
+      # Si se detecta MRZ y no código de barras, solo usar MRZ
+      if temp['mrz'] is not None and (temp['barcode'] is None or temp['barcode'] == '!OK'):
         checkSide['mrzNamePercent'] = temp['mrz']['mrzNamePercent']
         checkSide['mrzLastNamePercent'] = temp['mrz']['mrzLastNamePercent']
 
+        if temp['mrz']['mrz'] == 'OK':
+          if temp['mrz']['mrzNamePercent'] != 'OK':
+            messages.append('El nombre en el mrz no alcanzó el porcentaje minimo.')
+          if temp['mrz']['mrzLastNamePercent'] != 'OK':
+            messages.append('El apellido en el mrz no alcanzó el porcentaje minimo.')
+        else:
+          messages.append('No se pudo detectar el código de mrz del documento.')
+
+      # Si se detecta código de barras y no MRZ, solo usar código de barras
+      if temp['barcode'] is not None and (temp['mrz'] is None or temp['mrz']['mrz'] != 'OK'):
+        checkSide['barcode'] = temp['barcode']
+        if temp['barcode'] == '!OK':
+          messages.append('No se pudo detectar el código de barras del documento.')
+
+      # Si se detectan ambos, agregarlos al checkSide pero no mostrar mensajes
+      if temp['mrz'] is not None and temp['mrz']['mrz'] == 'OK' and temp['barcode'] is not None and temp['barcode'] == 'OK':
+        checkSide['mrzNamePercent'] = temp['mrz']['mrzNamePercent']
+        checkSide['mrzLastNamePercent'] = temp['mrz']['mrzLastNamePercent']
+        checkSide['barcode'] = temp['barcode']
+        # Agregar mensajes si los porcentajes de nombre o apellido son bajos
+        if temp['mrz']['mrzNamePercent'] != 'OK':
+          messages.append('El nombre en el mrz no alcanzó el porcentaje minimo.')
+        if temp['mrz']['mrzLastNamePercent'] != 'OK':
+          messages.append('El apellido en el mrz no alcanzó el porcentaje minimo.')
+
+      # Si no se detecta ninguno, agregar ambos mensajes
+      if (temp['barcode'] is None or temp['barcode'] == '!OK') and (temp['mrz'] is None or temp['mrz']['mrz'] != 'OK'):
+        messages.append('No se pudo detectar el código de barras del documento.')
+        messages.append('No se pudo detectar el código de mrz del documento.')
 
     validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
 
