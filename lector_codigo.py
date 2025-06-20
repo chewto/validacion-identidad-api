@@ -11,6 +11,48 @@ import re
 from logs import checkLogsFile, writeLogs
 from utilidades import readDataURL
 
+countries = {
+  'COL': {
+    "Amazonas": "091",
+    "Antioquia": "505",
+    "Arauca": "807",
+    "Atlántico": "808",
+    "Bogotá, D.C.": "103",
+    "Bolívar": "110",
+    "Boyacá": "152",
+    "Caldas": "172",
+    "Caquetá": "182",
+    "Casanare": "185",
+    "Cauca": "190",
+    "Cesar": "200",
+    "Chocó": "227",
+    "Córdoba": "223",
+    "Cundinamarca": "225",
+    "Guainía": "294",
+    "Guaviare": "295",
+    "Huila": "241",
+    "La Guajira": "244",
+    "Magdalena": "247",
+    "Meta": "250",
+    "Nariño": "252",
+    "Norte de Santander": "254",
+    "Putumayo": "286",
+    "Quindío": "263",
+    "Risaralda": "266",
+    "Santander": "268",
+    "San Andrés, Providencia y Santa Catalina": "288",
+    "Sucre": "270",
+    "Tolima": "273",
+    "Valle del Cauca": "276",
+    "Vaupés": "297",
+    "Vichada": "299"
+  }
+}
+
+countryKeys= {
+  'COL': 'COLOMBIA'
+}
+
 barcodes = {
   "COL": {
             "Cédula de ciudadanía": {
@@ -168,7 +210,36 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
 
   return barcodesExtracted
 
+def extractCountry(barcodes):
+  
+  print(barcodes)
 
+  for barcode in barcodes:
+    data = barcode['data']
+
+
+    try:
+      decoded_data = base64.b64decode(data).decode('utf-8', errors='ignore')
+      departmentCode = decoded_data[162:165]
+      countryCode,country, countryCheck  = searchDep(departmentCode, 'COL')
+      return countryCode,country,countryCheck
+
+    except Exception as e:
+      print(f"Error decoding barcode data: {e}")
+      return 'no detectado','no detectado', '!OK'
+
+  return 'no detectado','no detectado', '!OK'
+
+def searchDep(code, country):
+
+  depData = countries[country]
+
+  for depInfo, depCode in depData.items():
+    if(code == depCode):
+      countryKey = countryKeys[country]
+      return country, countryKey, 'OK'
+
+  return 'no detectado','no detectado', '!OK'
 
 def rotateBarcode(image, barcodes):
 
