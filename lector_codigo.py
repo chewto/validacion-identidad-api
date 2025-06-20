@@ -215,20 +215,22 @@ def extractCountry(barcodes):
   print(barcodes)
 
   for barcode in barcodes:
-    data = barcode['data']
+    if 'data' not in barcode:
+      continue
 
+    data = barcode['data']
 
     try:
       decoded_data = base64.b64decode(data).decode('utf-8', errors='ignore')
       departmentCode = decoded_data[162:165]
-      countryCode,country, countryCheck  = searchDep(departmentCode, 'COL')
-      return countryCode,country,countryCheck
+      countryCode, country, countryCheck = searchDep(departmentCode, 'COL')
+      return countryCode, country, countryCheck
 
     except Exception as e:
       print(f"Error decoding barcode data: {e}")
-      return 'no detectado','no detectado', '!OK'
+      return 'no detectado', 'no detectado', '!OK'
 
-  return 'no detectado','no detectado', '!OK'
+  return 'no detectado', 'no detectado', '!OK'
 
 def searchDep(code, country):
 

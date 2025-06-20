@@ -392,11 +392,7 @@ def verificarReverso():
 
         if(detectedBarcodes == 'OK' and len(barcodes) >= 1):
 
-          print('se cumple equisde', len(barcodes))
-
           extractedCountry = extractCountry(barcodes)
-
-          print(extractCountry)
 
           if len(extractedCountry) >= 1:
 

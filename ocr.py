@@ -223,7 +223,6 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
             lineUpper = documentLine.upper()
             if(len(line) >= 1 and len(lineUpper) >= 1):
                 if(line in lineUpper or lineUpper in line):
-                    print(line, lineUpper, 'asdasdasdsd')
                     return f'{documentType}', 'OK'
 
     return 'no detectado', '!OK'
