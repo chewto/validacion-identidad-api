@@ -396,14 +396,11 @@ def verificarReverso():
 
           if len(extractedCountry) >= 1:
 
-            print("lol")
             countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [extractedCountry[0]], country=userCountry)
             codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
-            print(countryValidation)
-
             if(countryValidation != 'OK'):
-              messages.append('El país del documento no coincide.')
+              messages.append('El país del documento no coincide. - codigo barras')
 
             resultsDict['document']['code'] = codeC
             resultsDict['document']['country'] = country
@@ -529,7 +526,7 @@ def verificarReverso():
         codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
         if(countryValidation != 'OK'):
-          messages.append('El país del documento no coincide.')
+          messages.append('El país del documento no coincide. - mrz')
 
         resultsDict['document']['code'] = codeC
         resultsDict['document']['country'] = country
@@ -576,13 +573,12 @@ def verificarReverso():
 
     # Si no se detecta el país por MRZ ni por barcode, intentar por OCR
     if resultsDict['mrz']['code'] == '' or resultsDict['mrz']['code'] == 'No se pudo detectar MRZ válido en la imagen.' and resultsDict['barcode'] == '!OK':
-      print('ah/?')
       countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(documentoOCRPre, country=userCountry)
       codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
       if(countryValidation != 'OK'):
-        messages.append('El país del documento no coincide.')
+        messages.append('El país del documento no coincide. - metodo viejo')
 
-      resultsDict['document']['code'] = codeC
+      resultsDict['document']['code'] = f"{codeC} no se detec"
       resultsDict['document']['country'] = country
       resultsDict['document']['countryCheck'] = countryValidation
 
