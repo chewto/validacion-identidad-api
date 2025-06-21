@@ -211,8 +211,6 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   return barcodesExtracted
 
 def extractCountry(barcodes):
-  
-  print(barcodes)
 
   for barcode in barcodes:
     if 'data' not in barcode:
@@ -223,6 +221,7 @@ def extractCountry(barcodes):
     try:
       decoded_data = base64.b64decode(data).decode('utf-8', errors='ignore')
       departmentCode = decoded_data[162:165]
+      print(departmentCode)
       countryCode, country, countryCheck = searchDep(departmentCode, 'COL')
       return countryCode, country, countryCheck
 

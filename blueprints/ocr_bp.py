@@ -400,7 +400,7 @@ def verificarReverso():
             codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
             if(countryValidation != 'OK'):
-              messages.append('El país del documento no coincide. - codigo barras')
+              messages.append('El país del documento no coincide.')
 
             resultsDict['document']['code'] = codeC
             resultsDict['document']['country'] = country
@@ -526,7 +526,7 @@ def verificarReverso():
         codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
         if(countryValidation != 'OK'):
-          messages.append('El país del documento no coincide. - mrz')
+          messages.append('El país del documento no coincide.')
 
         resultsDict['document']['code'] = codeC
         resultsDict['document']['country'] = country
@@ -576,9 +576,9 @@ def verificarReverso():
       countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(documentoOCRPre, country=userCountry)
       codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
       if(countryValidation != 'OK'):
-        messages.append('El país del documento no coincide. - metodo viejo')
+        messages.append('El país del documento no coincide.')
 
-      resultsDict['document']['code'] = f"{codeC} no se detec"
+      resultsDict['document']['code'] = codeC
       resultsDict['document']['country'] = country
       resultsDict['document']['countryCheck'] = countryValidation
 
@@ -649,21 +649,19 @@ def mrzReader():
 def reader():
 
   id = request.args.get('id')
-  reqBody = request.get_json()
-  image = reqBody['image']
-  documentType = reqBody['documentType']
-  documentSide = reqBody['documentSide']
-  imageData = readDataURL(image)
+  image = request.files.get('image')
+  documentType = request.form.get('documentType')
+  documentSide = request.form.get('documentSide')
+  imageData = fileCv2(image)
 
   print(id, documentType, documentSide)
 
-  documentBarcode, barcodeType, barcodetbr = barcodeSide(documentType=documentType, documentSide=documentSide)
 
-  barcodes = barcodeReader(imageData, id, documentSide, barcodeType, barcodetbr)
+  barcodes = barcodeReader(imageData, id, documentSide, "pdf417", "")
 
   print(barcodes)
 
   return jsonify({
-    'image': image,
+    # 'image': image,
     'barcodeData': barcodes
   })
