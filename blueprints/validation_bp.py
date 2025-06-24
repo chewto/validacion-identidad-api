@@ -622,8 +622,8 @@ def validate():
     # checkValuesDict['back_isExpired'] = bIsExpired
     # backCheck = all([bTypeCheck,bCountryCheck, bIsExpired])
 
-    # backCheck = all([bTypeCheck,bCountryCheck])
-    backCheck = all([bTypeCheck])
+    backCheck = all([bTypeCheck,bCountryCheck])
+    # backCheck = all([bTypeCheck])
     checkValuesDict['back'] = backCheck
 
     checkValuesDict['sides_country_confidence'] = True if(fCountryCheck == True  and bCountryCheck == True) else False

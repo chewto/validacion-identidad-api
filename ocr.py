@@ -218,7 +218,6 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
     documentWords = detectionData['documentDectection'][documentType][documentSide]
 
     for line in ocr:
-
         for documentLine in documentWords:
             lineUpper = documentLine.upper()
             if(len(line) >= 1 and len(lineUpper) >= 1):

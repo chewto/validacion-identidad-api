@@ -343,7 +343,9 @@ def verificarReverso():
       imagenDocumento = readDataURL(imagenDocumento)
 
 
-    resolution = 600 if tries <=1 else 1080
+    # resolution = 600 if tries <=1 else 1080
+
+    resolution = 1080
 
     preprocessedDocument = preprocessing(imagenDocumento, resolution, filters='sharp')
 
@@ -382,10 +384,12 @@ def verificarReverso():
       rotatedImage = orientation(preprocessedDocument) if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       resultsDict['barcode'] = detectedBarcodes
+
       resultsDict['image'] = imageToDataURL(rotatedImage)
 
       if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
-        checkSide['barcode'] = detectedBarcodes
+        if(detectedBarcodes == 'OK'):
+          checkSide['barcode'] = detectedBarcodes
 
       if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
         temp['barcode']= detectedBarcodes
@@ -451,20 +455,15 @@ def verificarReverso():
     OCRtime = timeOcrInit - timeOcrEnd
     print('ocr time ', OCRtime)
 
-    if(documentValidation != 'OK'):
-      messages.append('El tipo de documento no coincide con el seleccionado.')
+    if(tipoDocumento != 'CEDULA DE EXTRANJERIA'):
+      if(documentValidation != 'OK'):
+        messages.append('El tipo de documento no coincide con el seleccionado.')
 
-    checkSide['documentValidation'] = documentValidation
+      checkSide['documentValidation'] = documentValidation
 
-    # image = imageToDataURL(documentoData)
+      resultsDict['document']['type'] = documentType
+      resultsDict['document']['typeCheck'] = documentValidation
 
-    # resultsDict['document'] = {
-    #     'type':documentType,
-    #     'typeCheck':documentValidation
-    # }
-
-    resultsDict['document']['type'] = documentType
-    resultsDict['document']['typeCheck'] = documentValidation
 
     codeTimeInit = time.time()
 
@@ -515,6 +514,14 @@ def verificarReverso():
           'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
         }
 
+      if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
+        if 'type' in mrz:
+          if(mrz['type'] == 'I<'):
+            checkSide['documentValidation'] = 'OK'
+
+            resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'
+            resultsDict['document']['typeCheck'] = 'OK'
+
       if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se encontró el nombre en el codigo mrz.')
       if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
@@ -548,6 +555,7 @@ def verificarReverso():
       #   checkSide['countryValidation'] = countryValidation
       
     else:
+
       # countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
       # codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
       # if(countryValidation != 'OK'):
@@ -622,15 +630,18 @@ def verificarReverso():
         messages.append('No se pudo detectar el código de barras del documento.')
         messages.append('No se pudo detectar el código de mrz del documento.')
 
-    validSide, _, _ = results(51, 'AUTOMATICA', checkSide)
+    validSide, _, _percent = results(60, 'AUTOMATICA', checkSide)
 
     codeTimeEnd = time.time()
     codeTime = codeTimeInit - codeTimeEnd
-    print('codes time ', codeTime)
 
     resultsDict['messages'] = messages
 
     resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
+
+
+    if resultsDict['validSide'] == '!OK' or len(messages) >= 1:
+      resultsDict['messages'].insert(0, 'Por favor, recomendamos buscar buena iluminación y enfocar el documento.')
 
     return jsonify(resultsDict)
 
