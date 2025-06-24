@@ -3,7 +3,7 @@ import json
 from flask import Blueprint, request, jsonify
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from name_search import searchId, searchName
-from ocr import comparacionOCR, ocr, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
+from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
@@ -57,6 +57,7 @@ def verificarAnverso():
       tries = int(tries)
       personaData = fileCv2(imagenPersona)
       documentoData = fileCv2(imagenDocumento)
+      ocr = request.form.get('ocr')
     else:
       reqBody = request.get_json()
       efirmaId = reqBody.get('id')
@@ -72,8 +73,10 @@ def verificarAnverso():
       tries = int(tries)
       personaData = readDataURL(imagenPersona)
       documentoData = readDataURL(imagenDocumento)
+      ocr = reqBody.get('ocr')
 
-    resolution = 600 if tries <=1 else 1080
+    # resolution = 600 if tries <=1 else 1080
+    resolution = 1080
 
     countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
@@ -92,7 +95,7 @@ def verificarAnverso():
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
     timeOcrInit = time.time()
-    ocrResult, documentoOCRPre = ocr(preprocessedDocument)
+    documentoOCRPre = ocr
     timeOcrEnd = time.time()
     print(f"{timeOcrInit - timeOcrEnd} tiempo ocr")
 
@@ -327,6 +330,7 @@ def verificarReverso():
       tries = request.form.get('tries')
       tries = int(tries)
       imagenDocumento = fileCv2(imagenDocumento)
+      ocr = request.form.get('ocr').split(',')
     else:
       reqBody = request.get_json()
       efirmaId = reqBody.get('id')
@@ -341,6 +345,7 @@ def verificarReverso():
       tries = reqBody.get('tries')
       tries = int(tries)
       imagenDocumento = readDataURL(imagenDocumento)
+      ocr = reqBody.get('ocr')
 
 
     # resolution = 600 if tries <=1 else 1080
@@ -437,7 +442,7 @@ def verificarReverso():
 
     timeOcrInit = time.time()
 
-    ocrResult, documentoOCRPre = ocr(preprocessedDocument)
+    documentoOCRPre = ocr
 
     # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
@@ -516,7 +521,7 @@ def verificarReverso():
 
       if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
         if 'type' in mrz:
-          if(mrz['type'] == 'I<'):
+          if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
             checkSide['documentValidation'] = 'OK'
 
             resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'

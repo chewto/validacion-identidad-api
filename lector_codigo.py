@@ -171,11 +171,26 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   folderBarcodes = './codigos-barras'
   folderExistance = os.path.exists(folderBarcodes)
 
+  hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
+
+  # Ajustar saturación (por ejemplo, aumentar un 30%)
+  saturation_scale = 1.3
+  hsv[..., 1] = np.clip(hsv[..., 1] * saturation_scale, 0, 255)
+
+  # Volver a BGR
+  img_sat = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+  # Ajustar contraste usando cv2.convertScaleAbs
+  # alpha > 1 aumenta el contraste, beta ajusta el brillo
+  alpha = 1.5  # Contraste
+  beta = 0     # Brillo
+  img_contrast = cv2.convertScaleAbs(img_sat, alpha=alpha, beta=beta)
+
   if not folderExistance:
     os.makedirs(folderBarcodes)
 
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
-  cv2.imwrite(imagePath, photo)
+  cv2.imwrite(imagePath, img_contrast)
 
   exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
@@ -207,6 +222,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
 
   sessionsExtracted = jsonProcess["sessions"][0]
   barcodesExtracted = sessionsExtracted["barcodes"]
+  print(barcodesExtracted)
 
   return barcodesExtracted
 
