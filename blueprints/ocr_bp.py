@@ -657,6 +657,15 @@ def verificarReverso():
 
 
     if resultsDict['validSide'] == '!OK' or len(messages) >= 1:
+      # Eliminar mensajes repetidos
+      unique_messages = []
+      seen = set()
+      for msg in resultsDict['messages']:
+        if msg not in seen:
+          unique_messages.append(msg)
+          seen.add(msg)
+      resultsDict['messages'] = unique_messages
+      # Agregar el mensaje de recomendación al inicio
       resultsDict['messages'].insert(0, 'Por favor, recomendamos buscar buena iluminación y enfocar el documento.')
 
     return jsonify(resultsDict)
