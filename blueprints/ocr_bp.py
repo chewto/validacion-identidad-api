@@ -527,6 +527,17 @@ def verificarReverso():
             resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'
             resultsDict['document']['typeCheck'] = 'OK'
 
+          else:
+            checkSide['documentValidation'] = documentValidation
+
+            resultsDict['document']['type'] = documentType
+            resultsDict['document']['typeCheck'] = documentValidation
+        else:
+          checkSide['documentValidation'] = documentValidation
+
+          resultsDict['document']['type'] = documentType
+          resultsDict['document']['typeCheck'] = documentValidation
+
       if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se encontró el nombre en el codigo mrz.')
       if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
