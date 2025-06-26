@@ -167,24 +167,24 @@ def extractBarcodeData(barcodeData, documentType):
   print(barcodeString)
   documentFormat = formatDefinition[documentType]
 
+TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
+
+def ejecutar_lector(imagen_path, tbr_code):
+
+  exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
+
+  cmd = [exe, '-type=pdf417,sing', f'-tbr={tbr_code}', '-fields=text,data,rectangle,rotation', imagen_path]
+  proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  out = proc.stdout.decode('utf-8', errors='replace').strip()
+  err = proc.stderr.decode('utf-8', errors='replace').strip()
+  if proc.returncode != 0:
+    return '!OK'
+  return out
+
 def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
+
   folderBarcodes = './codigos-barras'
   folderExistance = os.path.exists(folderBarcodes)
-
-  # hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
-
-  # # Ajustar saturación (por ejemplo, aumentar un 30%)
-  # saturation_scale = 1.3
-  # hsv[..., 1] = np.clip(hsv[..., 1] * saturation_scale, 0, 255)
-
-  # # Volver a BGR
-  # img_sat = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-  # # Ajustar contraste usando cv2.convertScaleAbs
-  # # alpha > 1 aumenta el contraste, beta ajusta el brillo
-  # alpha = 1.5  # Contraste
-  # beta = 0     # Brillo
-  # img_contrast = cv2.convertScaleAbs(img_sat, alpha=alpha, beta=beta)
 
   if not folderExistance:
     os.makedirs(folderBarcodes)
@@ -192,39 +192,93 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
   cv2.imwrite(imagePath, photo)
 
-  exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
+  barcodesExtracted = []
 
-  args = []
-  args.append(exe)
-  args.append(f'-type={barcodeType}')
-  # args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
-  args.append('-tbr=112,115,117')
-  args.append('-fields=text,data,rectangle,rotation')
-  args.append(imagePath)
-
-  try:
-        process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        process.check_returncode()
-  except subprocess.CalledProcessError as e:
-        print(e)
-        print('no es detectaron')
-        return '!OK'
-  except PermissionError as e:
-        print('error de permisos')
-        return '!OK'
+  found = False
+  for tbr in TBR_CODES:
+    print(tbr)
+    res = ejecutar_lector(imagePath, tbr)
+    try:
+      data = json.loads(res)
+      print(data)
+      sessions = data.get('sessions')
+      if sessions and isinstance(sessions[0], dict):
+        barcodes = sessions[0].get('barcodes')
+        if barcodes:
+          found = True
+          barcodesExtracted = barcodes
+          break
+    except json.JSONDecodeError:
+      pass
+    if found:
+      break
 
   barcodeExistance = os.path.exists(imagePath)
   if(barcodeExistance):
     os.remove(imagePath)
 
-  string = process.stdout.decode('utf-8')
-  jsonProcess = json.loads(string)
-
-  sessionsExtracted = jsonProcess["sessions"][0]
-  barcodesExtracted = sessionsExtracted["barcodes"]
-  print(barcodesExtracted)
-
   return barcodesExtracted
+
+# def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
+#   folderBarcodes = './codigos-barras'
+#   folderExistance = os.path.exists(folderBarcodes)
+
+#   # hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
+
+#   # # Ajustar saturación (por ejemplo, aumentar un 30%)
+#   # saturation_scale = 1.3
+#   # hsv[..., 1] = np.clip(hsv[..., 1] * saturation_scale, 0, 255)
+
+#   # # Volver a BGR
+#   # img_sat = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+#   # # Ajustar contraste usando cv2.convertScaleAbs
+#   # # alpha > 1 aumenta el contraste, beta ajusta el brillo
+#   # alpha = 1.5  # Contraste
+#   # beta = 0     # Brillo
+#   # img_contrast = cv2.convertScaleAbs(img_sat, alpha=alpha, beta=beta)
+
+#   if not folderExistance:
+#     os.makedirs(folderBarcodes)
+
+#   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
+#   cv2.imwrite(imagePath, photo)
+
+#   exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
+
+#   # args = []
+#   # args.append(exe)
+#   # args.append(f'-type={barcodeType}')
+#   # # args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
+#   # args.append('-tbr=112,115,117')
+#   # args.append('-fields=text,data,rectangle,rotation')
+#   # args.append(imagePath)
+
+#   cmd = [exe, '-type={barcodeType}', f'-tbr={tbr_code}', imagePath]
+
+#   try:
+#         process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#         process.check_returncode()
+#   except subprocess.CalledProcessError as e:
+#         print(e)
+#         print('no es detectaron')
+#         return '!OK'
+#   except PermissionError as e:
+#         print('error de permisos')
+#         return '!OK'
+
+#   barcodeExistance = os.path.exists(imagePath)
+#   if(barcodeExistance):
+#     os.remove(imagePath)
+
+#   string = process.stdout.decode('utf-8')
+#   jsonProcess = json.loads(string)
+
+#   sessionsExtracted = jsonProcess["sessions"][0]
+#   barcodesExtracted = sessionsExtracted["barcodes"]
+#   print(barcodesExtracted)
+
+#   return barcodesExtracted
 
 def extractCountry(barcodes):
 
