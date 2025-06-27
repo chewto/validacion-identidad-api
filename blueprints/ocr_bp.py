@@ -386,9 +386,14 @@ def verificarReverso():
 
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
 
+      print(detectedBarcodes)
+
       rotatedImage = orientation(preprocessedDocument) if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
-      resultsDict['barcode'] = detectedBarcodes
+      if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
+        resultsDict['barcode'] = detectedBarcodes if (detectedBarcodes == 'OK') else None
+      # else:
+      #   resultsDict['barcode'] = detectedBarcodes
 
       resultsDict['image'] = imageToDataURL(rotatedImage)
 
@@ -622,7 +627,7 @@ def verificarReverso():
 
       checkSide['typeCheck'] = documentValidation
 
-
+    print(temp)
 
     # Si no se detecta el país por MRZ ni por barcode, intentar por OCR
     if resultsDict['mrz']['code'] == '' or resultsDict['mrz']['code'] == 'No se pudo detectar MRZ válido en la imagen.' and resultsDict['barcode'] == '!OK':
@@ -662,9 +667,10 @@ def verificarReverso():
 
       # Si se detecta código de barras y no MRZ, solo usar código de barras
       if temp['barcode'] is not None and (temp['mrz'] is None or temp['mrz']['mrz'] != 'OK'):
-        checkSide['barcode'] = temp['barcode']
+        resultsDict['barcode'] = temp['barcode'] if temp['barcode'] == 'OK' else None
         if temp['barcode'] == '!OK' and not barcode_message_added:
           messages.append('No se pudo detectar el código de barras del documento.')
+          checkSide['barcode'] = temp['barcode']
           barcode_message_added = True
 
       # Si se detectan ambos, agregarlos al checkSide pero no mostrar mensajes duplicados

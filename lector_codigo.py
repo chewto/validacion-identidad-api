@@ -169,11 +169,11 @@ def extractBarcodeData(barcodeData, documentType):
 
 TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
 
-def ejecutar_lector(imagen_path, tbr_code):
+def ejecutar_lector(imagen_path, tbr_code, barcodeType):
 
   exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
-  cmd = [exe, '-type=pdf417,sing', f'-tbr={tbr_code}', '-fields=text,data,rectangle,rotation', imagen_path]
+  cmd = [exe, f'-type={barcodeType}', f'-tbr={tbr_code}', '-fields=text,data,rectangle,rotation', imagen_path]
   proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   out = proc.stdout.decode('utf-8', errors='replace').strip()
   err = proc.stderr.decode('utf-8', errors='replace').strip()
@@ -197,7 +197,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   found = False
   for tbr in TBR_CODES:
     print(tbr)
-    res = ejecutar_lector(imagePath, tbr)
+    res = ejecutar_lector(imagePath, tbr, barcodeType)
     try:
       data = json.loads(res)
       print(data)

@@ -510,6 +510,9 @@ def validate():
 
   barcode = documentValidation['barcode']
 
+  # if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
+    
+
   # failed = request.form.get('failed')
   # failedBack = request.form.get('failed_back')
   # failedFront = request.form.get('failed_front')
@@ -669,15 +672,18 @@ def validate():
   checkHasBarcode = hasBarcode(documentType=tipoDocumento, barcodeData=barcodeData)
   if(checkHasBarcode):
     barcodeCheck = True if(barcode == 'OK') else False
-    if(tipoDocumento != "CEDULA DIGITAL"):
-      test.append(barcodeCheck)
-      checkValuesDict['barcode'] = barcodeCheck
-      checkValuesJSON['barcode_validation'] = {
-        'barcode': barcode
-      }
 
-    if(tipoDocumento == "CEDULA DIGITAL"):
-      checkID.append({'type':'barcode', 'check': barcodeCheck})
+    if(barcode is not None):
+      if(tipoDocumento != "CEDULA DIGITAL"):
+        test.append(barcodeCheck)
+        checkValuesDict['barcode'] = barcodeCheck
+        checkValuesJSON['barcode_validation'] = {
+          'barcode': barcode
+        }
+
+      if(tipoDocumento == "CEDULA DIGITAL" and tipoDocumento == "CEDULA DE CIUDADANIA"):
+        checkID.append({'type':'barcode', 'check': barcodeCheck})
+
 
   if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
 

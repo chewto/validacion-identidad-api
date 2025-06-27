@@ -12,14 +12,9 @@ def results(percent, validatioAttendance, checksDict):
 
   valuesLength = len(values)
 
-  print(valuesLength)
-
   valuePercent = 100 / valuesLength
 
-  print(valuePercent)
-
   for value in values:
-    print(value)
     if value == True or value == 'OK':
       totalPercent += valuePercent
 
