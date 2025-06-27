@@ -10,6 +10,7 @@ from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
 import datetime
 import re
+import unicodedata
 
 countries = {
     'HND': ['HONDURAS'],
@@ -242,38 +243,76 @@ def validateDocumentCountry(ocr, country):
 
     return 'no detectado','no detectado', '!OK'
 
-def validacionOCR(dataOCR, dataUsuario):
+def validacionOCR(dataOCR, dataUsuario, onlyNumbers):
+    """
+    Mejora: 
+    - Soporta casos donde el OCR devuelve nombres/apellidos pegados.
+    - Busca coincidencias parciales y consecutivas.
+    - Devuelve el mejor match posible y su porcentaje.
+    - Si onlyNumbers=True, busca solo coincidencias numéricas.
+    """
 
-    dataUsuario = dataUsuario.split(" ")
+    def limpiar_texto(texto):
+        # Quita tildes, signos y pasa a mayúsculas
+        texto = texto.upper()
+        texto = texto.strip()
+        texto = texto.replace(",", "").replace(".", "").replace("-", "")
+        texto = ''.join(
+            c for c in unicodedata.normalize('NFD', texto)
+            if unicodedata.category(c) != 'Mn'
+        )
+        if onlyNumbers:
+            texto = re.sub(r'\D', '', texto)  # Elimina todo excepto dígitos
+        return texto
 
-    porcentajes = []
-    
-    for linea in dataOCR:
+    # Prepara los datos del usuario
+    dataUsuarioArr = [limpiar_texto(x) for x in dataUsuario.split()]
+    n = len(dataUsuarioArr)
+    mejores_resultados = []
 
-        linea = linea.upper()
-        linea = linea.strip()
-        linea = linea.replace(",","").replace(".","").replace("-","")
-        linea = linea.split(" ")
+    # Prepara las líneas OCR
+    ocr_limpio = [limpiar_texto(linea) for linea in dataOCR if len(linea.strip()) > 0]
 
-        for lineaElemento in linea:
+    for linea in ocr_limpio:
+        palabras = linea.split()
+        # Busca secuencias de palabras del mismo largo que el dato de usuario
+        for i in range(len(palabras) - n + 1):
+            secuencia = palabras[i:i+n]
+            porcentaje_total = 0
+            similitud_total = 0
+            for idx, palabra_usuario in enumerate(dataUsuarioArr):
+                palabra_ocr = secuencia[idx]
+                porcentaje = extraerPorcentaje(palabra_usuario, palabra_ocr)
+                similitud = Levenshtein.distance(palabra_usuario, palabra_ocr)
+                porcentaje_total += porcentaje
+                similitud_total += similitud
+            promedio_porcentaje = porcentaje_total / n
+            promedio_similitud = similitud_total / n
+            mejores_resultados.append({
+                "similitud": promedio_similitud,
+                "porcentaje": promedio_porcentaje,
+                "linea": " ".join(secuencia)
+            })
 
-            for dataElemento in dataUsuario:
-                if(len(lineaElemento) >=1):
-                    porcentaje = extraerPorcentaje(dataElemento, lineaElemento)
-                    similitud = Levenshtein.distance(dataElemento, lineaElemento)
-                    data = {
-                        "similitud": similitud,
-                        "porcentaje": porcentaje,
-                        "linea": lineaElemento
-                    }
+        # También compara cada palabra individualmente (por si hay solo un dato)
+        for palabra_ocr in palabras:
+            for palabra_usuario in dataUsuarioArr:
+                porcentaje = extraerPorcentaje(palabra_usuario, palabra_ocr)
+                similitud = Levenshtein.distance(palabra_usuario, palabra_ocr)
+                mejores_resultados.append({
+                    "similitud": similitud,
+                    "porcentaje": porcentaje,
+                    "linea": palabra_ocr
+                })
 
-                    porcentajes.append(data)
+    # Ordena por porcentaje descendente y similitud ascendente
+    mejores_resultados = sorted(mejores_resultados, key=lambda x: (-x['porcentaje'], x['similitud']))
 
-    porcentajesOrdenados = ordenamiento(porcentajes)
-
-    data, porcentaje = busquedaResultado(porcentajesOrdenados, dataUsuario)
-
-    return data, porcentaje
+    if mejores_resultados:
+        mejor = mejores_resultados[0]
+        return mejor['linea'], round(mejor['porcentaje'])
+    else:
+        return 'no encontrado', 0
 
 
 def busquedaResultado(porcentajes, dataUsuario):

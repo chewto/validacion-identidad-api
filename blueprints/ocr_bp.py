@@ -57,7 +57,7 @@ def verificarAnverso():
       tries = int(tries)
       personaData = fileCv2(imagenPersona)
       documentoData = fileCv2(imagenDocumento)
-      ocr = request.form.get('ocr')
+      ocr = request.form.get('ocr').split(",")
     else:
       reqBody = request.get_json()
       efirmaId = reqBody.get('id')
@@ -141,9 +141,9 @@ def verificarAnverso():
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
-    nombrePreOCR, porcentajeNombrePre = validacionOCR(documentoOCRPre, nombre)
-    apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido)
-    numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento)
+    nombrePreOCR, porcentajeNombrePre = validacionOCR(documentoOCRPre, nombre, onlyNumbers=False)
+    apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido,onlyNumbers=False)
+    numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento, onlyNumbers=True)
 
     checkSide['documentValidation'] = documentValidation
     checkSide['percentName'] = 'OK' if porcentajeNombrePre >= 50 else '!OK'
