@@ -2,12 +2,9 @@ def results(percent, validatioAttendance, checksDict):
 
   values = []
 
-  print(values)
-
   totalPercent = 0
 
   for key, value in checksDict.items():
-    print(key, value)
     values.append(value)
 
   valuesLength = len(values)

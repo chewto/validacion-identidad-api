@@ -486,8 +486,6 @@ def verificarReverso():
 
       mrz =  extractMRZ(imagenDocumento)
 
-      print(mrz)
-
       # if(nameHasK == -1 or lastNamehasK == -1):
       #   mrz = mrz['raw_text'].replace('K', ' ')
 
@@ -498,7 +496,6 @@ def verificarReverso():
 
         print('esta disponible')
         if mrz['valid_score'] >= 51:
-          print('eskeiro')
           extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
           extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
@@ -523,6 +520,32 @@ def verificarReverso():
             checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
           
           if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+
+            if 'type' in mrz:
+              if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
+                checkSide['documentValidation'] = 'OK'
+
+                resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
+                resultsDict['document']['typeCheck'] = 'OK'
+
+                checkSide['typeCheck'] ='OK'
+
+              else:
+
+                # checkSide['documentValidation'] = documentValidation
+
+                resultsDict['document']['type'] = documentType
+                resultsDict['document']['typeCheck'] = documentValidation
+
+                checkSide['typeCheck'] = documentValidation
+            else:
+              # checkSide['documentValidation'] = documentValidation
+
+              resultsDict['document']['type'] = documentType
+              resultsDict['document']['typeCheck'] = documentValidation
+
+              checkSide['typeCheck'] = documentValidation
+
             temp['mrz']= {
               'mrz': 'OK' if 'raw_text' in mrz else '!OK',
               'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
@@ -560,7 +583,6 @@ def verificarReverso():
             messages.append('No se encontró el apellido en el codigo mrz.')
 
           if 'country' in mrz:
-            print("mrz")
             countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [mrz['country']], country=userCountry)
             codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
@@ -627,8 +649,6 @@ def verificarReverso():
       resultsDict['document']['typeCheck'] = documentValidation
 
       checkSide['typeCheck'] = documentValidation
-
-    print(temp)
 
     # Si no se detecta el país por MRZ ni por barcode, intentar por OCR
     if resultsDict['mrz']['code'] == '' or resultsDict['mrz']['code'] == 'No se pudo detectar MRZ válido en la imagen.' and resultsDict['barcode'] == '!OK':
@@ -697,12 +717,12 @@ def verificarReverso():
           mrz_message_added = True
 
       if(resultsDict['document']['type'] == '!OK' or resultsDict['document']['typeCheck'] == '!OK'):
+
         resultsDict['document']['type'] = documentType
         resultsDict['document']['typeCheck'] = documentValidation
 
     validSide, _, _percent = results(51, 'AUTOMATICA', checkSide)
 
-    print(_percent)
 
     codeTimeEnd = time.time()
     codeTime = codeTimeInit - codeTimeEnd
