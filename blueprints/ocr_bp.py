@@ -368,7 +368,8 @@ def verificarReverso():
     documentoData = None
 
     resultsDict = {
-      'document': {}
+      'document': {},
+      # 'barcode': None
     }
 
     checkSide = {
