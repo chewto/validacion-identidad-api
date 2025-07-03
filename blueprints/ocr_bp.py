@@ -518,6 +518,29 @@ def verificarReverso():
           if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
             checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
             checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+
+          if(tipoDocumento == 'CEDULA DIGITAL'):
+            if 'type' in mrz:
+              if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
+                checkSide['documentValidation'] = 'OK'
+
+                resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
+                resultsDict['document']['typeCheck'] = 'OK'
+
+                checkSide['typeCheck'] ='OK'
+
+              else:
+                resultsDict['document']['type'] = documentType
+                resultsDict['document']['typeCheck'] = documentValidation
+
+                checkSide['typeCheck'] = documentValidation
+            else:
+              # checkSide['documentValidation'] = documentValidation
+
+              resultsDict['document']['type'] = documentType
+              resultsDict['document']['typeCheck'] = documentValidation
+
+              checkSide['typeCheck'] = documentValidation
           
           if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
 
