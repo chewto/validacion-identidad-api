@@ -199,7 +199,7 @@ def verificarAnverso():
       # if(detectedBarcodes != 'OK'):
         # messages.append('No se pudo detectar el código de barras del documento.')
     else:
-      resultsDict['barcode'] = 'documento sin codigo de barras'
+      resultsDict['barcode'] = None
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
@@ -442,7 +442,7 @@ def verificarReverso():
     else:
       rotatedImage = orientation(imagenDocumento)
       resultsDict['image'] = imageToDataURL(rotatedImage)
-      resultsDict['barcode'] = 'documento sin codigo de barras'
+      resultsDict['barcode'] = None
 
     # rotatedImage = orientation(documentoData)
 
