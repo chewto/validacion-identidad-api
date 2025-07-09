@@ -118,6 +118,31 @@ def readDataURL(imagen):
 
 #   return imagen
 
+def rotateImage(image, angle):
+    
+    print(angle)
+    
+    if isinstance(angle, str):
+      try:
+        angle = int(angle)
+      except ValueError:
+        return image
+    """
+    Rota la imagen según el ángulo proporcionado (90, 180, 270 grados antihorario).
+    """
+    if angle == 90:
+      print('estos 09')
+      return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    elif angle == 180:
+      print('estos 180')
+      return cv2.rotate(image, cv2.ROTATE_180)
+    elif angle == 270:
+      print('estos 270')
+      return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    else:
+      # Si el ángulo no es válido, retorna la imagen original
+      return image
+
 def ordenamiento(data):
 
     listaOrdenada = sorted(data, key= lambda x:x['similitud'])

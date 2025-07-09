@@ -7,7 +7,7 @@ from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDoc
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
-from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation
+from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from check_result import testingCountry, testingType, results
 import time
 import controlador_db
@@ -58,6 +58,7 @@ def verificarAnverso():
       personaData = fileCv2(imagenPersona)
       documentoData = fileCv2(imagenDocumento)
       ocr = request.form.get('ocr').split(",")
+      textAngle = request.form.get('textAngle')
     else:
       reqBody = request.get_json()
       efirmaId = reqBody.get('id')
@@ -74,6 +75,7 @@ def verificarAnverso():
       personaData = readDataURL(imagenPersona)
       documentoData = readDataURL(imagenDocumento)
       ocr = reqBody.get('ocr')
+      textAngle = reqBody.get('textAngle')
 
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
@@ -86,18 +88,15 @@ def verificarAnverso():
     barcodeData = json.loads(countryData[4])
     ocrData = json.loads(countryData[5])
 
-    selfieOrientada, carasImagenPersona = orientacionImagen(personaData)
+    selfieOrientada = personaData
 
-    documentoOrientado, carasImagenDocumento = orientacionImagen(documentoData)
+    documentoOrientado = rotateImage(documentoData, textAngle)
 
     preprocessedDocument = preprocessing(documentoOrientado, resolution, filters='sharp')
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
-    timeOcrInit = time.time()
     documentoOCRPre = ocr
-    timeOcrEnd = time.time()
-    print(f"{timeOcrInit - timeOcrEnd} tiempo ocr")
 
     validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
     totalValidacionLado = validarLadoPre 
@@ -331,6 +330,7 @@ def verificarReverso():
       tries = int(tries)
       imagenDocumento = fileCv2(imagenDocumento)
       ocr = request.form.get('ocr').split(',')
+      textAngle = request.form.get('textAngle')
     else:
       reqBody = request.get_json()
       efirmaId = reqBody.get('id')
@@ -346,11 +346,14 @@ def verificarReverso():
       tries = int(tries)
       imagenDocumento = readDataURL(imagenDocumento)
       ocr = reqBody.get('ocr')
+      textAngle = reqBody.get('textAngle')
 
 
     # resolution = 600 if tries <=1 else 1080
 
     resolution = 1080
+
+    imagenDocumento = rotateImage(imagenDocumento, textAngle)
 
     preprocessedDocument = preprocessing(imagenDocumento, resolution, filters='sharp')
 
@@ -389,7 +392,7 @@ def verificarReverso():
 
       print(detectedBarcodes)
 
-      rotatedImage = orientation(preprocessedDocument) if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
+      rotatedImage = imagenDocumento if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
         resultsDict['barcode'] = detectedBarcodes if (detectedBarcodes == 'OK') else None
@@ -440,7 +443,7 @@ def verificarReverso():
       if(detectedBarcodes == '!OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
         messages.append('No se pudo detectar el código de barras del documento.')
     else:
-      rotatedImage = orientation(imagenDocumento)
+      rotatedImage = imagenDocumento
       resultsDict['image'] = imageToDataURL(rotatedImage)
       resultsDict['barcode'] = None
 
