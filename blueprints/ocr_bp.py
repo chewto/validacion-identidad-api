@@ -77,6 +77,7 @@ def verificarAnverso():
       ocr = reqBody.get('ocr')
       textAngle = reqBody.get('textAngle')
 
+
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
 
@@ -757,10 +758,7 @@ def verificarReverso():
 
     resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
 
-
-
     if resultsDict['validSide'] == '!OK' and len(messages) >= 1:
-      # Eliminar mensajes repetidos
       unique_messages = []
       seen = set()
       for msg in resultsDict['messages']:
@@ -771,8 +769,7 @@ def verificarReverso():
       # Agregar el mensaje de recomendación al inicio
       resultsDict['messages'].insert(0, 'Por favor, recomendamos buscar buena iluminación y enfocar el documento.')
 
-    if resultsDict['validSide'] == 'OK' and tipoDocumento == 'CEDULA DE EXTRANJERIA' or tipoDocumento == 'CEDULA DE CIUDADANIA':
-      print('asdasdasd')
+    if resultsDict['validSide'] == 'OK' and (tipoDocumento == 'CEDULA DE EXTRANJERIA' or tipoDocumento == 'CEDULA DE CIUDADANIA'):
       resultsDict['messages'] = []
 
     return jsonify(resultsDict)

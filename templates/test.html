@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>YOLO Test Upload</title>
+</head>
+<body>
+    <h2>Subir imagen para prueba con YOLO</h2>
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Subir</button>
+    </form>
+
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+
+    {% if image %}
+        <h3>Resultado:</h3>
+        <img src="{{ image }}" style="max-width:500px;">
+        <h4>Coordenadas de los bounding boxes:</h4>
+        <pre>{{ boxes }}</pre>
+    {% endif %}
+</body>
+</html>

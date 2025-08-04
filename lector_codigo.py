@@ -200,7 +200,6 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
     res = ejecutar_lector(imagePath, tbr, barcodeType)
     try:
       data = json.loads(res)
-      print(data)
       sessions = data.get('sessions')
       if sessions and isinstance(sessions[0], dict):
         barcodes = sessions[0].get('barcodes')

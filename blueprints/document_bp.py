@@ -1,5 +1,6 @@
 import json
 from flask import Blueprint, request, jsonify
+from ultralytics import YOLO
 from check_result import results
 import controlador_db
 from expiry import expiryDateDetection, expiryDateOCR, hasExpiryDate
@@ -9,6 +10,10 @@ from ocr import validateDocumentCountry, validateDocumentType
 from reconocimiento import orientacionImagen, verifyFaces
 from utilidades import fileCv2, imageToDataURL, readDataURL
 import document_detection
+from flask import render_template
+import cv2
+import numpy as np
+import base64
 
 document_bp = Blueprint('document', __name__, url_prefix="/document")
 
@@ -353,3 +358,42 @@ def back():
   resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
 
   return jsonify(resultsDict)
+
+@document_bp.route('/test', methods=['GET', 'POST'])
+def test():
+    if request.method == 'POST':
+        img_file = request.files.get('image')
+        if not img_file:
+            return render_template('test.html', error='No se subió ninguna imagen')
+
+        # Procesar imagen
+        img = fileCv2(img_file)
+        yolo_model = YOLO('../models/colombia-v0.1.pt')
+        results = yolo_model(img)[0]
+
+        # Dibujar bounding boxes
+        img_with_boxes = img.copy()
+        class_names = yolo_model.names
+        for box, cls_id in zip(results.boxes.xyxy.cpu().numpy(), results.boxes.cls.cpu().numpy()):
+          x1, y1, x2, y2 = map(int, box[:4])
+          class_name = class_names[int(cls_id)]
+
+          cv2.rectangle(img_with_boxes, (x1, y1), (x2, y2), (0, 255, 0), 3)
+          cv2.putText(img_with_boxes,
+                      class_name,
+                      (x1, y1 - 10),
+                      cv2.FONT_HERSHEY_SIMPLEX,
+                      1,
+                      (0, 0, 0), 1)
+
+        # Convertir a base64 para mostrar en HTML
+        _, buffer = cv2.imencode('.jpg', img_with_boxes)
+        img_b64 = base64.b64encode(buffer).decode('utf-8')
+        img_data_url = f"data:image/jpeg;base64,{img_b64}"
+
+        return render_template('test.html',
+                               image=img_data_url,
+                               boxes=results.boxes.xyxy.cpu().numpy().tolist())
+
+    # GET method
+    return render_template('test.html')

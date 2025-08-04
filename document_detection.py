@@ -22,7 +22,7 @@ documentClasses = {
 }
 
 
-modelPath = './models/modelo-large.pt'
+modelPath = './models/colombia-v0.1.pt'
 
 def getClasses(country:str ,side:str, type:str):
   
