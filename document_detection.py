@@ -151,30 +151,34 @@ def getMrz(data):
   mrz = mrz['dataOcr']
   return mrz, True
 
-def detection(img, classes:list[str], classesOcr:list[str]):
+def detection(img, classes:list[str]):
 
   yoloModel = YOLO(modelPath)
 
   results = yoloModel(img)[0]
 
   data = []
-  labels = []
+  # labels = []
 
   for i, (box, score, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.conf, results.boxes.cls)):
                 x1, y1, x2, y2 = map(int, box)
 
                 label = classes[int(cls)] if int(cls) < len(classes) else str(int(cls))
-                labels.append(label)
 
-                cropImage = img[y1:y2, x1:x2]
+                cropImage = [[y1,y2],[ x1,x2]]
 
-                for ocrLabel in classesOcr:
-                  if(ocrLabel == label):
+                data.append({"label": label, "crop": cropImage})
 
-                    ocrResult, ocrLines = ocr(cropImage, preprocesado=True)
+                # labels.append(label)
+                # for ocrLabel in classesOcr:
+                #   if(ocrLabel == label):
 
-                    texts = ' '.join(ocrLines)
+                #     ocrResult, ocrLines = ocr(cropImage, preprocesado=True)
 
-                    data.append({"class": label, "dataOcr": texts, "coords":[x1,y1,x2,y2]})
+                #     texts = ' '.join(ocrLines)
 
-  return labels, data
+                #     data.append({"class": label, "dataOcr": texts, "coords":[x1,y1,x2,y2]})
+
+
+  return data
+  # return labels, data

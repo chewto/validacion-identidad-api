@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
 import requests
 from blueprints.test_bp import test_bp
-from blueprints.document_bp import document_bp
+from blueprints.document_detection_bp import document_detection_bp
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
 from utilidades import fileCv2, imageToDataURL, readDataURL
@@ -47,7 +47,7 @@ CLASS_NAMES = ['dni_anverso','nombre','apellido','numero_documento',
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
-app.register_blueprint(document_bp)
+app.register_blueprint(document_detection_bp)
 app.register_blueprint(test_bp)
 
 
