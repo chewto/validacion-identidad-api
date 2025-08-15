@@ -22,7 +22,13 @@ documentClasses = {
 }
 
 
+
+
 modelPath = './models/colombia-v0.1.pt'
+
+def detectDocument():
+  
+  return
 
 def getClasses(country:str ,side:str, type:str):
   
