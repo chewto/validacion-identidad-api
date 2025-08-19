@@ -1,6 +1,7 @@
 
 import json
 from flask import Blueprint, request, jsonify
+from document_detection import detectDocument
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
@@ -89,6 +90,8 @@ def verificarAnverso():
     barcodeData = json.loads(countryData[4])
     ocrData = json.loads(countryData[5])
 
+    resultsDict = {}
+
     selfieOrientada = personaData
 
     documentoOrientado = rotateImage(documentoData, textAngle)
@@ -99,10 +102,10 @@ def verificarAnverso():
 
     documentoOCRPre = ocr
 
-    validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
-    totalValidacionLado = validarLadoPre 
+    # validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
+    # totalValidacionLado = validarLadoPre 
     checkSide = {
-      'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
+      # 'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
       'face': 'OK' if confidence <= confidenceValue else '!OK'
     }
 
@@ -111,11 +114,60 @@ def verificarAnverso():
     if(confidence >= confidenceValue):
       messages.append('Los rostros no coincidén.')
 
-    typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, detectionData=ocrData)
-    documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    if(userCountry == "COL"):
+      documentType, documentValidation, countryCode, countryDetected,isCountry = detectDocument(img=documentoData, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento)
 
-    if(documentValidation != 'OK'):
-      messages.append('El tipo de documento no coincide con el seleccionado.')
+     
+      checkSide['documentValidation'] = documentValidation
+
+      resultsDict['document'] = {
+          'type':documentType,
+          'typeCheck':documentValidation,
+          'isExpired': None,
+          # 'code':codeC,
+          # 'country': country,
+          # 'countryCheck':countryValidation
+        }
+
+      if(isCountry != 'OK'):
+        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
+        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+        resultsDict['document']['code'] = codeC
+        resultsDict['document']['country'] = country
+        resultsDict['document']['countryCheck'] = countryValidation
+
+        checkSide['countryValidation'] = countryValidation
+
+      else:
+        resultsDict['document']['code'] = countryCode
+        resultsDict['document']['country'] = countryDetected
+        resultsDict['document']['countryCheck'] = isCountry
+
+        checkSide['countryValidation'] = isCountry
+
+      if(resultsDict['document']['countryCheck'] != 'OK'):
+        messages.append('El pais del documento no se encontro en el documento.')
+
+      if(resultsDict['document']['countryCheck'] != 'OK'):
+          messages.append('El tipo de documento no coincide con el seleccionado.')
+
+
+      
+    else:
+      typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, detectionData=ocrData)
+      documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+
+      checkSide['documentValidation'] = documentValidation  
+
+      resultsDict['document'] = {
+        'type':documentType,
+        'typeCheck':documentValidation,
+        'isExpired': None
+      }
+
+      if(documentValidation != 'OK'):
+        messages.append('El tipo de documento no coincide con el seleccionado.')
 
     isExpired = None
 
@@ -145,7 +197,7 @@ def verificarAnverso():
     apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido,onlyNumbers=False)
     numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento, onlyNumbers=True)
 
-    checkSide['documentValidation'] = documentValidation
+    # checkSide['documentValidation'] = documentValidation
     checkSide['percentName'] = 'OK' if porcentajeNombrePre >= 50 else '!OK'
     checkSide['percentLastname'] = 'OK' if porcentajeApellidoPre >= 50 else '!OK'
     checkSide['percentID'] ='OK' if porcentajeDocumentoPre >= 50 else '!OK'
@@ -163,9 +215,8 @@ def verificarAnverso():
   
     image = imageToDataURL(preprocessedDocument)
 
-    resultsDict = {
-      'image': image,
-      'ocr': {
+    resultsDict['image'] = image
+    resultsDict['ocr'] = {
         'data':{
           'name': nombrePreOCR,
           'lastName': apellidoPreOCR,
@@ -176,15 +227,33 @@ def verificarAnverso():
           'lastName': porcentajeApellidoPre,
           'ID': porcentajeDocumentoPre
         }
-      },
-      'face': True if confidence <= confidenceValue else False,
-      'confidence': confidence,
-      'document':{
-        'type':documentType,
-        'typeCheck':documentValidation,
-        'isExpired': isExpired
-      }
     }
+
+    resultsDict['face'] = True if confidence <= confidenceValue else False
+    resultsDict['confidence'] = confidence
+
+    # resultsDict = {
+    #   'image': image,
+    #   'ocr': {
+    #     'data':{
+    #       'name': nombrePreOCR,
+    #       'lastName': apellidoPreOCR,
+    #       'ID': numeroDocumentoPreOCR
+    #     },
+    #     'percentage': {
+    #       'name': porcentajeNombrePre,
+    #       'lastName': porcentajeApellidoPre,
+    #       'ID': porcentajeDocumentoPre
+    #     }
+    #   },
+    #   'face': True if confidence <= confidenceValue else False,
+    #   'confidence': confidence,
+    #   'document':{
+    #     'type':documentType,
+    #     'typeCheck':documentValidation,
+    #     'isExpired': isExpired
+    #   }
+    # }
 
     codeTimeInit = time.time()
 
@@ -204,8 +273,6 @@ def verificarAnverso():
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
     if(documentMRZ):
       mrz =  extractMRZ(documentoData)
-
-      print(mrz)
 
       if(mrz == "No se pudo detectar MRZ válido en la imagen."):
         messages.append('No se pudo detecar el código mrz del documento.')
@@ -271,11 +338,12 @@ def verificarAnverso():
       if(countryValidation != 'OK'):
         messages.append('El país del documento no coincide.')
 
-      resultsDict['document']['code'] = codeC
-      resultsDict['document']['country'] = country
-      resultsDict['document']['countryCheck'] = countryValidation
+      if(userCountry != 'COL'):
+        resultsDict['document']['code'] = codeC
+        resultsDict['document']['country'] = country
+        resultsDict['document']['countryCheck'] = countryValidation
 
-      checkSide['countryValidation'] = countryValidation
+        checkSide['countryValidation'] = countryValidation
 
       resultsDict['mrz'] = {
         'code': '',
@@ -391,8 +459,6 @@ def verificarReverso():
 
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
 
-      print(detectedBarcodes)
-
       rotatedImage = imagenDocumento if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
@@ -462,21 +528,79 @@ def verificarReverso():
 
     # checkSide['validation'] = 'OK'if totalValidacion >= 2 else '!OK'
 
-    typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
-    documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+    if(userCountry == "COL"):
+
+      documentType, documentValidation, countryCode, countryDetected,isCountry = detectDocument(img=imagenDocumento, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento)
+
+      checkSide['documentValidation'] = documentValidation
+
+      resultsDict['document'] = {
+          'type':documentType,
+          'typeCheck':documentValidation,
+          'isExpired': None,
+          # 'code':codeC,
+          # 'country': country,
+          # 'countryCheck':countryValidation
+        }
+
+      if(isCountry != 'OK'):
+        print('no se encontro')
+        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
+        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+        resultsDict['document']['code'] = codeC
+        resultsDict['document']['country'] = country
+        resultsDict['document']['countryCheck'] = countryValidation
+
+        checkSide['countryValidation'] = countryValidation
+
+      else:
+        print('si se encontro')
+        resultsDict['document']['code'] = countryCode
+        resultsDict['document']['country'] = countryDetected
+        resultsDict['document']['countryCheck'] = isCountry
+
+        checkSide['countryValidation'] = isCountry
+    
+      if(resultsDict['document']['countryCheck'] != 'OK'):
+        messages.append('El pais del documento no se encontro en el documento.')
+
+      if(resultsDict['document']['typeCheck'] != 'OK'):
+          messages.append('El tipo de documento no coincide con el seleccionado.')
+      
+    else:
+      print('no tiene modelo')
+      typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, detectionData=ocrData)
+      documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+
+
+      checkSide['documentValidation'] = documentValidation  
+
+      resultsDict['document'] = {
+        'type':documentType,
+        'typeCheck':documentValidation,
+        'isExpired': None
+      }
+
+      if(documentValidation != 'OK'):
+        messages.append('El tipo de documento no coincide con el seleccionado.')
+
+
+    # typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
+    # documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
 
     timeOcrEnd = time.time()
     OCRtime = timeOcrInit - timeOcrEnd
     print('ocr time ', OCRtime)
 
-    if(tipoDocumento != 'CEDULA DE EXTRANJERIA'):
-      if(documentValidation != 'OK'):
-        messages.append('El tipo de documento no coincide con el seleccionado.')
+    # if(tipoDocumento != 'CEDULA DE EXTRANJERIA'):
+    #   if(documentValidation != 'OK'):
+    #     messages.append('El tipo de documento no coincide con el seleccionado.')
 
-      checkSide['documentValidation'] = documentValidation
+    #   checkSide['documentValidation'] = documentValidation
 
-      resultsDict['document']['type'] = documentType
-      resultsDict['document']['typeCheck'] = documentValidation
+    #   resultsDict['document']['type'] = documentType
+    #   resultsDict['document']['typeCheck'] = documentValidation
 
 
     codeTimeInit = time.time()
@@ -519,95 +643,128 @@ def verificarReverso():
             }
           }
 
-          if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
-            checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
-            checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+          # if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
+          #   checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
+          #   checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
 
-          if(tipoDocumento == 'CEDULA DIGITAL'):
-            if 'type' in mrz:
-              if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
-                checkSide['documentValidation'] = 'OK'
+          # if(tipoDocumento == 'CEDULA DIGITAL'):
+          #   if 'type' in mrz:
+          #     if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
+          #       checkSide['documentValidation'] = 'OK'
 
-                resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
-                resultsDict['document']['typeCheck'] = 'OK'
+          #       resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
+          #       resultsDict['document']['typeCheck'] = 'OK'
 
-                checkSide['typeCheck'] ='OK'
+          #       checkSide['typeCheck'] ='OK'
 
-              else:
-                resultsDict['document']['type'] = documentType
-                resultsDict['document']['typeCheck'] = documentValidation
+          #     else:
+          #       resultsDict['document']['type'] = documentType
+          #       resultsDict['document']['typeCheck'] = documentValidation
 
-                checkSide['typeCheck'] = documentValidation
-            else:
-              # checkSide['documentValidation'] = documentValidation
+          #       checkSide['typeCheck'] = documentValidation
+          #   else:
+          #     # checkSide['documentValidation'] = documentValidation
 
-              resultsDict['document']['type'] = documentType
-              resultsDict['document']['typeCheck'] = documentValidation
+          #     resultsDict['document']['type'] = documentType
+          #     resultsDict['document']['typeCheck'] = documentValidation
 
-              checkSide['typeCheck'] = documentValidation
+          #     checkSide['typeCheck'] = documentValidation
           
-          if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
+          # if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
 
-            if 'type' in mrz:
-              if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
-                checkSide['documentValidation'] = 'OK'
+          #   if 'type' in mrz:
+          #     if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
+          #       checkSide['documentValidation'] = 'OK'
 
-                resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
-                resultsDict['document']['typeCheck'] = 'OK'
+          #       resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
+          #       resultsDict['document']['typeCheck'] = 'OK'
 
-                checkSide['typeCheck'] ='OK'
+          #       checkSide['typeCheck'] ='OK'
 
-              else:
+          #     else:
 
-                # checkSide['documentValidation'] = documentValidation
+          #       # checkSide['documentValidation'] = documentValidation
 
-                resultsDict['document']['type'] = documentType
-                resultsDict['document']['typeCheck'] = documentValidation
+          #       resultsDict['document']['type'] = documentType
+          #       resultsDict['document']['typeCheck'] = documentValidation
 
-                checkSide['typeCheck'] = documentValidation
-            else:
-              # checkSide['documentValidation'] = documentValidation
+          #       checkSide['typeCheck'] = documentValidation
+          #   else:
+          #     # checkSide['documentValidation'] = documentValidation
 
-              resultsDict['document']['type'] = documentType
-              resultsDict['document']['typeCheck'] = documentValidation
+          #     resultsDict['document']['type'] = documentType
+          #     resultsDict['document']['typeCheck'] = documentValidation
 
-              checkSide['typeCheck'] = documentValidation
+          #     checkSide['typeCheck'] = documentValidation
 
-            temp['mrz']= {
-              'mrz': 'OK' if 'raw_text' in mrz else '!OK',
-              'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
-              'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
-            }
+          #   temp['mrz']= {
+          #     'mrz': 'OK' if 'raw_text' in mrz else '!OK',
+          #     'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
+          #     'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
+          #   }
 
-          if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
-            if 'type' in mrz:
-              if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
-                checkSide['documentValidation'] = 'OK'
+          # if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
+          #   if 'type' in mrz:
+          #     if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
+          #       checkSide['documentValidation'] = 'OK'
 
-                resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'
-                resultsDict['document']['typeCheck'] = 'OK'
+          #       resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'
+          #       resultsDict['document']['typeCheck'] = 'OK'
 
-                checkSide['typeCheck'] ='OK'
+          #       checkSide['typeCheck'] ='OK'
 
-              else:
-                # checkSide['documentValidation'] = documentValidation
+          #     else:
+          #       # checkSide['documentValidation'] = documentValidation
 
-                resultsDict['document']['type'] = documentType
-                resultsDict['document']['typeCheck'] = documentValidation
+          #       resultsDict['document']['type'] = documentType
+          #       resultsDict['document']['typeCheck'] = documentValidation
 
-                checkSide['typeCheck'] = documentValidation
-            else:
-              # checkSide['documentValidation'] = documentValidation
+          #       checkSide['typeCheck'] = documentValidation
+          #   else:
+          #     # checkSide['documentValidation'] = documentValidation
 
-              resultsDict['document']['type'] = documentType
-              resultsDict['document']['typeCheck'] = documentValidation
+          #     resultsDict['document']['type'] = documentType
+          #     resultsDict['document']['typeCheck'] = documentValidation
 
-              checkSide['typeCheck'] = documentValidation
+          #     checkSide['typeCheck'] = documentValidation
 
           if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
             messages.append('No se encontró el nombre en el codigo mrz.')
           if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
             messages.append('No se encontró el apellido en el codigo mrz.')
+
+          if userCountry == 'HND':
+            if 'type' in mrz:
+              if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
+                checkSide['documentValidation'] = 'OK'
+
+                resultsDict['document']['type'] = 'DNI'
+                resultsDict['document']['typeCheck'] = 'OK'
+
+                checkSide['typeCheck'] ='OK'
+
+              elif(mrz['type'] == 'P<'):
+
+                checkSide['documentValidation'] = 'OK'
+
+                resultsDict['document']['type'] = 'PASAPORTE'
+                resultsDict['document']['typeCheck'] = 'OK'
+
+                checkSide['typeCheck'] ='OK'
+              else:
+                # checkSide['documentValidation'] = documentValidation
+
+                resultsDict['document']['type'] = documentType
+                resultsDict['document']['typeCheck'] = documentValidation
+
+                checkSide['typeCheck'] = documentValidation
+            else:
+              # checkSide['documentValidation'] = documentValidation
+
+              resultsDict['document']['type'] = documentType
+              resultsDict['document']['typeCheck'] = documentValidation
+
+              checkSide['typeCheck'] = documentValidation
 
           if 'country' in mrz:
             countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [mrz['country']], country=userCountry)

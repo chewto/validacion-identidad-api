@@ -2,6 +2,10 @@ import re
 from ultralytics import YOLO
 from ocr import ocr
 
+countryHash = {
+  'COL': 'COLOMBIA'
+}
+
 documentClasses = {
   "HND": {
     "DNI": {
@@ -23,12 +27,94 @@ documentClasses = {
 
 
 
+documentDetection = {
+  "COL":{
+    "CEDULA DE CIUDADANIA": {
+      "anverso": "CEDULA_CIUDADANIA_FRONTAL CEDULA_DIGITAL_FRONTAL",
+      "reverso": "CEDULA_CIUDADANIA_REVERSO CEDULA_CIUDADANIA_REVERSOs CEDULA_DIGITAL_REVERSO CEDULA_DIGITAL_REVERSOs"
+    },
+    "CEDULA DE EXTRANJERIA": {
+      "anverso": "CEDULA_EXTRANJERIA_FRONTAL",
+      "reverso": "CEDULA_EXTRANJERIA_REVERSO CEDULA_EXTRANJERIA_REVERSOs "
+    },
+    "CEDULA DIGITAL": {
+      "anverso": "CEDULA_DIGITAL_FRONTAL",
+      "reverso": "CEDULA_DIGITAL_REVERSOs CEDULA_DIGITAL_REVERSO"
+    },
+    "PASAPORTE": {
+      "anverso": "PASAPORTE",
+      "reverso": ""
+    }
+  }
+}
+
 
 modelPath = './models/colombia-v0.1.pt'
 
-def detectDocument():
-  
-  return
+def detectDocument(img, countryCode: str, side: str, type: str):
+  documentClass = documentDetection[countryCode][type][side]
+  documentClass = documentClass.split(" ")
+
+  country = countryHash[countryCode]
+
+  # Cargar el modelo YOLO
+  yoloModel = YOLO(modelPath)
+
+  # Definir las clases a detectar
+  labels = [
+    "CEDULA_CIUDADANIA_FRONTAL",
+    "NUMERO_DOCUMENTO",
+    "APELLIDOS",
+    "NOMBRES",
+    "FIRMA",
+    "FOTO",
+    "ENCABEZADO",
+    "CEDULA_CIUDADANIA_REVERSO",
+    "CODIGO_BARRAS",
+    "HUELLA",
+    "FECHA_NACIMIENTO",
+    "LUGAR_NACIMIENTO",
+    "ESTATURA",
+    "GRUPO_SANGUINEO",
+    "SEXO",
+    "FECHA_EXPEDICION",
+    "CODIGO",
+    "CEDULA_EXTRANJERIA_FRONTAL",
+    "NACIONALIDAD",
+    "FECHA_EXPIRACION",
+    "GHOST",
+    "CEDULA_EXTRANJERIA_REVERSO",
+    "MRZ",
+    "CEDULA_DIGITAL_FRONTAL",
+    "CEDULA_DIGITAL_REVERSO",
+    "PASAPORTE",
+    "NUMERO_PERSONAL",
+    "AUTORIDAD",
+    "CODIGO_PAIS",
+    "TIPO",
+    "CODIG_BARRAS_LATERAL",
+    "NUMERO_LATERAL",
+    "NUMERO_PASAPORTE"
+  ]
+
+  results = yoloModel(img)[0]
+
+  detected_classes = set()
+  for cls in results.boxes.cls:
+    class_idx = int(cls)
+    if class_idx < len(labels):
+      detected_classes.add(labels[class_idx])
+    else:
+      detected_classes.add(str(class_idx))
+
+  # Retorna True si la clase esperada está entre las detectadas, si no False
+
+
+  for classes in documentClass:
+    if classes in detected_classes:
+      return type,"OK", countryCode, country, "OK"
+
+  return "no detectado","!OK", "COL", "COLOMBIA", "!OK"
 
 def getClasses(country:str ,side:str, type:str):
   
