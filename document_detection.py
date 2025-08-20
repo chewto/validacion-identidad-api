@@ -1,6 +1,7 @@
 import re
 from ultralytics import YOLO
-from ocr import ocr
+from check_result import testingCountry, testingType
+from ocr import ocr, validateDocumentCountry, validateDocumentType
 
 countryHash = {
   'COL': 'COLOMBIA'
@@ -29,6 +30,7 @@ documentClasses = {
 
 documentDetection = {
   "COL":{
+    "hasModel":True,
     "CEDULA DE CIUDADANIA": {
       "anverso": "CEDULA_CIUDADANIA_FRONTAL CEDULA_DIGITAL_FRONTAL",
       "reverso": "CEDULA_CIUDADANIA_REVERSO CEDULA_CIUDADANIA_REVERSOs CEDULA_DIGITAL_REVERSO CEDULA_DIGITAL_REVERSOs"
@@ -45,11 +47,92 @@ documentDetection = {
       "anverso": "PASAPORTE",
       "reverso": ""
     }
+  },
+  "HND": {
+    "hasModel": False
   }
 }
 
 
 modelPath = './models/colombia-v0.1.pt'
+
+def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_country, ocr_data):
+    """Función unificada para detección y validación de documentos.
+
+    - Si `country_config` está presente y para `user_country` tiene `has_model=True`,
+      se usa `detectDocument` (modelo de detección) y se realiza validación de país
+      y tipo similar al flujo antiguo de COL.
+    - Si `has_model` es False (o no hay country_config), se cae al modo genérico
+      que valida el tipo de documento con OCR/`validateDocumentType` y `testingType`.
+
+    Devuelve: (document_section_dict, check_side_updates, messages_list)
+    """
+    messages = []
+    checkSide = {}
+
+    # Decide si el país tiene un modelo de detección basado en la configuración.
+    has_model = documentDetection[user_country]["hasModel"]
+
+
+    if has_model:
+        # Usar detectModel (flujo tipo COL)
+        document_type, document_validation, country_code, country_detected, isCountry = detectDocument(
+            img=documento_data, countryCode=user_country, side=lado_documento, type=tipo_documento
+        )
+
+        documentSection = {
+            'type': document_type,
+            'typeCheck': document_validation,
+            'isExpired': None,
+        }
+
+        print(document_type, document_validation)
+
+        checkSide['documentValidation'] = document_validation
+
+        if isCountry != 'OK':
+            country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
+            code_c, country_name, country_validation = testingCountry([
+                {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+            ])
+
+            documentSection.update({'code': code_c, 'country': country_name, 'countryCheck': country_validation})
+            checkSide['countryValidation'] = country_validation
+
+            if country_validation != 'OK':
+                messages.append('El pais del documento no se encontro en el documento.')
+
+        else:
+            documentSection.update({'code': country_code, 'country': country_detected, 'countryCheck': isCountry})
+            checkSide['countryValidation'] = isCountry
+
+            if documentSection['countryCheck'] != 'OK':
+                messages.append('El pais del documento no se encontro en el documento.')
+
+        if document_validation != 'OK':
+            messages.append('El tipo de documento no coincide con el seleccionado.')
+
+    else:
+        # Modo genérico basado en OCR/detección por texto
+        type_detected_pre, document_type_validation_pre = validateDocumentType(
+            tipo_documento, lado_documento, ocr, detectionData=ocr_data
+        )
+        document_type, document_validation = testingType([
+            {'type': type_detected_pre, 'validation': document_type_validation_pre}
+        ])
+
+        checkSide['documentValidation'] = document_validation
+
+        documentSection = {
+            'type': document_type,
+            'typeCheck': document_validation,
+            'isExpired': None
+        }
+
+        if document_validation != 'OK':
+            messages.append('El tipo de documento no coincide con el seleccionado.')
+
+    return documentSection, checkSide, messages
 
 def detectDocument(img, countryCode: str, side: str, type: str):
   documentClass = documentDetection[countryCode][type][side]
@@ -108,6 +191,7 @@ def detectDocument(img, countryCode: str, side: str, type: str):
       detected_classes.add(str(class_idx))
 
   # Retorna True si la clase esperada está entre las detectadas, si no False
+
 
 
   for classes in documentClass:

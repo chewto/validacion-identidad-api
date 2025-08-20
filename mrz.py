@@ -3,7 +3,8 @@ import re
 import numpy as np
 from passporteye import read_mrz
 import PIL.Image
-from ocr import ocr
+from check_result import testingCountry
+from ocr import ocr, validateDocumentCountry
 import pytesseract as tess
 from utilidades import listToText
 from utilidades import extraerPorcentaje
@@ -341,3 +342,75 @@ def expiracyDateMRZ(ocrData):
       return True
 
     return False
+
+
+def validateMrz(document, documentType, documentSide, nombre, apellido, userCountry,mrzData):
+    """Procesa MRZ si aplica; retorna mrz_section, check_side_updates, messages, and possible document country updates.
+    """
+    messages = []
+    check_side = {}
+    mrz_section = None
+
+    mrz_letter, document_mrz = MRZSide(documentType=documentType, documentSide=documentSide, mrzData=mrzData)
+    if document_mrz:
+        mrz = extractMRZ(document)
+        if mrz == "No se pudo detectar MRZ válido en la imagen.":
+            messages.append('No se pudo detecar el código mrz del documento.')
+            mrz_raw = ''
+        else:
+            mrz_raw = mrz.get('raw_text', '').replace('\n', '')
+
+        extract_name = mrzInfo(mrz=mrz_raw, searchTerm=nombre)
+        extract_lastname = mrzInfo(mrz=mrz_raw, searchTerm=apellido)
+
+        name_mrz = comparisonMRZInfo([extract_name], nombre, 'name')
+        lastname_mrz = comparisonMRZInfo([extract_lastname], apellido, 'surname')
+
+        mrz_section = {
+            'code': mrz_raw if mrz_raw else 'No se pudo detectar MRZ válido en la imagen.',
+            'data': {
+                'name': name_mrz['data'] if len(name_mrz['data']) >= 1 else '',
+                'lastName': lastname_mrz['data'] if len(lastname_mrz['data']) >= 1 else ''
+            },
+            'percentages': {
+                'name': name_mrz['percent'],
+                'lastName': lastname_mrz['percent']
+            }
+        }
+
+        check_side['mrzNamePercent'] = 'OK' if name_mrz['percent'] >= 50 else '!OK'
+        check_side['mrzLastNamePercent'] = 'OK' if lastname_mrz['percent'] >= 50 else '!OK'
+
+        if name_mrz['percent'] <= 50:
+            messages.append('No se encontró el nombre en el codigo mrz.')
+        if lastname_mrz['percent'] <= 50:
+            messages.append('No se encontró el apellido en el codigo mrz.')
+
+        # Si en MRZ viene country -> validar
+        if 'country' in (mrz or {}):
+            country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry([mrz.get('country')], country=userCountry)
+            code_c, country_name, country_validation = testingCountry([
+                {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+            ])
+
+            if country_validation != 'OK':
+                messages.append('El país del documento no coincide.')
+
+            document_country_update = {
+                'code': code_c,
+                'country': country_name,
+                'countryCheck': country_validation
+            }
+
+            check_side['countryValidation'] = country_validation
+            return mrz_section, check_side, messages, document_country_update
+
+        # si MRZ no trae country, se deja que el flujo superior valide por OCR
+        return mrz_section, check_side, messages, None
+
+    # no MRZ
+    return {
+        'code': '',
+        'data': {'name': '', 'lastName': ''},
+        'percentages': {'name': 0, 'lastName': 0}
+    }, {}, [], None

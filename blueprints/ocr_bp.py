@@ -1,13 +1,15 @@
 
 import json
 from flask import Blueprint, request, jsonify
-from document_detection import detectDocument
+from document_detection import detectDocument, validateDocument
+from formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
-from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo
+from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import orientacionImagen, verifyFaces
+from request_parser import _parse_request
 from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from check_result import testingCountry, testingType, results
 import time
@@ -16,67 +18,25 @@ import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
-messages = {
-  "ocr":{
-    "name":"",
-    "lastName": "",
-    "document": ""
-  },
-  "mrz":{
-    "code":"",
-    "name":"",
-    "lastName": ""
-  },
-  "face":"",
-  "document":{
-    "country": "",
-    "type": "",
-    "expiracy": ""
-  },
-  "barcode": {
-    "code": ""
-  }
-}
-
+confidenceThreshold = 0.6
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
-    confidenceValue = 0.6
-    is_testing = request.args.get('testing', 'false').lower() == 'true'
 
-    if is_testing:
-      efirmaId = request.form.get('id')
-      imagenPersona = request.files.get('imagenPersona')
-      imagenDocumento = request.files.get('imagen')
-      ladoDocumento = request.form.get('ladoDocumento')
-      tipoDocumento = request.form.get('tipoDocumento')
-      nombre = request.form.get('nombre')
-      apellido = request.form.get('apellido')
-      numeroDocumento = request.form.get('documento')
-      userCountry = request.form.get('country')
-      tries = request.form.get('tries')
-      tries = int(tries)
-      personaData = fileCv2(imagenPersona)
-      documentoData = fileCv2(imagenDocumento)
-      ocr = request.form.get('ocr').split(",")
-      textAngle = request.form.get('textAngle')
-    else:
-      reqBody = request.get_json()
-      efirmaId = reqBody.get('id')
-      imagenPersona = reqBody.get('imagenPersona')
-      imagenDocumento = reqBody.get('imagen')
-      ladoDocumento = reqBody.get('ladoDocumento')
-      tipoDocumento = reqBody.get('tipoDocumento')
-      nombre = reqBody.get('nombre')
-      apellido = reqBody.get('apellido')
-      numeroDocumento = reqBody.get('documento')
-      userCountry = reqBody.get('country')
-      tries = reqBody.get('tries')
-      tries = int(tries)
-      personaData = readDataURL(imagenPersona)
-      documentoData = readDataURL(imagenDocumento)
-      ocr = reqBody.get('ocr')
-      textAngle = reqBody.get('textAngle')
+    parsed = _parse_request(request)
+    
+    efirmaId = parsed['efirma_id']
+    personaData = parsed['persona_data']
+    documentoData = parsed['documento_data']
+    ladoDocumento = parsed['lado_documento']
+    tipoDocumento = parsed['tipo_documento']
+    nombre = parsed['nombre'] or ''
+    apellido = parsed['apellido'] or ''
+    numeroDocumento = parsed['numero_documento']
+    userCountry = parsed['user_country']
+    tries = parsed['tries']
+    ocr =  parsed['ocr']
+    textAngle = parsed['text_angle']
 
 
     # resolution = 600 if tries <=1 else 1080
@@ -91,6 +51,8 @@ def verificarAnverso():
     ocrData = json.loads(countryData[5])
 
     resultsDict = {}
+    messages = []
+    checkSide = {}
 
     selfieOrientada = personaData
 
@@ -100,117 +62,45 @@ def verificarAnverso():
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
-    documentoOCRPre = ocr
-
-    # validarLadoPre = validarLadoDocumento(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
-    # totalValidacionLado = validarLadoPre 
-    checkSide = {
-      # 'validation': 'OK'if totalValidacionLado >= 3 else '!OK',
-      'face': 'OK' if confidence <= confidenceValue else '!OK'
-    }
+    checkSide['face'] = 'OK' if confidence <= confidenceThreshold else '!OK'
+    if(confidence >= confidenceThreshold):
+      messages.append('Los rostros no coincidén.')
 
     messages = []
 
-    if(confidence >= confidenceValue):
-      messages.append('Los rostros no coincidén.')
+    document_section, doc_check, doc_messages = validateDocument(
+        documentoData,
+        ocr,
+        tipoDocumento,
+        ladoDocumento,
+        userCountry,
+        ocrData
+    )
 
-    if(userCountry == "COL"):
-      documentType, documentValidation, countryCode, countryDetected,isCountry = detectDocument(img=documentoData, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento)
+    # Fusionar resultados de validación de documento
+    checkSide.update(doc_check)
+    messages.extend(doc_messages)
+    resultsDict['document'] = document_section
 
-     
-      checkSide['documentValidation'] = documentValidation
-
-      resultsDict['document'] = {
-          'type':documentType,
-          'typeCheck':documentValidation,
-          'isExpired': None,
-          # 'code':codeC,
-          # 'country': country,
-          # 'countryCheck':countryValidation
-        }
-
-      if(isCountry != 'OK'):
-        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
-        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-        resultsDict['document']['code'] = codeC
-        resultsDict['document']['country'] = country
-        resultsDict['document']['countryCheck'] = countryValidation
-
-        checkSide['countryValidation'] = countryValidation
-
-      else:
-        resultsDict['document']['code'] = countryCode
-        resultsDict['document']['country'] = countryDetected
-        resultsDict['document']['countryCheck'] = isCountry
-
-        checkSide['countryValidation'] = isCountry
-
-      if(resultsDict['document']['countryCheck'] != 'OK'):
-        messages.append('El pais del documento no se encontro en el documento.')
-
-      if(resultsDict['document']['countryCheck'] != 'OK'):
-          messages.append('El tipo de documento no coincide con el seleccionado.')
-
-
-      
-    else:
-      typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, detectionData=ocrData)
-      documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
-
-      checkSide['documentValidation'] = documentValidation  
-
-      resultsDict['document'] = {
-        'type':documentType,
-        'typeCheck':documentValidation,
-        'isExpired': None
-      }
-
-      if(documentValidation != 'OK'):
-        messages.append('El tipo de documento no coincide con el seleccionado.')
-
-    isExpired = None
-
-    # hasExpiry, namedMonth, datePosition, keywords, dateFormat = hasExpiryDate(tipoDocumento, ladoDocumento, country=userCountry)
-    # if(hasExpiry):
-    #   isExpired = expiryDateOCR(ocrResult,datePosition,keywords,namedMonth,dateFormat)
-
-    #   checkSide['expiracy'] = 'OK' if (not isExpired) else '!OK'
-
-    #   if(isExpired):
-    #     messages.append('El documento esta expirado.')
-
-  
-
-    if(userCountry == 'HND' and tipoDocumento != 'PASAPORTE' and numeroDocumento is not None):
-      idLength = len(numeroDocumento)
-      firstNums = numeroDocumento[0:4]
-      middleNums = numeroDocumento[4:8]
-      lastNums = numeroDocumento[8:idLength]
-
-      numeroDocumento = f"{firstNums} {middleNums} {lastNums}"
+    numeroDocumento = _formatDocumentNumber(numeroDocumento)
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
-    nombrePreOCR, porcentajeNombrePre = validacionOCR(documentoOCRPre, nombre, onlyNumbers=False)
-    apellidoPreOCR, porcentajeApellidoPre = validacionOCR(documentoOCRPre, apellido,onlyNumbers=False)
-    numeroDocumentoPreOCR, porcentajeDocumentoPre = validacionOCR(documentoOCRPre, numeroDocumento, onlyNumbers=True)
+    nombreOcr, pctNombre = validacionOCR(ocr, nombre, onlyNumbers=False)
+    apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
+    numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
-    # checkSide['documentValidation'] = documentValidation
-    checkSide['percentName'] = 'OK' if porcentajeNombrePre >= 50 else '!OK'
-    checkSide['percentLastname'] = 'OK' if porcentajeApellidoPre >= 50 else '!OK'
-    checkSide['percentID'] ='OK' if porcentajeDocumentoPre >= 50 else '!OK'
+    checkSide['percentName'] = 'OK' if pctNombre >= 50 else '!OK'
+    checkSide['percentLastname'] = 'OK' if pctApellido >= 50 else '!OK'
+    checkSide['percentID'] = 'OK' if pctNumero >= 50 else '!OK'
 
-    if(porcentajeNombrePre <= 50):
-      messages.append('El nombre no se ha encontrado en el documento.')
-
-    if(porcentajeApellidoPre <= 50):
-      messages.append('El apellido no se ha encontrado en el documento.')
-
-    if(porcentajeDocumentoPre <= 50):
-      messages.append('El número del identificación no se ha encontrado en el documento.')
-
+    if pctNombre <= 50:
+        messages.append('El nombre no se ha encontrado en el documento.')
+    if pctApellido <= 50:
+        messages.append('El apellido no se ha encontrado en el documento.')
+    if pctNumero <= 50:
+        messages.append('El número del identificación no se ha encontrado en el documento.')
 
   
     image = imageToDataURL(preprocessedDocument)
@@ -218,18 +108,18 @@ def verificarAnverso():
     resultsDict['image'] = image
     resultsDict['ocr'] = {
         'data':{
-          'name': nombrePreOCR,
-          'lastName': apellidoPreOCR,
-          'ID': numeroDocumentoPreOCR
+          'name': nombreOcr,
+          'lastName': apellidoOcr,
+          'ID': numeroOcr
         },
         'percentage': {
-          'name': porcentajeNombrePre,
-          'lastName': porcentajeApellidoPre,
-          'ID': porcentajeDocumentoPre
+          'name': pctNombre,
+          'lastName': pctApellido,
+          'ID': pctNumero
         }
     }
 
-    resultsDict['face'] = True if confidence <= confidenceValue else False
+    resultsDict['face'] = True if confidence <= confidenceThreshold else False
     resultsDict['confidence'] = confidence
 
     # resultsDict = {
@@ -255,8 +145,6 @@ def verificarAnverso():
     #   }
     # }
 
-    codeTimeInit = time.time()
-
     hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
     if(hasbarcode):
       detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
@@ -265,119 +153,56 @@ def verificarAnverso():
       checkSide['barcode'] = detectedBarcodes
       if(detectedBarcodes != 'OK'):
         messages.append('No se pudo detectar el código de barras del documento.')
-      # if(detectedBarcodes != 'OK'):
-        # messages.append('No se pudo detectar el código de barras del documento.')
     else:
       resultsDict['barcode'] = None
 
-    mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
-    if(documentMRZ):
-      mrz =  extractMRZ(documentoData)
+    mrz_section, mrz_checks, mrz_messages, mrz_country_update = validateMrz(
+        documentoData, tipoDocumento, ladoDocumento, nombre, apellido, userCountry, mrzData
+    )
 
-      if(mrz == "No se pudo detectar MRZ válido en la imagen."):
-        messages.append('No se pudo detecar el código mrz del documento.')
+    # Si MRZ devolvió una actualización de país -> aplicarla
+    if mrz_country_update:
+        resultsDict['document'].update(mrz_country_update)
+        checkSide.update({'countryValidation': mrz_country_update.get('countryCheck')})
+        if mrz_country_update.get('countryCheck') != 'OK':
+            messages.append('El país del documento no coincide.')
 
-      extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
-      extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
+    # Añadir mrz al resultado
+    resultsDict['mrz'] = mrz_section
+    checkSide.update(mrz_checks)
+    messages.extend(mrz_messages)
 
-      nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
-      lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
+    # Si no hay MRZ y no se rellenó country anteriormente -> validar por OCR
+    if not mrz_section or mrz_section.get('code', '') == '':
+        country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=userCountry)
+        code_c, country_name, country_validation = testingCountry([
+            {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+        ])
 
-      # resultsDict['document']['isExpired'] = False
+        if country_validation != 'OK':
+            messages.append('El país del documento no coincide.')
 
-      resultsDict['mrz'] = {
-        'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
-        'data': {
-          'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
-          'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
-        },
-        'percentages': {
-          'name': nameMRZ['percent'],
-          'lastName': lastNameMRZ['percent']
-        }
-      }
+        if userCountry != 'COL':
+            resultsDict['document'].update({'code': code_c, 'country': country_name, 'countryCheck': country_validation})
+            checkSide['countryValidation'] = country_validation
 
-      checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
-      checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
-
-      if(nameMRZ['percent']<= 50):
-        messages.append('No se encontró el nombre en el codigo mrz.')
-      if(lastNameMRZ['percent']<= 50):
-        messages.append('No se encontró el apellido en el codigo mrz.')
-
-      if 'country' in mrz:
-        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [mrz['country']], country=userCountry)
-        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-        if(countryValidation != 'OK'):
-          messages.append('El país del documento no coincide.')
-
-        resultsDict['document']['code'] = codeC
-        resultsDict['document']['country'] = country
-        resultsDict['document']['countryCheck'] = countryValidation
-
-        checkSide['countryValidation'] = countryValidation
-      else:
-        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
-        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-        if(countryValidation != 'OK'):
-          messages.append('El país del documento no coincide.')
-
-        resultsDict['document']['code'] = codeC
-        resultsDict['document']['country'] = country
-        resultsDict['document']['countryCheck'] = countryValidation
-
-        checkSide['countryValidation'] = countryValidation
-
-    else:
-
-      countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
-      codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-      if(countryValidation != 'OK'):
-        messages.append('El país del documento no coincide.')
-
-      if(userCountry != 'COL'):
-        resultsDict['document']['code'] = codeC
-        resultsDict['document']['country'] = country
-        resultsDict['document']['countryCheck'] = countryValidation
-
-        checkSide['countryValidation'] = countryValidation
-
-      resultsDict['mrz'] = {
-        'code': '',
-        'data': {
-          'name': '',
-          'lastName': ''
-        },
-        'percentages': {
-          'name': 0,
-          'lastName': 0
-        }
-      }
-
-    validSide, _, _ = results(49, 'AUTOMATICA', checkSide)
-
-    codeTimeEnd = time.time()
-    codeTime = codeTimeInit - codeTimeEnd
-    print('codes time ', codeTime)
+    # Validación final del lado
+    valid_side, _, _ = results(49, 'AUTOMATICA', checkSide)
 
     resultsDict['messages'] = messages
 
-    if(confidence <= 0.60 and validSide):
-      resultsDict['validSide'] = 'OK' if(validSide and len(messages) <= 0) else '!OK'
-      # resultsDict['validSide'] = 'OK' 
-
-      return jsonify(resultsDict)
+    if confidence <= confidenceThreshold and valid_side:
+        resultsDict['validSide'] = 'OK' if (valid_side and len(messages) <= 0) else '!OK'
+        return jsonify(resultsDict)
 
     resultsDict['validSide'] = '!OK'
-    # resultsDict['validSide'] = 'OK' 
     return jsonify(resultsDict)
 
 
 
+
 #rutas para el front
+
 @ocr_bp.route('/reverso', methods=['POST'])
 def verificarReverso():
     
@@ -493,7 +318,7 @@ def verificarReverso():
 
             checkSide['countryValidation'] = countryValidation
         # else:
-        #   countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
+        #   countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( ocr, country=userCountry)
         #   codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
 
         #   if(countryValidation != 'OK'):
@@ -518,7 +343,7 @@ def verificarReverso():
 
     timeOcrInit = time.time()
 
-    documentoOCRPre = ocr
+    ocr = ocr
 
     # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
     # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
@@ -528,65 +353,69 @@ def verificarReverso():
 
     # checkSide['validation'] = 'OK'if totalValidacion >= 2 else '!OK'
 
-    if(userCountry == "COL"):
-
-      documentType, documentValidation, countryCode, countryDetected,isCountry = detectDocument(img=imagenDocumento, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento)
+    if userCountry == "COL":
+      documentType, documentValidation, countryCode, countryDetected, isCountry = detectDocument(
+        img=imagenDocumento, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento
+      )
 
       checkSide['documentValidation'] = documentValidation
 
       resultsDict['document'] = {
-          'type':documentType,
-          'typeCheck':documentValidation,
-          'isExpired': None,
-          # 'code':codeC,
-          # 'country': country,
-          # 'countryCheck':countryValidation
-        }
+        'type': documentType,
+        'typeCheck': documentValidation,
+        'isExpired': None,
+      }
 
-      if(isCountry != 'OK'):
-        print('no se encontro')
-        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( documentoOCRPre, country=userCountry)
-        codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+      # Validación de país
+      if isCountry != 'OK':
+        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(
+          ocr, country=userCountry
+        )
+        codeC, country, countryValidation = testingCountry([
+          {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}
+        ])
 
         resultsDict['document']['code'] = codeC
         resultsDict['document']['country'] = country
         resultsDict['document']['countryCheck'] = countryValidation
-
         checkSide['countryValidation'] = countryValidation
 
+        if countryValidation != 'OK':
+          messages.append('El país del documento no se encontró en el documento.')
       else:
-        print('si se encontro')
         resultsDict['document']['code'] = countryCode
         resultsDict['document']['country'] = countryDetected
         resultsDict['document']['countryCheck'] = isCountry
-
         checkSide['countryValidation'] = isCountry
-    
-      if(resultsDict['document']['countryCheck'] != 'OK'):
-        messages.append('El pais del documento no se encontro en el documento.')
 
-      if(resultsDict['document']['typeCheck'] != 'OK'):
-          messages.append('El tipo de documento no coincide con el seleccionado.')
-      
+        if isCountry != 'OK':
+          messages.append('El país del documento no se encontró en el documento.')
+
+      # Validación de tipo de documento
+      if documentValidation != 'OK':
+        messages.append('El tipo de documento no coincide con el seleccionado.')
+
     else:
-      print('no tiene modelo')
-      typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, detectionData=ocrData)
-      documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
+      typeDetectedPre, documentTypeValidationPre = validateDocumentType(
+        tipoDocumento, ladoDocumento, ocr, detectionData=ocrData
+      )
+      documentType, documentValidation = testingType([
+        {'type': typeDetectedPre, 'validation': documentTypeValidationPre}
+      ])
 
-
-      checkSide['documentValidation'] = documentValidation  
+      checkSide['documentValidation'] = documentValidation
 
       resultsDict['document'] = {
-        'type':documentType,
-        'typeCheck':documentValidation,
+        'type': documentType,
+        'typeCheck': documentValidation,
         'isExpired': None
       }
 
-      if(documentValidation != 'OK'):
+      if documentValidation != 'OK':
         messages.append('El tipo de documento no coincide con el seleccionado.')
 
 
-    # typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRPre, ocrData)
+    # typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, ocr, ocrData)
     # documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
 
     timeOcrEnd = time.time()
@@ -621,8 +450,6 @@ def verificarReverso():
         messages.append('No se pudo detecar el código mrz del documento.')
 
       if('valid_score' in mrz):
-
-        print('esta disponible')
         if mrz['valid_score'] >= 51:
           extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
           extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
@@ -733,7 +560,7 @@ def verificarReverso():
           if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
             messages.append('No se encontró el apellido en el codigo mrz.')
 
-          if userCountry == 'HND':
+          if userCountry != 'COL':
             if 'type' in mrz:
               if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
                 checkSide['documentValidation'] = 'OK'
@@ -758,13 +585,13 @@ def verificarReverso():
                 resultsDict['document']['typeCheck'] = documentValidation
 
                 checkSide['typeCheck'] = documentValidation
-            else:
-              # checkSide['documentValidation'] = documentValidation
+            # else:
+            #   # checkSide['documentValidation'] = documentValidation
 
-              resultsDict['document']['type'] = documentType
-              resultsDict['document']['typeCheck'] = documentValidation
+            #   resultsDict['document']['type'] = documentType
+            #   resultsDict['document']['typeCheck'] = documentValidation
 
-              checkSide['typeCheck'] = documentValidation
+            #   checkSide['typeCheck'] = documentValidation
 
           if 'country' in mrz:
             countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [mrz['country']], country=userCountry)
@@ -836,7 +663,7 @@ def verificarReverso():
 
     # Si no se detecta el país por MRZ ni por barcode, intentar por OCR
     if resultsDict['mrz']['code'] == '' or resultsDict['mrz']['code'] == 'No se pudo detectar MRZ válido en la imagen.' and resultsDict['barcode'] == '!OK':
-      countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(documentoOCRPre, country=userCountry)
+      countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(ocr, country=userCountry)
       codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
       if(countryValidation != 'OK'):
         messages.append('El país del documento no coincide.')
