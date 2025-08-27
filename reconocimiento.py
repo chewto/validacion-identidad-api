@@ -112,7 +112,7 @@ def getFrames(video_path):
         ret, frame = cap.read()
         if not ret:
             break
-        if contadorFrames % 50 == 0:
+        if contadorFrames % 400 == 0:
             # Guardar el frame como imagen en la carpeta ./videos
             framesCapturados.append(frame)
             output_dir = "/videos"
