@@ -115,7 +115,7 @@ def getFrames(video_path):
         if contadorFrames % 15 == 0:
             # Guardar el frame como imagen en la carpeta ./videos
             framesCapturados.append(frame)
-            output_dir = "./videos"
+            output_dir = "/videos"
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             frame_filename = os.path.join(output_dir, f"frame_{contadorFrames}.jpg")
