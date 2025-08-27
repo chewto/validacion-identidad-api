@@ -111,7 +111,7 @@ def getFrames(video_path):
         ret, frame = cap.read()
         if not ret:
             break
-        if contadorFrames % 10 == 0:
+        if contadorFrames % 15 == 0:
             # frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             framesCapturados.append(frame)
             print(f"Captured frame {contadorFrames}")

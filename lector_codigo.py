@@ -167,7 +167,8 @@ def extractBarcodeData(barcodeData, documentType):
   print(barcodeString)
   documentFormat = formatDefinition[documentType]
 
-TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
+# TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
+TBR_CODES = [103]
 
 def ejecutar_lector(imagen_path, tbr_code, barcodeType):
 

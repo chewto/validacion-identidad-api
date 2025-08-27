@@ -1,13 +1,14 @@
 import json
 from flask import Blueprint, request, jsonify
 from ultralytics import YOLO
-from check_result import results
+from check_result import results, testingCountry
 import controlador_db
 from expiry import expiryDateDetection, expiryDateOCR, hasExpiryDate
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
 from mrz import MRZSide, comparisonMRZInfo, extractMRZ, mrzInfo
 from ocr import validateDocumentCountry, validateDocumentType
 from reconocimiento import orientacionImagen, verifyFaces
+from request_parser import _parse_request
 from utilidades import fileCv2, imageToDataURL, readDataURL
 import document_detection
 from flask import render_template
@@ -70,24 +71,103 @@ def documentDetection():
 @document_detection_bp.route('/validate', methods=['POST', 'GET'])
 def validate():
 
-  documentSide = request.args.get("side", None)
-  documentType = request.args.get("type", None)
+  parsed = _parse_request(request)
 
-  reqBody = request.get_json()
+  selfie = parsed['persona_data']
+  documentImage = parsed['documento_data']
+  efirmaId = parsed['efirma_id']
+  name = parsed['nombre']
+  surname = parsed['apellido']
+  documentType = parsed['tipo_documento']
+
+
+  documentSide = request.args.get("side", None)
 
   countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "COL"''', ())
   
-  print(countryData)
 
   mrzData = json.loads(countryData[3])
   barcodeData = json.loads(countryData[4])
   # ocrData = json.loads(countryData[5])
 
+  for key, value in barcodeData.items():
+    print("barcode")
+    print(value['optional'], value['tbr'])
+
+  for key, value in mrzData.items():
+    print("mrz")
+    print(value['optional'])
+
+
   if(documentSide == 'front'):
     print('es un anverso')
-    # _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
+    _, confidence, _ = verifyFaces(selfie, documentImage)
+
+    print(confidence)
+
+  hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=documentType, documentSide=documentSide, barcodeData=barcodeData)
+  if(hasbarcode):
+      print("tiene codigo")
+      detectedBarcodes = barcodeReader(documentImage, efirmaId, documentSide, barcodeType, barcodetbr)
+      detectedBarcodes = 'OK' if(len(detectedBarcodes) >= 1) else '!OK'
+      # resultsDict['barcode'] = detectedBarcodes
+      # checkSide['barcode'] = detectedBarcodes
+      # if(detectedBarcodes != 'OK'):
+      #   messages.append('No se pudo detectar el código de barras del documento.')
+  else:
+      # resultsDict['barcode'] = None
+      print("no tiene codigo")
+
+
+  mrzLetter, documentMRZ = MRZSide(documentType=documentType, documentSide=documentSide, mrzData=mrzData)
+  if(documentMRZ):
+
+    nameHasK = name.find("k")
+    lastNamehasK = surname.find("k")
+
+    mrz =  extractMRZ(documentImage)
+
+    print(mrz)
+
+      # if(nameHasK == -1 or lastNamehasK == -1):
+      #   mrz = mrz['raw_text'].replace('K', ' ')
+
+    if(mrz == "No se pudo detectar MRZ válido en la imagen."):
+      print('')
+        # messages.append('No se pudo detecar el código mrz del documento.')
+
+    if('valid_score' in mrz):
+        if mrz['valid_score'] >= 51:
+            extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=name)
+            extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=surname)
+
+            nameMRZ = comparisonMRZInfo([extractName], name, 'name')
+            lastNameMRZ = comparisonMRZInfo([extractLastname], surname, 'surname')
+
+            # if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+            #   messages.append('No se encontró el nombre en el codigo mrz.')
+            # if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+            #   messages.append('No se encontró el apellido en el codigo mrz.')
+
+            if 'country' in mrz:
+                countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry([mrz['country']], country="COL")
+                codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
+
+                if(countryValidation != 'OK'):
+                    # messages.append('El país del documento no coincide.')
+                    print()
+            else:
+                print()
+        else:
+            print()
+            print()
+    else:
+
+        print()
+  else:
+    print()
 
   return ''
 

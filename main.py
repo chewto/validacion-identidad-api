@@ -99,6 +99,8 @@ def antiSpoofing():
       video,
       vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
       vcodec='libx264',
+      preset='ultrafast',
+      crf=28,
       acodec='aac'
     ).run(overwrite_output=True)
     print(f"Video convertido y guardado como '{video}'")
@@ -107,39 +109,6 @@ def antiSpoofing():
     print(f"Error durante la conversión: {error_msg}")
   except Exception as e:
     print(f"Ocurrió un error inesperado durante la conversión: {e}")
-
-  # formato = "webm"
-
-  # video = request.files.get("video")
-
-  # usuarioId, entidadId = controlador_db.obtenerEntidad(id)
-
-  # pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
-
-  # pathUsuario = f"{pathEntidad}/{usuarioId}"
-
-  # existenciaCarpetaEntidad = os.path.exists(pathEntidad)
-
-  # existenciaCarpetaUsuario = os.path.exists(pathUsuario)
-
-  # creadoEntidad = False
-  # creadoUsuario = False
-
-  # if(not existenciaCarpetaEntidad):
-  #   os.mkdir(pathEntidad)
-  #   creadoEntidad = True
-
-  # if(not existenciaCarpetaUsuario):
-  #   os.mkdir(pathUsuario)
-  #   creadoUsuario = True
-
-  # pathPrueba = ""
-
-  # if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-  #   pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
-  #   # pathPrueba = f"video.{formato}"
-
-  #   video.save(pathPrueba)
 
   messages = []
 
