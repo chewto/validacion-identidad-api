@@ -96,8 +96,7 @@ def verifyFaces(imageArray1, imageArray2):
 
         return landmarks,0.99, False
 
-def getFrames(video_path):
-    import os
+def getFrames(video_path, frameCounter):
     dataURL = ""
     framesCapturados = []
     if not os.path.isfile(video_path):
@@ -112,7 +111,7 @@ def getFrames(video_path):
         ret, frame = cap.read()
         if not ret:
             break
-        if contadorFrames % 400 == 0:
+        if contadorFrames % frameCounter == 0:
             # Guardar el frame como imagen en la carpeta ./videos
             framesCapturados.append(frame)
             output_dir = "/videos"
@@ -132,9 +131,7 @@ def faceDetection(frames):
 
     rostrosComparacion = []
 
-    rostroReferencia = {
-
-    }
+    rostroReferencia = {}
 
     imageDataURL = ''
 
@@ -173,6 +170,16 @@ def faceDetection(frames):
                     rostrosComparacion.append(rostro)
 
         contador+= 1
+
+    # Si no se detectó ningún rostro, usar el primer frame como data URL
+    if not imageDataURL and len(frames) > 0:
+        frame = frames[0]
+        frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pilIMG = Image.fromarray(frameRGB)
+        buff = io.BytesIO()
+        pilIMG.save(buff, format="JPEG")
+        imgStr = base64.b64encode(buff.getvalue())
+        imageDataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
 
     return imageDataURL, rostroReferencia, rostrosComparacion
 
