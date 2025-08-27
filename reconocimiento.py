@@ -4,6 +4,7 @@ from PIL import Image
 import base64
 import io
 from deepface import DeepFace
+import os
 
 haarscascade_frontal_face = 'haarcascade_frontalface_alt.xml'
 haarscascade_eye = 'haarcascade_eye.xml'
@@ -112,9 +113,14 @@ def getFrames(video_path):
         if not ret:
             break
         if contadorFrames % 15 == 0:
-            # frameGris = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            # Guardar el frame como imagen en la carpeta ./videos
             framesCapturados.append(frame)
-            print(f"Captured frame {contadorFrames}")
+            output_dir = "./videos"
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            frame_filename = os.path.join(output_dir, f"frame_{contadorFrames}.jpg")
+            cv2.imwrite(frame_filename, frame)
+            print(f"Captured and saved frame {contadorFrames} to {frame_filename}")
 
         contadorFrames += 1
 
