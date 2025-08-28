@@ -14,8 +14,6 @@ hostDB = os.getenv("DB_HOST")
 portDB = int(os.getenv("DB_PORT"))
 userDB = os.getenv("DB_USER")
 
-
-
 def obtenerIpPrivada():
   hostname = socket.gethostname()
   direccionIp = socket.gethostbyname(hostname)

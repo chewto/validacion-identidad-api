@@ -89,13 +89,13 @@ def antiSpoofing():
   path = request.args.get("path")
   device = request.args.get("device")
 
-  framesCounter = 420 if device == 'DESKTOP' else 50
+  framesCounter = 380 if device == 'DESKTOP' else 50
 
   if not path or not os.path.exists(path):
     return jsonify({"error": "El path no existe"}), 400
 
   video = "video_out.mp4"
-  
+
   # Build ffmpeg command as a list for subprocess
   try:
     ffmpeg.input(path).output(
@@ -136,6 +136,9 @@ def antiSpoofing():
 
   isRealFilter = filter(lambda x: x['isReal'] != True, result)
   isRealFilter = list(isRealFilter)
+
+  if(movimientoDetectado != 'OK'):
+    messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
 
   if(len(photoDataURL) <= 0):
     messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
