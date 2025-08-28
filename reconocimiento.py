@@ -127,82 +127,91 @@ def getFrames(video_path, frameCounter):
     print(f"Total frames captured: {len(framesCapturados)}")
     return framesCapturados
 
-def faceDetection(frames):
+def frame_to_dataurl(frame):
+    """Convierte un frame en dataURL base64 JPEG."""
+    frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pilIMG = Image.fromarray(frameRGB)
+    buff = io.BytesIO()
+    pilIMG.save(buff, format="JPEG")
+    imgStr = base64.b64encode(buff.getvalue()).decode("utf-8")
+    return "data:image/jpeg;base64," + imgStr
 
+
+def faceDetection(frames, cascade_path=cv2.data.haarcascades + haarscascade_frontal_face):
+    if not frames:
+        return None, {}, []  # no hay frames
+
+    # Cargar clasificador una sola vez
+    clasificadorCaras = cv2.CascadeClassifier(cascade_path)
+
+    rostroReferencia = None
     rostrosComparacion = []
+    imageDataURL = None
 
-    rostroReferencia = {}
-
-    imageDataURL = ''
-
-    contador = 1
-
-    for frame in frames:
-
+    for idx, frame in enumerate(frames, start=1):
         frameGray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        clasificadorCaras = cv2.CascadeClassifier(
-            cv2.data.haarcascades + haarscascade_frontal_face
-        )
-
         carasDetectadas = clasificadorCaras.detectMultiScale(
-            frameGray, scaleFactor=1.1, minNeighbors=7, minSize=(50,50)
+            frameGray, scaleFactor=1.1, minNeighbors=7, minSize=(50, 50)
         )
 
-        if(len(carasDetectadas) >= 1):
-            for(x,y,w,h) in carasDetectadas:
-                if(contador == 1):
-                    rostroReferencia['X'] = x
-                    rostroReferencia['Y'] = y
+        if len(carasDetectadas) > 0:
+            for (x, y, w, h) in carasDetectadas:
+                rostro = {"x": x, "y": y, "w": w, "h": h}
 
-                    frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    pilIMG = Image.fromarray(frameRGB)
-                    buff = io.BytesIO()
-                    pilIMG.save(buff, format="JPEG")
-                    imgStr = base64.b64encode(buff.getvalue())
-                    imageDataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
-
-                if(contador >= 2):
-                    rostro = {
-                        "X": x,
-                        "Y": y
-                    }
+                if idx == 1 and rostroReferencia is None:
+                    rostroReferencia = rostro
+                    imageDataURL = frame_to_dataurl(frame)
+                else:
                     rostrosComparacion.append(rostro)
 
-        contador+= 1
+    # Si no se detectó ningún rostro, usar el primer frame como fallback
+    if not imageDataURL:
+        imageDataURL = frame_to_dataurl(frames[0])
 
-    # Si no se detectó ningún rostro, usar el primer frame como data URL
-    if not imageDataURL and len(frames) > 0:
-        frame = frames[0]
-        frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pilIMG = Image.fromarray(frameRGB)
-        buff = io.BytesIO()
-        pilIMG.save(buff, format="JPEG")
-        imgStr = base64.b64encode(buff.getvalue())
-        imageDataURL = "data:image/jpeg;base64," + imgStr.decode("utf-8")
+    return imageDataURL, rostroReferencia or {}, rostrosComparacion
 
-    return imageDataURL, rostroReferencia, rostrosComparacion
+import math
 
-def movementDetection(rostroReferencia, rostros):
+def movementDetection(rostroReferencia, rostros, threshold=5, min_moving_frames=1):
+    """
+    Detecta movimiento comparando un rostro de referencia con una lista de rostros.
+    
+    Params:
+        rostroReferencia (dict): {x, y, w, h}
+        rostros (list[dict]): lista de rostros detectados en frames posteriores
+        threshold (int): distancia mínima en píxeles para considerar movimiento
+        min_moving_frames (int): número mínimo de frames que deben mostrar movimiento
+    
+    Return:
+        str: 'OK' si hay movimiento, '!OK' si no lo hay
+    """
 
-    if(len(rostroReferencia) <= 0  or len(rostros) <= 0):
+    if not rostroReferencia or not rostros:
         return '!OK'
 
-    resultados = []
+    x_ref = rostroReferencia.get("x")
+    y_ref = rostroReferencia.get("y")
+    w_ref = rostroReferencia.get("w", 0)
+    h_ref = rostroReferencia.get("h", 0)
+
+    # Centro del rostro de referencia
+    cx_ref = x_ref + w_ref // 2
+    cy_ref = y_ref + h_ref // 2
+
+    moving_count = 0
 
     for rostro in rostros:
+        cx = rostro.get("x") + rostro.get("w", 0) // 2
+        cy = rostro.get("y") + rostro.get("h", 0) // 2
 
-        for key in rostro:
+        # Distancia euclidiana entre los centros
+        dist = math.sqrt((cx_ref - cx) ** 2 + (cy_ref - cy) ** 2)
 
-            resultado = rostroReferencia.get(key) - rostro.get(key)
-            if(resultado <= -1 or resultado >=1):
-                    resultados.append(True)
-            if(resultado == 0):
-                    resultados.append(False)
+        if dist >= threshold:
+            moving_count += 1
 
-    pruebaMovimiento = any(resultados)
-
-    if(pruebaMovimiento):
+    if moving_count >= min_moving_frames:
         return 'OK'
     else:
         return '!OK'
