@@ -16,7 +16,7 @@ def addLog(path, message):
     file.writelines(f'{date} | {message}\n')
 
 def checkLogsFile():
-  logsFolder = '../logs/ekyc'
+  logsFolder = './logs/ekyc'
   logsFolderExist = os.path.exists(logsFolder)
   logsFile = 'logs.txt'
   logsFilePath = os.path.join(logsFolder, logsFile)
