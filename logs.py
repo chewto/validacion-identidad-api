@@ -8,19 +8,24 @@ def writeLogs(path, error):
   with open(path, 'a') as file:
     file.writelines(f'{date} | {error}\n')
 
+def addLog(path, message):
+
+  date = datetime.datetime.now()
+
+  with open(path, 'a') as file:
+    file.writelines(f'{date} | {message}\n')
+
 def checkLogsFile():
-  logsFolder = './logs'
+  logsFolder = '../logs/ekyc'
   logsFolderExist = os.path.exists(logsFolder)
-  logsFile = '/logs.txt'
-  logsFileExist = os.path.exists(f'{logsFolder}{logsFile}')
+  logsFile = 'logs.txt'
+  logsFilePath = os.path.join(logsFolder, logsFile)
 
-  completePath = f'{logsFolder}{logsFile}'
+  if not logsFolderExist:
+    os.makedirs(logsFolder)
 
-  if(not logsFolderExist):
-    os.mkdir(logsFolder)
-
-  if(not logsFileExist):
-    with open(completePath,'w') as file:
+  if not os.path.exists(logsFilePath):
+    with open(logsFilePath, 'w') as file:
       file.write('init log')
 
-  return completePath
+  return logsFilePath

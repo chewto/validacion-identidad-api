@@ -5,6 +5,7 @@ from flask_cors import CORS
 import requests
 from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
+import logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
 from utilidades import fileCv2, imageToDataURL, readDataURL
@@ -82,6 +83,19 @@ def obtenerFirmador(id):
         "fechaCreacion": "2023-10-07T11:13:52-05:00"
     }
 })
+
+@app.route('/log', methods=['POST'])
+def savelog():
+   
+  reqBody = request.get_json()
+
+  logMessage = reqBody.get('message', None)
+
+  path =  logs.checkLogsFile()
+
+  logs.addLog(path, logMessage)
+
+  return 'log añadido'
 
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
