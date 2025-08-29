@@ -103,7 +103,7 @@ def antiSpoofing():
   path = request.args.get("path")
   device = request.args.get("device")
 
-  framesCounter = 380 if device == 'DESKTOP' else 50
+  framesCounter = 12
 
   if not path or not os.path.exists(path):
     return jsonify({"error": "El path no existe"}), 400
