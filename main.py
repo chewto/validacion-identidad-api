@@ -116,9 +116,12 @@ def antiSpoofing():
       video,
       vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
       vcodec='libx264',
+      pix_fmt='yuv420p',
       preset='ultrafast',
       crf=28,
-      acodec='aac'
+      acodec='aac',
+      r=str(30),
+      movflags='faststart'
     ).run(overwrite_output=True)
     print(f"Video convertido y guardado como '{video}'")
   except ffmpeg.Error as e:

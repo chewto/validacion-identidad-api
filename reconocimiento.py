@@ -108,48 +108,148 @@ def verifyFaces(imageArray1, imageArray2):
 
 
 
+# def getFrames(
+#     video_path: str,
+#     frameCounter: int,
+#     use_timestamps: bool = False,
+#     interval_ms: int = 333,
+#     max_frames: Optional[int] = None,
+# ) -> List[np.ndarray]:
+#     """
+#     Extrae frames usando PyAV (av). Compatibilidad con la semántica original:
+#       - si use_timestamps == False: toma 1 cada `frameCounter` frames decodificados (contador % frameCounter == 0)
+#       - si use_timestamps == True: toma 1 cada `interval_ms` milisegundos (más robusto para VFR)
+
+#     Devuelve lista de frames (numpy arrays BGR) y además guarda cada frame capturado como JPG en save_dir.
+#     """
+#     framesCapturados: List[np.ndarray] = []
+
+#     if not os.path.isfile(video_path):
+#         print(f"Error: File does not exist {video_path}")
+#         return "path invalido"
+
+#     try:
+#         container = av.open(video_path)
+#     except Exception as e:
+#         print(f"Error abriendo el video con PyAV: {e}")
+#         return "no hay"
+
+#     # obtener primer stream de video
+#     try:
+#         vstream = next(s for s in container.streams if s.type == "video")
+#     except StopIteration:
+#         print("No se encontró stream de video en el archivo.")
+#         container.close()
+#         return "no hay video"
+
+#     contadorFrames = 0
+#     saved = 0
+#     next_target_time = 0.0  # en segundos, para muestreo por tiempo
+
+#     try:
+#         for packet in container.demux(vstream):
+#             for frame in packet.decode():
+#                 # obtener timestamp fiable
+#                 t = None
+#                 if frame.time is not None:
+#                     t = float(frame.time)
+#                 elif frame.pts is not None and vstream.time_base is not None:
+#                     try:
+#                         t = float(frame.pts * vstream.time_base)
+#                     except Exception:
+#                         t = None
+
+#                 if use_timestamps:
+#                     # muestreo por tiempo (robusto frente a VFR)
+#                     if t is None:
+#                         # si no hay timestamp, fallback a contador
+#                         cond = (contadorFrames % frameCounter == 0)
+#                     else:
+#                         cond = (t >= next_target_time)
+#                 else:
+#                     # comportamiento original: muestrear por índice de frame decodificado
+#                     cond = (contadorFrames % frameCounter == 0)
+
+#                 if cond:
+#                     # convertir VideoFrame a ndarray BGR
+#                     try:
+#                         img = frame.to_ndarray(format="bgr24")
+#                     except Exception as e:
+#                         print(f"Error convirtiendo frame a ndarray: {e}")
+#                         img = None
+
+#                     if img is not None:
+#                         # opcional: guarda imagen en disco
+#                         frame_filename = os.path.join('./videos', f"frame_{contadorFrames}.jpg")
+#                         try:
+#                             cv2.imwrite(frame_filename, img)
+#                         except Exception as e:
+#                             print(f"Error guardando {frame_filename}: {e}")
+#                         framesCapturados.append(img)
+#                         saved += 1
+#                         # actualizar siguiente objetivo temporal si aplica
+#                         if use_timestamps and t is not None:
+#                             next_target_time += interval_ms / 1000.0
+
+#                         # si max_frames está definido, corta cuando se alcanza
+#                         if max_frames is not None and saved >= max_frames:
+#                             container.close()
+#                             print(f"Total frames captured: {len(framesCapturados)}")
+#                             return framesCapturados
+
+#                 contadorFrames += 1
+#     except Exception as e:
+#         print(f"Error durante la decodificación: {e}")
+#     finally:
+#         container.close()
+
+#     print(f"Total frames captured: {len(framesCapturados)}")
+#     return framesCapturados
+
 def getFrames(
     video_path: str,
-    frameCounter: int,
-    use_timestamps: bool = False,
-    interval_ms: int = 333,
+    frameCounter: int = 1,           # parámetro ignorado (se mantiene por compatibilidad)
+    use_timestamps: bool = True,     # forzado a True internamente
+    interval_ms: int = 500,          # 500 ms -> 0.5 s
     max_frames: Optional[int] = None,
 ) -> List[np.ndarray]:
     """
-    Extrae frames usando PyAV (av). Compatibilidad con la semántica original:
-      - si use_timestamps == False: toma 1 cada `frameCounter` frames decodificados (contador % frameCounter == 0)
-      - si use_timestamps == True: toma 1 cada `interval_ms` milisegundos (más robusto para VFR)
-
-    Devuelve lista de frames (numpy arrays BGR) y además guarda cada frame capturado como JPG en save_dir.
+    Extrae 1 frame cada `interval_ms` milisegundos (por defecto 500 ms).
+    - Ignora frameCounter (no se usa).
+    - Guarda los frames en ./videos como frame_00000.jpg...
+    - Devuelve lista de np.ndarray (BGR).
     """
-    framesCapturados: List[np.ndarray] = []
+    frames_capturados: List[np.ndarray] = []
 
     if not os.path.isfile(video_path):
         print(f"Error: File does not exist {video_path}")
-        return "path invalido"
+        return []
+
+    save_dir = "./videos"
+    os.makedirs(save_dir, exist_ok=True)
 
     try:
         container = av.open(video_path)
     except Exception as e:
         print(f"Error abriendo el video con PyAV: {e}")
-        return "no hay"
+        return []
 
-    # obtener primer stream de video
     try:
         vstream = next(s for s in container.streams if s.type == "video")
     except StopIteration:
-        print("No se encontró stream de video en el archivo.")
+        print("No se encontró stream de video.")
         container.close()
-        return "no hay video"
+        return []
 
-    contadorFrames = 0
+    interval_s = interval_ms / 1000.0
+    target_index = 0
+    target_time = target_index * interval_s
     saved = 0
-    next_target_time = 0.0  # en segundos, para muestreo por tiempo
 
     try:
         for packet in container.demux(vstream):
             for frame in packet.decode():
-                # obtener timestamp fiable
+                # Obtener timestamp fiable
                 t = None
                 if frame.time is not None:
                     t = float(frame.time)
@@ -158,53 +258,48 @@ def getFrames(
                         t = float(frame.pts * vstream.time_base)
                     except Exception:
                         t = None
-
-                if use_timestamps:
-                    # muestreo por tiempo (robusto frente a VFR)
-                    if t is None:
-                        # si no hay timestamp, fallback a contador
-                        cond = (contadorFrames % frameCounter == 0)
-                    else:
-                        cond = (t >= next_target_time)
                 else:
-                    # comportamiento original: muestrear por índice de frame decodificado
-                    cond = (contadorFrames % frameCounter == 0)
+                    t = None
 
-                if cond:
+                if t is None:
+                    continue  # no timestamp -> saltar
+
+                # Si el tiempo actual pasó el objetivo, capturamos 1 frame para ese intervalo
+                if t + 1e-9 >= target_time:
                     # convertir VideoFrame a ndarray BGR
                     try:
                         img = frame.to_ndarray(format="bgr24")
                     except Exception as e:
                         print(f"Error convirtiendo frame a ndarray: {e}")
-                        img = None
+                        continue
 
-                    if img is not None:
-                        # opcional: guarda imagen en disco
-                        frame_filename = os.path.join('./videos', f"frame_{contadorFrames}.jpg")
-                        try:
-                            cv2.imwrite(frame_filename, img)
-                        except Exception as e:
-                            print(f"Error guardando {frame_filename}: {e}")
-                        framesCapturados.append(img)
-                        saved += 1
-                        # actualizar siguiente objetivo temporal si aplica
-                        if use_timestamps and t is not None:
-                            next_target_time += interval_ms / 1000.0
+                    # guardar JPG
+                    frame_filename = os.path.join(save_dir, f"frame_{saved:05d}.jpg")
+                    try:
+                        cv2.imwrite(frame_filename, img)
+                    except Exception as e:
+                        print(f"Warning: no se pudo guardar {frame_filename}: {e}")
 
-                        # si max_frames está definido, corta cuando se alcanza
-                        if max_frames is not None and saved >= max_frames:
-                            container.close()
-                            print(f"Total frames captured: {len(framesCapturados)}")
-                            return framesCapturados
+                    frames_capturados.append(img)
+                    saved += 1
 
-                contadorFrames += 1
+                    # avanzar el target_index para el siguiente objetivo temporal
+                    # calculamos el siguiente índice en base al timestamp actual para evitar "acumulación"
+                    # por ejemplo si el frame está muy adelantado saltamos los targets intermedios
+                    target_index = int(math.floor(t / interval_s)) + 1
+                    target_time = target_index * interval_s
+
+                    if max_frames is not None and saved >= max_frames:
+                        container.close()
+                        print(f"Total frames captured: {len(frames_capturados)}")
+                        return frames_capturados
     except Exception as e:
         print(f"Error durante la decodificación: {e}")
     finally:
         container.close()
 
-    print(f"Total frames captured: {len(framesCapturados)}")
-    return framesCapturados
+    print(f"Total frames captured: {len(frames_capturados)}")
+    return frames_capturados
 
 def frame_to_dataurl(frame):
     """Convierte un frame en dataURL base64 JPEG."""
