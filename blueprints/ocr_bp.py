@@ -64,10 +64,10 @@ def verificarAnverso():
     if (extractFace):
       for face in extractFace:
         faceDetected = face.get('detected')
-        if not faceDetected and tries == 0:
-          return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
-        if not faceDetected and tries >=1:
-          print('nose xdxdx')
+        if not faceDetected:
+        #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
+        # if not faceDetected and tries >=1:
+        #   print('nose xdxdx')
           messages.append("No se ha detectado el rostro en el documento.")
 
     # return jsonify(extractFace)
