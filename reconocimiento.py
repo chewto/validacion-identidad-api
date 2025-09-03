@@ -19,12 +19,11 @@ import numpy as np
 haarscascade_frontal_face = 'haarcascade_frontalface_alt.xml'
 haarscascade_eye = 'haarcascade_eye.xml'
 
-def extractFaces(imageArray, anti_spoofing:bool):
+def extractFaces(imageArray, anti_spoofing: bool):
 
     faces = []
 
     try:
-
         antiSpoofing = DeepFace.extract_faces(
             img_path=imageArray,
             detector_backend='opencv',
@@ -36,22 +35,37 @@ def extractFaces(imageArray, anti_spoofing:bool):
                 "x": detectedFaces['facial_area']['x'],
                 "y": detectedFaces['facial_area']['y'],
                 "w": detectedFaces['facial_area']['w'],
-                "h": detectedFaces['facial_area']['h']
+                "h": detectedFaces['facial_area']['h'],
+                "detected": True
             }
-            if(anti_spoofing== True):
+            if anti_spoofing:
                 data["isReal"] = detectedFaces['is_real']
-        
+
+            faces.append(data)
+
+        # Si no se detectaron caras, agregar un elemento indicando no detectado
+        if not faces:
+            data = {
+                "x": 0,
+                "y": 0,
+                "w": 0,
+                "h": 0,
+                "detected": False
+            }
+            if anti_spoofing:
+                data["isReal"] = False
             faces.append(data)
 
     except Exception as error:
-        
+        print("no se dio xd")
         data = {
-            "x":0,
-            "y":0,
-            "w":0,
-            "h":0
+            "x": 0,
+            "y": 0,
+            "w": 0,
+            "h": 0,
+            "detected": False
         }
-        if(anti_spoofing):
+        if anti_spoofing:
             data["isReal"] = False
 
         faces.append(data)
@@ -79,17 +93,17 @@ def verifyFaces(imageArray1, imageArray2):
         compareFaces = DeepFace.verify(
             img1_path=imageArray1,
             img2_path=imageArray2,
-            model_name='Facenet512',
+            model_name='Facenet512'
         )
         #tenemos una ventaja con la cual podemos extraer tambien las landmarks de ambas imagenes
         
+        print(compareFaces)
+
+
         confidence = compareFaces['distance']
         verified = compareFaces['verified']
         img1 = compareFaces['facial_areas']['img1']
         img2 = compareFaces['facial_areas']['img2']
-
-        print(confidence)
-        print(verified)
 
         landmarks = {
             'img1': img1,
@@ -274,11 +288,11 @@ def getFrames(
                         continue
 
                     # guardar JPG
-                    frame_filename = os.path.join(save_dir, f"frame_{saved:05d}.jpg")
-                    try:
-                        cv2.imwrite(frame_filename, img)
-                    except Exception as e:
-                        print(f"Warning: no se pudo guardar {frame_filename}: {e}")
+                    # frame_filename = os.path.join(save_dir, f"frame_{saved:05d}.jpg")
+                    # try:
+                    #     # cv2.imwrite(frame_filename, img)
+                    # except Exception as e:
+                    #     print(f"Warning: no se pudo guardar {frame_filename}: {e}")
 
                     frames_capturados.append(img)
                     saved += 1

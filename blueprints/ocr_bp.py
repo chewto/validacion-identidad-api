@@ -8,7 +8,7 @@ from name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
-from reconocimiento import orientacionImagen, verifyFaces
+from reconocimiento import extractFaces, orientacionImagen, verifyFaces
 from request_parser import _parse_request
 from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from check_result import testingCountry, testingType, results
@@ -18,7 +18,7 @@ import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
-confidenceThreshold = 0.6
+# confidenceThreshold = 0.6
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
@@ -38,6 +38,11 @@ def verificarAnverso():
     ocr =  parsed['ocr']
     textAngle = parsed['text_angle']
 
+    print(tries)
+
+    confidenceThreshold = 0.65 if tries >= 1 else 0.6
+
+    print(confidenceThreshold)
 
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
@@ -54,6 +59,19 @@ def verificarAnverso():
     messages = []
     checkSide = {}
 
+    extractFace = extractFaces(documentoData, anti_spoofing=False)
+
+    if (extractFace):
+      for face in extractFace:
+        faceDetected = face.get('detected')
+        if not faceDetected and tries == 0:
+          return jsonify({'error': 'No se ha detectado el rostro en el documento.'})
+        if not faceDetected and tries >=1:
+          print('nose xdxdx')
+          messages.append("No se ha detectado el rostro en el documento.")
+
+    # return jsonify(extractFace)
+
     selfieOrientada = personaData
 
     documentoOrientado = rotateImage(documentoData, textAngle)
@@ -62,11 +80,12 @@ def verificarAnverso():
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
+
     checkSide['face'] = 'OK' if confidence <= confidenceThreshold else '!OK'
     if(confidence >= confidenceThreshold):
       messages.append('Los rostros no coincidén.')
 
-    messages = []
+    
 
     document_section, doc_check, doc_messages = validateDocument(
         documentoData,
