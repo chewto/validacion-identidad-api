@@ -2,6 +2,9 @@ import re
 from ultralytics import YOLO
 from check_result import testingCountry, testingType
 from ocr import ocr, validateDocumentCountry, validateDocumentType
+from PIL import Image
+import base64
+from io import BytesIO
 
 countryHash = {
   'COL': 'COLOMBIA'
@@ -56,7 +59,7 @@ documentDetection = {
 
 modelPath = './models/colombia-v0.1.pt'
 
-def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_country, ocr_data):
+def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_country, ocr_data, yoloLabels):
     """Función unificada para detección y validación de documentos.
 
     - Si `country_config` está presente y para `user_country` tiene `has_model=True`,
@@ -76,8 +79,8 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
 
     if has_model:
         # Usar detectModel (flujo tipo COL)
-        document_type, document_validation, country_code, country_detected, isCountry = detectDocument(
-            img=documento_data, countryCode=user_country, side=lado_documento, type=tipo_documento
+        document_type, document_validation, country_code, country_detected, isCountry, _ = detectDocument(
+            img=documento_data, countryCode=user_country, side=lado_documento, type=tipo_documento, yoloLabels=yoloLabels
         )
 
         documentSection = {
@@ -134,7 +137,10 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
 
     return documentSection, checkSide, messages
 
-def detectDocument(img, countryCode: str, side: str, type: str):
+def checkModel(country):
+  return documentDetection[country]["hasModel"]
+
+def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list[str]):
   documentClass = documentDetection[countryCode][type][side]
   documentClass = documentClass.split(" ")
 
@@ -144,61 +150,84 @@ def detectDocument(img, countryCode: str, side: str, type: str):
   yoloModel = YOLO(modelPath)
 
   # Definir las clases a detectar
-  labels = [
-    "CEDULA_CIUDADANIA_FRONTAL",
-    "NUMERO_DOCUMENTO",
-    "APELLIDOS",
-    "NOMBRES",
-    "FIRMA",
-    "FOTO",
-    "ENCABEZADO",
-    "CEDULA_CIUDADANIA_REVERSO",
-    "CODIGO_BARRAS",
-    "HUELLA",
-    "FECHA_NACIMIENTO",
-    "LUGAR_NACIMIENTO",
-    "ESTATURA",
-    "GRUPO_SANGUINEO",
-    "SEXO",
-    "FECHA_EXPEDICION",
-    "CODIGO",
-    "CEDULA_EXTRANJERIA_FRONTAL",
-    "NACIONALIDAD",
-    "FECHA_EXPIRACION",
-    "GHOST",
-    "CEDULA_EXTRANJERIA_REVERSO",
-    "MRZ",
-    "CEDULA_DIGITAL_FRONTAL",
-    "CEDULA_DIGITAL_REVERSO",
-    "PASAPORTE",
-    "NUMERO_PERSONAL",
-    "AUTORIDAD",
-    "CODIGO_PAIS",
-    "TIPO",
-    "CODIG_BARRAS_LATERAL",
-    "NUMERO_LATERAL",
-    "NUMERO_PASAPORTE"
-  ]
+  # labels = [
+  #   "CEDULA_CIUDADANIA_FRONTAL",
+  #   "NUMERO_DOCUMENTO",
+  #   "APELLIDOS",
+  #   "NOMBRES",
+  #   "FIRMA",
+  #   "FOTO",
+  #   "ENCABEZADO",
+  #   "CEDULA_CIUDADANIA_REVERSO",
+  #   "CODIGO_BARRAS",
+  #   "HUELLA",
+  #   "FECHA_NACIMIENTO",
+  #   "LUGAR_NACIMIENTO",
+  #   "ESTATURA",
+  #   "GRUPO_SANGUINEO",
+  #   "SEXO",
+  #   "FECHA_EXPEDICION",
+  #   "CODIGO",
+  #   "CEDULA_EXTRANJERIA_FRONTAL",
+  #   "NACIONALIDAD",
+  #   "FECHA_EXPIRACION",
+  #   "GHOST",
+  #   "CEDULA_EXTRANJERIA_REVERSO",
+  #   "MRZ",
+  #   "CEDULA_DIGITAL_FRONTAL",
+  #   "CEDULA_DIGITAL_REVERSO",
+  #   "PASAPORTE",
+  #   "NUMERO_PERSONAL",
+  #   "AUTORIDAD",
+  #   "CODIGO_PAIS",
+  #   "TIPO",
+  #   "CODIG_BARRAS_LATERAL",
+  #   "NUMERO_LATERAL",
+  #   "NUMERO_PASAPORTE"
+  # ]
 
   results = yoloModel(img)[0]
 
   detected_classes = set()
-  for cls in results.boxes.cls:
+  cropped_img = None
+
+  for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
     class_idx = int(cls)
-    if class_idx < len(labels):
-      detected_classes.add(labels[class_idx])
-    else:
-      detected_classes.add(str(class_idx))
-
-  # Retorna True si la clase esperada está entre las detectadas, si no False
-
-
+    label = yoloLabels[class_idx] if class_idx < len(yoloLabels) else str(class_idx)
+    detected_classes.add(label)
+    if label in documentClass and cropped_img is None:
+      # Recortar la imagen usando las coordenadas del bounding box
+      x1, y1, x2, y2 = map(int, box)
+      # Si img es un path, cargar con cv2 o PIL
+      if hasattr(img, 'shape'):  # numpy array
+        # Convertir a RGB si es necesario
+        if img.shape[-1] == 3:
+          cropped_img = Image.fromarray(img[y1:y2, x1:x2][..., ::-1])  # BGR a RGB
+        else:
+          cropped_img = Image.fromarray(img[y1:y2, x1:x2])
+      else:
+        try:
+          if isinstance(img, Image.Image):
+            cropped_img = img.crop((x1, y1, x2, y2))
+        except ImportError:
+          cropped_img = None
 
   for classes in documentClass:
     if classes in detected_classes:
-      return type,"OK", countryCode, country, "OK"
+      if cropped_img is not None:
+        # Convert cropped_img to PIL Image if it's a numpy array
+        if not isinstance(cropped_img, Image.Image):
+          cropped_img = Image.fromarray(cropped_img)
+        buffered = BytesIO()
+        cropped_img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        data_url = f"data:image/png;base64,{img_str}"
+      else:
+        data_url = None
 
-  return "no detectado","!OK", "COL", "COLOMBIA", "!OK"
+      return type, "OK", countryCode, country, "OK", data_url
+
+  return "no detectado", "!OK", "no detectado", "no detectado", "!OK", None
 
 def getClasses(country:str ,side:str, type:str):
   

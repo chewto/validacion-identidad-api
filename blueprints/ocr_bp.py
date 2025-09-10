@@ -48,12 +48,14 @@ def verificarAnverso():
     resolution = 1080
 
     countryData = controlador_db.selectData(f'''
-      SELECT * FROM pki_validacion.pais as pais 
+      SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
 
-    mrzData = json.loads(countryData[3])
-    barcodeData = json.loads(countryData[4])
-    ocrData = json.loads(countryData[5])
+    mrzData = json.loads(countryData[0])
+    barcodeData = json.loads(countryData[1])
+    ocrData = json.loads(countryData[2])
+    yoloLabels = countryData[3]
+    yoloLabels = yoloLabels.split(',')
 
     resultsDict = {}
     messages = []
@@ -64,6 +66,8 @@ def verificarAnverso():
     if (extractFace):
       for face in extractFace:
         faceDetected = face.get('detected')
+        resultsDict['faceDetected'] = faceDetected
+        checkSide['faceDetected'] = faceDetected
         if not faceDetected:
         #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
         # if not faceDetected and tries >=1:
@@ -93,7 +97,8 @@ def verificarAnverso():
         tipoDocumento,
         ladoDocumento,
         userCountry,
-        ocrData
+        ocrData,
+        yoloLabels
     )
 
     # Fusionar resultados de validación de documento
@@ -288,6 +293,8 @@ def verificarReverso():
       'barcode': None
     }
 
+    resultsDict['image'] = imagenDocumento
+
     checkSide = {
 
     }
@@ -303,14 +310,14 @@ def verificarReverso():
 
       detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
 
-      rotatedImage = imagenDocumento if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
+      # rotatedImage = imagenDocumento if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
 
       if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
         resultsDict['barcode'] = detectedBarcodes if (detectedBarcodes == 'OK') else None
       # else:
       #   resultsDict['barcode'] = detectedBarcodes
 
-      resultsDict['image'] = imageToDataURL(rotatedImage)
+      # resultsDict['image'] = imageToDataURL(rotatedImage)
 
       if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
         if(detectedBarcodes == 'OK'):
@@ -355,7 +362,7 @@ def verificarReverso():
         messages.append('No se pudo detectar el código de barras del documento.')
     else:
       rotatedImage = imagenDocumento
-      resultsDict['image'] = imageToDataURL(rotatedImage)
+      # resultsDict['image'] = imageToDataURL(rotatedImage)
       resultsDict['barcode'] = None
 
     # rotatedImage = orientation(documentoData)

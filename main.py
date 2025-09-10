@@ -2,7 +2,6 @@ import base64
 import ffmpeg
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
-import requests
 from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
 import logs
@@ -16,15 +15,18 @@ from blueprints.validation_bp import validation_bp
 from lector_codigo import barcodeReader
 from PIL import Image
 import numpy as np
-
-import cv2
 from ultralytics import YOLO
 import easyocr
-import subprocess
 
 from werkzeug import Request
 
+# db = SQLAlchemy()
 app = Flask(__name__)
+
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+# db.init_app(app)
+
+
 
 
 CORS(app, resources={
@@ -55,15 +57,6 @@ app.register_blueprint(test_bp)
 # Cargar modelos
 yolo_model = YOLO(MODEL_PATH)
 ocr_reader = easyocr.Reader(OCR_LANGS, gpu=False)
-
-@app.route('/debug-config', methods=['GET'])
-def debug_config():
-    max_content_length = app.config.get('MAX_CONTENT_LENGTH', 'No configurado')
-    return jsonify({
-        'MAX_CONTENT_LENGTH_bytes': max_content_length,
-        'MAX_CONTENT_LENGTH_MB': f"{max_content_length / (1024 * 1024):.2f} MB" if isinstance(max_content_length, int) else max_content_length
-    })
-
 
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
@@ -149,6 +142,18 @@ def antiSpoofing():
 
   result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
 
+  resultDetected = False
+
+  if (result):
+      for face in result:
+        faceDetected = face.get('detected')
+        resultDetected = faceDetected
+        if not faceDetected:
+        #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
+        # if not faceDetected and tries >=1:
+        #   print('nose xdxdx')
+          messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+
   movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
   isRealFilter = filter(lambda x: x['isReal'] != True, result)
@@ -157,13 +162,13 @@ def antiSpoofing():
   if(movimientoDetectado != 'OK'):
     messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
 
-  if(len(photoDataURL) <= 0):
-    messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+  # if(len(photoDataURL) <= 0):
+  #   messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
   if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
     messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
-  return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
+  return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages, "faceDetected": resultDetected}), 200
 
 
 @app.route('/get-media', methods=['GET'])

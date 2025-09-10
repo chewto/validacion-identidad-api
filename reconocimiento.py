@@ -95,10 +95,6 @@ def verifyFaces(imageArray1, imageArray2):
             img2_path=imageArray2,
             model_name='Facenet512'
         )
-        #tenemos una ventaja con la cual podemos extraer tambien las landmarks de ambas imagenes
-        
-        print(compareFaces)
-
 
         confidence = compareFaces['distance']
         verified = compareFaces['verified']
