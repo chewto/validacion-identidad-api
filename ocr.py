@@ -180,23 +180,23 @@ def preprocessing(img, resolution, filters):
 
     proc = img.copy()
     print(proc.shape[:2], 'post')
-    if 'gray' in filters:
-        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-    if 'hist' in filters:
-        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    if 'sharp' in filters:
-        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
-        proc = cv2.filter2D(proc, -1, kernel)
-    if 'blur' in filters:
-        proc = cv2.medianBlur(proc, 3)
-    if 'thresh' in filters:
-        if proc.ndim == 2:
-            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # if 'gray' in filters:
+    #     proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    # if 'hist' in filters:
+    #     gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    #     proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    # if 'sharp' in filters:
+    #     kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+    #     proc = cv2.filter2D(proc, -1, kernel)
+    # if 'blur' in filters:
+    #     proc = cv2.medianBlur(proc, 3)
+    # if 'thresh' in filters:
+    #     if proc.ndim == 2:
+    #         _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
+    # proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
 
-    return proc_rgb
+    return proc
 
 def ocr(img):
 
@@ -223,9 +223,9 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
             lineUpper = documentLine.upper()
             if(len(line) >= 1 and len(lineUpper) >= 1):
                 if(line in lineUpper or lineUpper in line):
-                    return f'{documentType}', 'OK'
+                    return f'{documentType}', True
 
-    return 'no detectado', '!OK'
+    return 'no detectado', False
 
 def validateDocumentCountry(ocr, country):
 
@@ -236,12 +236,12 @@ def validateDocumentCountry(ocr, country):
             for location in value:
                 if(location in line):
                     if(key == country):
-                        return key,value[0],'OK'
+                        return key,value[0],True
             if(key in line):
                 if(key == country):
-                    return key,value[0],'OK'
+                    return key,value[0],True
 
-    return 'no detectado','no detectado', '!OK'
+    return 'no detectado','no detectado', False
 
 def validacionOCR(dataOCR, dataUsuario, onlyNumbers):
     """

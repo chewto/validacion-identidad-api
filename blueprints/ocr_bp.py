@@ -22,7 +22,6 @@ ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 @ocr_bp.route('/anverso', methods=['POST'])
 def verificarAnverso():
 
-
     parsed = _parse_request(request)
     
     efirmaId = parsed['efirma_id']
@@ -38,11 +37,7 @@ def verificarAnverso():
     ocr =  parsed['ocr']
     textAngle = parsed['text_angle']
 
-    print(tries)
-
     confidenceThreshold = 0.65 if tries >= 1 else 0.6
-
-    print(confidenceThreshold)
 
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
@@ -57,11 +52,50 @@ def verificarAnverso():
     yoloLabels = countryData[3]
     yoloLabels = yoloLabels.split(',')
 
-    resultsDict = {}
+    # resultsDict = {}
+
+    resultsDict = {
+    "barcode": None,
+    "confidence": 0.99,
+    "document": {
+        "code": "",
+        "country": "",
+        "countryCheck": "",
+        "isExpired": None,
+        "type": "",
+        "typeCheck": ""
+    },
+    "face": False,
+    "image": "",
+    "mrz": {
+        "code": None,
+        "data": {
+            "lastName": "",
+            "name": ""
+        },
+        "percentages": {
+            "lastName": 0,
+            "name": 0
+        }
+    },
+    "ocr": {
+        "data": {
+            "ID": "",
+            "lastName": "",
+            "name": ""
+        },
+        "percentage": {
+            "ID": 0,
+            "lastName": 0,
+            "name": 0
+        }
+    },
+  }
     messages = []
     checkSide = {}
+    documentoOrientado = rotateImage(documentoData, textAngle)
 
-    extractFace = extractFaces(documentoData, anti_spoofing=False)
+    extractFace = extractFaces(documentoOrientado, anti_spoofing=False)
 
     if (extractFace):
       for face in extractFace:
@@ -69,30 +103,26 @@ def verificarAnverso():
         resultsDict['faceDetected'] = faceDetected
         checkSide['faceDetected'] = faceDetected
         if not faceDetected:
-        #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
-        # if not faceDetected and tries >=1:
-        #   print('nose xdxdx')
           messages.append("No se ha detectado el rostro en el documento.")
 
     # return jsonify(extractFace)
 
     selfieOrientada = personaData
 
-    documentoOrientado = rotateImage(documentoData, textAngle)
-
     preprocessedDocument = preprocessing(documentoOrientado, resolution, filters='sharp')
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
 
-
-    checkSide['face'] = 'OK' if confidence <= confidenceThreshold else '!OK'
+    resultsDict['face'] = True if confidence <= confidenceThreshold else False
+    resultsDict['confidence'] = confidence
+    checkSide['face'] = True if confidence <= confidenceThreshold else False
     if(confidence >= confidenceThreshold):
       messages.append('Los rostros no coincidén.')
 
     
 
     document_section, doc_check, doc_messages = validateDocument(
-        documentoData,
+        documentoOrientado,
         ocr,
         tipoDocumento,
         ladoDocumento,
@@ -115,9 +145,9 @@ def verificarAnverso():
     apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
     numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
-    checkSide['percentName'] = 'OK' if pctNombre >= 50 else '!OK'
-    checkSide['percentLastname'] = 'OK' if pctApellido >= 50 else '!OK'
-    checkSide['percentID'] = 'OK' if pctNumero >= 50 else '!OK'
+    checkSide['percentName'] = True if pctNombre >= 50 else False
+    checkSide['percentLastname'] = True if pctApellido >= 50 else False
+    checkSide['percentID'] = True if pctNumero >= 50 else False
 
     if pctNombre <= 50:
         messages.append('El nombre no se ha encontrado en el documento.')
@@ -143,83 +173,99 @@ def verificarAnverso():
         }
     }
 
-    resultsDict['face'] = True if confidence <= confidenceThreshold else False
-    resultsDict['confidence'] = confidence
-
-    # resultsDict = {
-    #   'image': image,
-    #   'ocr': {
-    #     'data':{
-    #       'name': nombrePreOCR,
-    #       'lastName': apellidoPreOCR,
-    #       'ID': numeroDocumentoPreOCR
-    #     },
-    #     'percentage': {
-    #       'name': porcentajeNombrePre,
-    #       'lastName': porcentajeApellidoPre,
-    #       'ID': porcentajeDocumentoPre
-    #     }
-    #   },
-    #   'face': True if confidence <= confidenceValue else False,
-    #   'confidence': confidence,
-    #   'document':{
-    #     'type':documentType,
-    #     'typeCheck':documentValidation,
-    #     'isExpired': isExpired
-    #   }
-    # }
-
     hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
-    if(hasbarcode):
+    barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
+
+    if hasbarcode:
       detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
-      detectedBarcodes = 'OK' if(len(detectedBarcodes) >= 1) else '!OK'
-      resultsDict['barcode'] = detectedBarcodes
-      checkSide['barcode'] = detectedBarcodes
-      if(detectedBarcodes != 'OK'):
-        messages.append('No se pudo detectar el código de barras del documento.')
-    else:
-      resultsDict['barcode'] = None
+      detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
 
-    mrz_section, mrz_checks, mrz_messages, mrz_country_update = validateMrz(
-        documentoData, tipoDocumento, ladoDocumento, nombre, apellido, userCountry, mrzData
-    )
+      if barcodeIsOptional:
+        if detectedBarcodes:
+          resultsDict['barcode'] = detectedBarcodes
+          checkSide['barcode'] = detectedBarcodes
+      else:
+        print('mibomo')
+        resultsDict['barcode'] = detectedBarcodes
+        checkSide['barcode'] = detectedBarcodes
+        if not detectedBarcodes:
+          messages.append('No se pudo detectar el código de barras del documento.')
 
-    # Si MRZ devolvió una actualización de país -> aplicarla
-    if mrz_country_update:
-        resultsDict['document'].update(mrz_country_update)
-        checkSide.update({'countryValidation': mrz_country_update.get('countryCheck')})
-        if mrz_country_update.get('countryCheck') != 'OK':
-            messages.append('El país del documento no coincide.')
+    
+    mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
 
-    # Añadir mrz al resultado
-    resultsDict['mrz'] = mrz_section
-    checkSide.update(mrz_checks)
-    messages.extend(mrz_messages)
+    mrzIsOptional = mrzData[tipoDocumento]['optional']
 
-    # Si no hay MRZ y no se rellenó country anteriormente -> validar por OCR
-    if not mrz_section or mrz_section.get('code', '') == '':
-        country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=userCountry)
-        code_c, country_name, country_validation = testingCountry([
-            {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
-        ])
+    if documentMRZ:
+      mrz = extractMRZ(preprocessedDocument)
 
-        if country_validation != 'OK':
-            messages.append('El país del documento no coincide.')
+      if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
+        messages.append('No se pudo detecar el código mrz del documento.')
 
-        if userCountry != 'COL':
-            resultsDict['document'].update({'code': code_c, 'country': country_name, 'countryCheck': country_validation})
-            checkSide['countryValidation'] = country_validation
+      if 'valid_score' in mrz:
+        if mrz['valid_score'] >= 51:
+          extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
+          extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
-    # Validación final del lado
+          nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
+          lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
+
+          # Si MRZ no es opcional, siempre se agrega. Si es opcional, solo si se detecta.
+          if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
+            resultsDict['mrz'] = {
+              'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
+              'data': {
+                'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else ''
+              },
+              'percentages': {
+                'name': nameMRZ['percent'],
+                'lastName': lastNameMRZ['percent']
+              }
+            }
+
+          # Si MRZ no es opcional, siempre se agregan los checks y mensajes
+          if not mrzIsOptional:
+            checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
+            checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
+            if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+              messages.append('No se encontró el nombre en el codigo mrz.')
+            if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+              messages.append('No se encontró el apellido en el codigo mrz.')
+          # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
+          elif mrzIsOptional and 'raw_text' in mrz:
+            if nameMRZ['percent'] >= 51:
+              checkSide['nameMrz'] = True
+            if lastNameMRZ['percent'] >= 51:
+              checkSide['lastNameMrz'] = True
+        else:
+          # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
+          if not mrzIsOptional:
+            resultsDict['mrz'] = {
+              'code': "No se pudo detectar MRZ válido en la imagen.",
+              'data': {
+                'name': '',
+                'lastName': ''
+              },
+              'percentages': {
+                'name': 0,
+                'lastName': 0
+              }
+            }
+
+            messages.append('No se pudo detecar el código mrz del documento.')
+            checkSide['nameMrz'] = False
+            checkSide['lastNameMrz'] = False
+
     valid_side, _, _ = results(49, 'AUTOMATICA', checkSide)
 
     resultsDict['messages'] = messages
 
-    if confidence <= confidenceThreshold and valid_side:
-        resultsDict['validSide'] = 'OK' if (valid_side and len(messages) <= 0) else '!OK'
+    if confidence <= confidenceThreshold and valid_side and faceDetected:
+        resultsDict['validSide'] = True if (valid_side and len(messages) <= 0) else False
         return jsonify(resultsDict)
 
-    resultsDict['validSide'] = '!OK'
+    resultsDict['validSide'] = False
     return jsonify(resultsDict)
 
 
@@ -279,21 +325,42 @@ def verificarReverso():
     apellido = textNormalize(apellido)
 
     countryData = controlador_db.selectData(f'''
-      SELECT * FROM pki_validacion.pais as pais 
-    WHERE pais.codigo = "{userCountry}"''', ())
+      SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
+      WHERE pais.codigo = "{userCountry}"''', ())
 
-    mrzData = json.loads(countryData[3])
-    barcodeData = json.loads(countryData[4])
-    ocrData = json.loads(countryData[5])
+    mrzData = json.loads(countryData[0])
+    barcodeData = json.loads(countryData[1])
+    ocrData = json.loads(countryData[2])
+    yoloLabels = countryData[3]
+    yoloLabels = yoloLabels.split(',')
 
     documentoData = None
 
     resultsDict = {
-      'document': {},
-      'barcode': None
+    "barcode": None,
+    "document": {
+        "code": "",
+        "country": "",
+        "countryCheck": "",
+        "isExpired": None,
+        "type": "",
+        "typeCheck": ""
+    },
+    "image": "",
+    "mrz": {
+        "code": None,
+        "data": {
+            "lastName": "",
+            "name": ""
+        },
+        "percentages": {
+            "lastName": 0,
+            "name": 0
+        }
     }
+  }
 
-    resultsDict['image'] = imagenDocumento
+    resultsDict['image'] = imageToDataURL(imagenDocumento)
 
     checkSide = {
 
@@ -304,337 +371,95 @@ def verificarReverso():
       'mrz': None
     }
 
-    documentBarcode, barcodeType, barcodetbr = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
-    if(documentBarcode):
-      barcodes = barcodeReader(imagenDocumento, efirmaId, ladoDocumento, barcodeType, barcodetbr)
-
-      detectedBarcodes = 'OK' if(len(barcodes) >= 1) else '!OK'
-
-      # rotatedImage = imagenDocumento if detectedBarcodes == '!OK' else rotateBarcode(preprocessedDocument, barcodes=barcodes)
-
-      if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
-        resultsDict['barcode'] = detectedBarcodes if (detectedBarcodes == 'OK') else None
-      # else:
-      #   resultsDict['barcode'] = detectedBarcodes
-
-      # resultsDict['image'] = imageToDataURL(rotatedImage)
-
-      if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
-        if(detectedBarcodes == 'OK'):
-          checkSide['barcode'] = detectedBarcodes
-
-      if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
-        temp['barcode']= detectedBarcodes
-
-        if(detectedBarcodes == 'OK' and len(barcodes) >= 1):
-
-          extractedCountry = extractCountry(barcodes)
-
-          if len(extractedCountry) >= 1:
-
-            countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [extractedCountry[0]], country=userCountry)
-            codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-            if(countryValidation != 'OK'):
-              messages.append('El país del documento no coincide.')
-
-            resultsDict['document']['code'] = codeC
-            resultsDict['document']['country'] = country
-            resultsDict['document']['countryCheck'] = countryValidation
-
-            checkSide['countryValidation'] = countryValidation
-        # else:
-        #   countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( ocr, country=userCountry)
-        #   codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-        #   if(countryValidation != 'OK'):
-        #     messages.append('El país del documento no coincide.')
-
-        #   resultsDict['document'] = {
-        #     'code': codeC,
-        #     'country': country,
-        #     'countryCheck':countryValidation
-        #   }
-        #   checkSide['countryValidation'] = countryValidation
-
-
-      if(detectedBarcodes == '!OK' and tipoDocumento != 'CEDULA DE CIUDADANIA'):
-        messages.append('No se pudo detectar el código de barras del documento.')
-    else:
-      rotatedImage = imagenDocumento
-      # resultsDict['image'] = imageToDataURL(rotatedImage)
-      resultsDict['barcode'] = None
-
-    # rotatedImage = orientation(documentoData)
-
-    timeOcrInit = time.time()
 
     ocr = ocr
 
-    # typeDetected, documentTypeValidation = validateDocumentType(tipoDocumento, ladoDocumento, documentoOCRSencillo)
-    # countryCode, countryDetected, documentCountryValidation = validateDocumentCountry( documentoOCRSencillo)
+    document_section, doc_check, doc_messages = validateDocument(
+        imagenDocumento,
+        ocr,
+        tipoDocumento,
+        ladoDocumento,
+        userCountry,
+        ocrData,
+        yoloLabels
+    )
+
+    # Fusionar resultados de validación de documento
+    checkSide.update(doc_check)
+    messages.extend(doc_messages)
+    resultsDict['document'] = document_section
 
 
-    # print(totalValidacion)
+    hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
+    barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
 
-    # checkSide['validation'] = 'OK'if totalValidacion >= 2 else '!OK'
+    if hasbarcode:
+      detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
+      detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
 
-    if userCountry == "COL":
-      documentType, documentValidation, countryCode, countryDetected, isCountry = detectDocument(
-        img=imagenDocumento, countryCode=userCountry, side=ladoDocumento, type=tipoDocumento
-      )
-
-      checkSide['documentValidation'] = documentValidation
-
-      resultsDict['document'] = {
-        'type': documentType,
-        'typeCheck': documentValidation,
-        'isExpired': None,
-      }
-
-      # Validación de país
-      if isCountry != 'OK':
-        countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(
-          ocr, country=userCountry
-        )
-        codeC, country, countryValidation = testingCountry([
-          {'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}
-        ])
-
-        resultsDict['document']['code'] = codeC
-        resultsDict['document']['country'] = country
-        resultsDict['document']['countryCheck'] = countryValidation
-        checkSide['countryValidation'] = countryValidation
-
-        if countryValidation != 'OK':
-          messages.append('El país del documento no se encontró en el documento.')
+      if barcodeIsOptional:
+        if detectedBarcodes:
+          resultsDict['barcode'] = detectedBarcodes
+          checkSide['barcode'] = detectedBarcodes
       else:
-        resultsDict['document']['code'] = countryCode
-        resultsDict['document']['country'] = countryDetected
-        resultsDict['document']['countryCheck'] = isCountry
-        checkSide['countryValidation'] = isCountry
-
-        if isCountry != 'OK':
-          messages.append('El país del documento no se encontró en el documento.')
-
-      # Validación de tipo de documento
-      if documentValidation != 'OK':
-        messages.append('El tipo de documento no coincide con el seleccionado.')
-
-    else:
-      typeDetectedPre, documentTypeValidationPre = validateDocumentType(
-        tipoDocumento, ladoDocumento, ocr, detectionData=ocrData
-      )
-      documentType, documentValidation = testingType([
-        {'type': typeDetectedPre, 'validation': documentTypeValidationPre}
-      ])
-
-      checkSide['documentValidation'] = documentValidation
-
-      resultsDict['document'] = {
-        'type': documentType,
-        'typeCheck': documentValidation,
-        'isExpired': None
-      }
-
-      if documentValidation != 'OK':
-        messages.append('El tipo de documento no coincide con el seleccionado.')
-
-
-    # typeDetectedPre, documentTypeValidationPre = validateDocumentType(tipoDocumento, ladoDocumento, ocr, ocrData)
-    # documentType, documentValidation = testingType([{'type':typeDetectedPre, 'validation':documentTypeValidationPre}])
-
-    timeOcrEnd = time.time()
-    OCRtime = timeOcrInit - timeOcrEnd
-    print('ocr time ', OCRtime)
-
-    # if(tipoDocumento != 'CEDULA DE EXTRANJERIA'):
-    #   if(documentValidation != 'OK'):
-    #     messages.append('El tipo de documento no coincide con el seleccionado.')
-
-    #   checkSide['documentValidation'] = documentValidation
-
-    #   resultsDict['document']['type'] = documentType
-    #   resultsDict['document']['typeCheck'] = documentValidation
-
-
-    codeTimeInit = time.time()
+        print('mibomo')
+        resultsDict['barcode'] = detectedBarcodes
+        checkSide['barcode'] = detectedBarcodes
+        if not detectedBarcodes:
+          messages.append('No se pudo detectar el código de barras del documento.')
 
 
     mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
-    if(documentMRZ):
 
-      nameHasK = nombre.find("k")
-      lastNamehasK = apellido.find("k")
+    mrzIsOptional = mrzData[tipoDocumento]['optional']
 
-      mrz =  extractMRZ(imagenDocumento)
+    if documentMRZ:
+      mrz = extractMRZ(preprocessedDocument)
 
-      # if(nameHasK == -1 or lastNamehasK == -1):
-      #   mrz = mrz['raw_text'].replace('K', ' ')
-
-      if(mrz == "No se pudo detectar MRZ válido en la imagen." and tipoDocumento != 'CEDULA DE CIUDADANIA'):
+      if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
         messages.append('No se pudo detecar el código mrz del documento.')
 
-      if('valid_score' in mrz):
+      if 'valid_score' in mrz:
         if mrz['valid_score'] >= 51:
           extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
           extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
-
           nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
           lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
 
-          resultsDict['mrz'] = {
-            'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
-            'data': {
-              'name': nameMRZ['data'] if(len(nameMRZ['data']) >= 1) else '',
-              'lastName': lastNameMRZ['data'] if(len(lastNameMRZ['data']) >= 1) else ''
-            },
-            'percentages': {
-              'name': nameMRZ['percent'],
-              'lastName': lastNameMRZ['percent']
-            }
-          }
-
-          # if(tipoDocumento != 'CEDULA DE CIUDADANIA'):
-          #   checkSide['mrzNamePercent'] = 'OK' if nameMRZ['percent'] >= 50 else '!OK'
-          #   checkSide['mrzLastNamePercent'] = 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
-
-          # if(tipoDocumento == 'CEDULA DIGITAL'):
-          #   if 'type' in mrz:
-          #     if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
-          #       checkSide['documentValidation'] = 'OK'
-
-          #       resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
-          #       resultsDict['document']['typeCheck'] = 'OK'
-
-          #       checkSide['typeCheck'] ='OK'
-
-          #     else:
-          #       resultsDict['document']['type'] = documentType
-          #       resultsDict['document']['typeCheck'] = documentValidation
-
-          #       checkSide['typeCheck'] = documentValidation
-          #   else:
-          #     # checkSide['documentValidation'] = documentValidation
-
-          #     resultsDict['document']['type'] = documentType
-          #     resultsDict['document']['typeCheck'] = documentValidation
-
-          #     checkSide['typeCheck'] = documentValidation
-          
-          # if(tipoDocumento == 'CEDULA DE CIUDADANIA'):
-
-          #   if 'type' in mrz:
-          #     if(mrz['type'] == 'IC' or mrz['type'] == 'TC'):
-          #       checkSide['documentValidation'] = 'OK'
-
-          #       resultsDict['document']['type'] = 'CEDULA DE CIUDADANIA'
-          #       resultsDict['document']['typeCheck'] = 'OK'
-
-          #       checkSide['typeCheck'] ='OK'
-
-          #     else:
-
-          #       # checkSide['documentValidation'] = documentValidation
-
-          #       resultsDict['document']['type'] = documentType
-          #       resultsDict['document']['typeCheck'] = documentValidation
-
-          #       checkSide['typeCheck'] = documentValidation
-          #   else:
-          #     # checkSide['documentValidation'] = documentValidation
-
-          #     resultsDict['document']['type'] = documentType
-          #     resultsDict['document']['typeCheck'] = documentValidation
-
-          #     checkSide['typeCheck'] = documentValidation
-
-          #   temp['mrz']= {
-          #     'mrz': 'OK' if 'raw_text' in mrz else '!OK',
-          #     'mrzNamePercent': 'OK' if nameMRZ['percent'] >= 50 else '!OK',
-          #     'mrzLastNamePercent': 'OK' if lastNameMRZ['percent'] >= 50 else '!OK'
-          #   }
-
-          # if(tipoDocumento == 'CEDULA DE EXTRANJERIA'):
-          #   if 'type' in mrz:
-          #     if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
-          #       checkSide['documentValidation'] = 'OK'
-
-          #       resultsDict['document']['type'] = 'CEDULA DE EXTRANJERIA'
-          #       resultsDict['document']['typeCheck'] = 'OK'
-
-          #       checkSide['typeCheck'] ='OK'
-
-          #     else:
-          #       # checkSide['documentValidation'] = documentValidation
-
-          #       resultsDict['document']['type'] = documentType
-          #       resultsDict['document']['typeCheck'] = documentValidation
-
-          #       checkSide['typeCheck'] = documentValidation
-          #   else:
-          #     # checkSide['documentValidation'] = documentValidation
-
-          #     resultsDict['document']['type'] = documentType
-          #     resultsDict['document']['typeCheck'] = documentValidation
-
-          #     checkSide['typeCheck'] = documentValidation
-
-          if(nameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
-            messages.append('No se encontró el nombre en el codigo mrz.')
-          if(lastNameMRZ['percent']<= 50 and tipoDocumento != 'CEDULA DE CIUDADANIA'):
-            messages.append('No se encontró el apellido en el codigo mrz.')
-
-          if userCountry != 'COL':
-            if 'type' in mrz:
-              if(mrz['type'] == 'I<' or mrz['type'] == 'T<'):
-                checkSide['documentValidation'] = 'OK'
-
-                resultsDict['document']['type'] = 'DNI'
-                resultsDict['document']['typeCheck'] = 'OK'
-
-                checkSide['typeCheck'] ='OK'
-
-              elif(mrz['type'] == 'P<'):
-
-                checkSide['documentValidation'] = 'OK'
-
-                resultsDict['document']['type'] = 'PASAPORTE'
-                resultsDict['document']['typeCheck'] = 'OK'
-
-                checkSide['typeCheck'] ='OK'
-              else:
-                # checkSide['documentValidation'] = documentValidation
-
-                resultsDict['document']['type'] = documentType
-                resultsDict['document']['typeCheck'] = documentValidation
-
-                checkSide['typeCheck'] = documentValidation
-            # else:
-            #   # checkSide['documentValidation'] = documentValidation
-
-            #   resultsDict['document']['type'] = documentType
-            #   resultsDict['document']['typeCheck'] = documentValidation
-
-            #   checkSide['typeCheck'] = documentValidation
-
-          if 'country' in mrz:
-            countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry( [mrz['country']], country=userCountry)
-            codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-
-            if(countryValidation != 'OK'):
-              messages.append('El país del documento no coincide.')
-
-            resultsDict['document']['code'] = codeC
-            resultsDict['document']['country'] = country
-            resultsDict['document']['countryCheck'] = countryValidation
-
-            checkSide['countryValidation'] = countryValidation
-
-        else:
+          # Si MRZ no es opcional, siempre se agrega. Si es opcional, solo si se detecta.
+          if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
             resultsDict['mrz'] = {
-              'code': '',
+              'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
+              'data': {
+                'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else ''
+              },
+              'percentages': {
+                'name': nameMRZ['percent'],
+                'lastName': lastNameMRZ['percent']
+              }
+            }
+
+          # Si MRZ no es opcional, siempre se agregan los checks y mensajes
+          if not mrzIsOptional:
+            checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
+            checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
+            if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+              messages.append('No se encontró el nombre en el codigo mrz.')
+            if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+              messages.append('No se encontró el apellido en el codigo mrz.')
+          # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
+          elif mrzIsOptional and 'raw_text' in mrz:
+            if nameMRZ['percent'] >= 51:
+              checkSide['nameMrz'] = True
+            if lastNameMRZ['percent'] >= 51:
+              checkSide['lastNameMrz'] = True
+        else:
+          # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
+          if not mrzIsOptional:
+            resultsDict['mrz'] = {
+              'code': "No se pudo detectar MRZ válido en la imagen.",
               'data': {
                 'name': '',
                 'lastName': ''
@@ -645,142 +470,17 @@ def verificarReverso():
               }
             }
 
-            resultsDict['document']['type'] = documentType
-            resultsDict['document']['typeCheck'] = documentValidation
+            messages.append('No se pudo detecar el código mrz del documento.')
+            checkSide['nameMrz'] = False
+            checkSide['lastNameMrz'] = False
 
-            checkSide['typeCheck'] = documentValidation
-
-      else:
-        resultsDict['mrz'] = {
-          'code': '',
-          'data': {
-            'name': '',
-            'lastName': ''
-          },
-          'percentages': {
-            'name': 0,
-            'lastName': 0
-          }
-        }
-
-        resultsDict['document']['type'] = documentType
-        resultsDict['document']['typeCheck'] = documentValidation
-
-        checkSide['typeCheck'] = documentValidation
-        
-    else:
-
-      resultsDict['mrz'] = {
-        'code': '',
-        'data': {
-          'name': '',
-          'lastName': ''
-        },
-        'percentages': {
-          'name': 0,
-          'lastName': 0
-        }
-      }
-
-      resultsDict['document']['type'] = documentType
-      resultsDict['document']['typeCheck'] = documentValidation
-
-      checkSide['typeCheck'] = documentValidation
-
-    # Si no se detecta el país por MRZ ni por barcode, intentar por OCR
-    if resultsDict['mrz']['code'] == '' or resultsDict['mrz']['code'] == 'No se pudo detectar MRZ válido en la imagen.' and resultsDict['barcode'] == '!OK':
-      countryCodePre, countryDetectedPre, documentCountryValidationPre = validateDocumentCountry(ocr, country=userCountry)
-      codeC, country, countryValidation = testingCountry([{'country': countryCodePre, 'countryDetected': countryDetectedPre, 'validation': documentCountryValidationPre}])
-      if(countryValidation != 'OK'):
-        messages.append('El país del documento no coincide.')
-
-      resultsDict['document']['code'] = codeC
-      resultsDict['document']['country'] = country
-      resultsDict['document']['countryCheck'] = countryValidation
-
-      checkSide['countryValidation'] = countryValidation
-
-    if(tipoDocumento == 'CEDULA DE CIUDADANIA' and documentMRZ and documentBarcode):
-
-      # Flags para evitar mensajes duplicados
-      mrz_message_added = False
-      barcode_message_added = False
-
-      # Si se detecta MRZ y no código de barras, solo usar MRZ
-      if temp['mrz'] is not None and (temp['barcode'] is None or temp['barcode'] == '!OK'):
-        checkSide['mrzNamePercent'] = temp['mrz']['mrzNamePercent']
-        checkSide['mrzLastNamePercent'] = temp['mrz']['mrzLastNamePercent']
-
-        if temp['mrz']['mrz'] == 'OK':
-          if temp['mrz']['mrzNamePercent'] != 'OK' and not mrz_message_added:
-            messages.append('El nombre en el mrz no alcanzó el porcentaje minimo.')
-            mrz_message_added = True
-          if temp['mrz']['mrzLastNamePercent'] != 'OK' and not mrz_message_added:
-            messages.append('El apellido en el mrz no alcanzó el porcentaje minimo.')
-            mrz_message_added = True
-        else:
-          if not mrz_message_added:
-            messages.append('No se pudo detectar el código de mrz del documento.')
-            mrz_message_added = True
-
-      # Si se detecta código de barras y no MRZ, solo usar código de barras
-      if temp['barcode'] is not None and (temp['mrz'] is None or temp['mrz']['mrz'] != 'OK'):
-        resultsDict['barcode'] = temp['barcode'] if temp['barcode'] == 'OK' else None
-        if temp['barcode'] == '!OK' and not barcode_message_added:
-          messages.append('No se pudo detectar el código de barras del documento.')
-          checkSide['barcode'] = temp['barcode']
-          barcode_message_added = True
-
-      # Si se detectan ambos, agregarlos al checkSide pero no mostrar mensajes duplicados
-      if temp['mrz'] is not None and temp['mrz']['mrz'] == 'OK' and temp['barcode'] is not None and temp['barcode'] == 'OK':
-        checkSide['mrzNamePercent'] = temp['mrz']['mrzNamePercent']
-        checkSide['mrzLastNamePercent'] = temp['mrz']['mrzLastNamePercent']
-        checkSide['barcode'] = temp['barcode']
-        # Agregar mensajes si los porcentajes de nombre o apellido son bajos
-        if temp['mrz']['mrzNamePercent'] != 'OK' and not mrz_message_added:
-          messages.append('El nombre en el mrz no alcanzó el porcentaje minimo.')
-          mrz_message_added = True
-        if temp['mrz']['mrzLastNamePercent'] != 'OK' and not mrz_message_added:
-          messages.append('El apellido en el mrz no alcanzó el porcentaje minimo.')
-          mrz_message_added = True
-
-      # Si no se detecta ninguno, agregar ambos mensajes solo una vez cada uno
-      if (temp['barcode'] is None or temp['barcode'] == '!OK') and (temp['mrz'] is None or temp['mrz']['mrz'] != 'OK'):
-        if not barcode_message_added:
-          messages.append('No se pudo detectar el código de barras del documento.')
-          barcode_message_added = True
-        if not mrz_message_added:
-          messages.append('No se pudo detectar el código de mrz del documento.')
-          mrz_message_added = True
-
-      if(resultsDict['document']['type'] == '!OK' or resultsDict['document']['typeCheck'] == '!OK'):
-
-        resultsDict['document']['type'] = documentType
-        resultsDict['document']['typeCheck'] = documentValidation
 
     validSide, _, _percent = results(51, 'AUTOMATICA', checkSide)
 
 
-    codeTimeEnd = time.time()
-    codeTime = codeTimeInit - codeTimeEnd
-
     resultsDict['messages'] = messages
 
-    resultsDict['validSide'] = 'OK' if(validSide) else '!OK'
-
-    if resultsDict['validSide'] == '!OK' and len(messages) >= 1:
-      unique_messages = []
-      seen = set()
-      for msg in resultsDict['messages']:
-        if msg not in seen:
-          unique_messages.append(msg)
-          seen.add(msg)
-      resultsDict['messages'] = unique_messages
-      # Agregar el mensaje de recomendación al inicio
-      resultsDict['messages'].insert(0, 'Por favor, recomendamos buscar buena iluminación y enfocar el documento.')
-
-    if resultsDict['validSide'] == 'OK' and (tipoDocumento == 'CEDULA DE EXTRANJERIA' or tipoDocumento == 'CEDULA DE CIUDADANIA'):
-      resultsDict['messages'] = []
+    resultsDict['validSide'] = validSide
 
     return jsonify(resultsDict)
 

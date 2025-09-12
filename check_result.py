@@ -1,5 +1,7 @@
 def results(percent, validatioAttendance, checksDict):
 
+  print(checksDict)
+
   values = []
 
   totalPercent = 0
@@ -27,7 +29,7 @@ def results(percent, validatioAttendance, checksDict):
 
 def testingType(array):
 
-  filt = filter(lambda x: x['validation'] == 'OK' ,array)
+  filt = filter(lambda x: x['validation'] == True ,array)
 
   filteredList = list(filt)
 
@@ -35,12 +37,12 @@ def testingType(array):
     firstElement = filteredList[0]
     return firstElement['type'],firstElement['validation']
   else:
-    return 'no detectado', '!OK'
+    return 'no detectado', False
   
   
 def testingCountry(array):
 
-  filt = filter(lambda x: x['validation'] == 'OK' ,array)
+  filt = filter(lambda x: x['validation'] == True ,array)
 
   filteredList = list(filt)
 
@@ -48,4 +50,4 @@ def testingCountry(array):
     firstElement = filteredList[0]
     return firstElement['country'], firstElement['countryDetected'], firstElement['validation']
   else:
-    return 'no detectado','no detectado', '!OK'
+    return 'no detectado','no detectado', False

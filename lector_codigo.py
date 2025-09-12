@@ -146,6 +146,7 @@ formatDefinition = {
 
 def barcodeSide(documentType, documentSide, barcodeData):
   hasBarcode, barcodeType, tbr = barcodeData[documentType][documentSide]
+
   return hasBarcode, barcodeType, tbr
 
 def hasBarcode(documentType, barcodeData):
@@ -168,7 +169,7 @@ def extractBarcodeData(barcodeData, documentType):
   documentFormat = formatDefinition[documentType]
 
 # TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
-TBR_CODES = [103]
+# TBR_CODES = [103]
 
 def ejecutar_lector(imagen_path, tbr_code, barcodeType):
 
@@ -182,7 +183,7 @@ def ejecutar_lector(imagen_path, tbr_code, barcodeType):
     return '!OK'
   return out
 
-def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
+def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbrList):
 
   folderBarcodes = './codigos-barras'
   folderExistance = os.path.exists(folderBarcodes)
@@ -196,8 +197,7 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
   barcodesExtracted = []
 
   found = False
-  for tbr in TBR_CODES:
-    print(tbr)
+  for tbr in tbrList:
     res = ejecutar_lector(imagePath, tbr, barcodeType)
     try:
       data = json.loads(res)
