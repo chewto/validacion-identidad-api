@@ -13,6 +13,7 @@ import hashlib
 import urllib.parse
 
 
+
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
 
