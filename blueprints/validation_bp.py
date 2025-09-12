@@ -390,8 +390,6 @@ def validate():
 
   length = request.headers.get('Content-Length')
 
-  print(f"peso del contenido: {length}")
-
   reqBody = request.get_json()
 
   idUsuario = request.args.get('idUsuario')
@@ -534,7 +532,7 @@ def validate():
   reversoData = readDataURL(reverso)
 
   # anversoOrientado, documentoValido = orientacionImagen(anversoData)
-  selfie, selfieValida = orientacionImagen(fotoPersonaData)
+  # selfie, selfieValida = orientacionImagen(fotoPersonaData)
 
 
   checkValuesDict = {}
@@ -550,7 +548,7 @@ def validate():
   movementCheck = True if(movementTest == 'OK') else False
   checkValuesDict['movement'] = movementCheck
 
-  antiSpoof = antiSpoofingTest(selfie)
+  antiSpoof = antiSpoofingTest(fotoPersonaData)
   checkValuesDict['antiSpoofing'] = antiSpoof
 
   test = [movementCheck, antiSpoof, face]
@@ -585,10 +583,10 @@ def validate():
     checkValuesDict['mrz_lastname'] = mrzLastnameCheck
 
 
-  fCountryCheck = True if(frontCountryCheck == 'OK') else False
+  fCountryCheck = frontCountryCheck
   checkValuesDict['front_country'] = fCountryCheck
 
-  fTypeCheck = True if(frontTypeCheck == 'OK') else False
+  fTypeCheck = frontTypeCheck
   checkValuesDict['front_type'] = fTypeCheck
 
 
@@ -615,10 +613,10 @@ def validate():
 
   if(tipoDocumento != 'PASAPORTE'):
 
-    bCountryCheck = True if(backCountryCheck == 'OK') else False
+    bCountryCheck = backCountryCheck
     checkValuesDict['back_country'] = bCountryCheck
 
-    bTypeCheck = True if(backTypeCheck == 'OK') else False
+    bTypeCheck = backTypeCheck
     checkValuesDict['back_type'] = bTypeCheck
 
     # bIsExpired = True if(backIsExpired == 'OK') else False
@@ -671,7 +669,7 @@ def validate():
 
   checkHasBarcode = hasBarcode(documentType=tipoDocumento, barcodeData=barcodeData)
   if(checkHasBarcode):
-    barcodeCheck = True if(barcode == 'OK') else False
+    barcodeCheck = barcode
 
     if(barcode is not None):
       if(tipoDocumento != "CEDULA DIGITAL"):
@@ -794,7 +792,7 @@ def validate():
   #compresiones
 
   anversoOrientado = cv2Blob(anversoData)
-  fotoPersonaBlob = cv2Blob(selfie)
+  fotoPersonaBlob = cv2Blob(fotoPersonaData)
   reversoBlob = cv2Blob(reversoData)
 
   #tabla evidencias 
