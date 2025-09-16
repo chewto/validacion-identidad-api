@@ -102,6 +102,9 @@ def hasMRZ(documentType, mrzData):
 def validateMRZ(documentType, mrzKeys,mrzData):
   mrzDocumentType = mrzKeys[documentType]
 
+  if(mrzData == None):
+    return False
+
   mrzDataLength =True if (len(mrzData) >= 1) else False
 
   mrzVerify = False
