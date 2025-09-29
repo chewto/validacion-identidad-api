@@ -2,6 +2,7 @@ import base64
 import ffmpeg
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
+from insightface.app import FaceAnalysis
 from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
 import logs
@@ -17,6 +18,7 @@ from PIL import Image
 import numpy as np
 from ultralytics import YOLO
 import easyocr
+import reconocimiento
 
 from werkzeug import Request
 
@@ -76,6 +78,48 @@ def obtenerFirmador(id):
         "fechaCreacion": "2023-10-07T11:13:52-05:00"
     }
 })
+
+@app.route('/edad-test-nuevo', methods=['POST'])
+def agesTest():
+    app = FaceAnalysis(allowed_modules=['detection', 'landmark', 'attribute'])
+    # prepare descarga/carga modelos; ctx_id=-1 para usar CPU
+    app.prepare(ctx_id=-1, det_size=(640, 640))
+
+    img = request.files.get('img', None)
+    img = fileCv2(img)
+    if img is None:
+        raise SystemExit("Coloca una imagen llamada test.jpg en el directorio o ajusta la ruta")
+
+    faces = app.get(img)
+    print(f"Caras detectadas: {len(faces)}")
+    for i, face in enumerate(faces):
+        # face.attrs contiene atributos como age/gender en muchas builds
+        age = None
+        print(face)
+        if hasattr(face, "age"):
+            age = face.age
+        elif getattr(face, "attrs", None):
+            age = face.attrs.get("age")  # alternativa dependiendo de la versión
+        print(f"Face {i}: bbox={face.bbox}, edad aprox: {age}")
+
+    return ''
+
+@app.route('/edad-test', methods=['POST'])
+def ageTest():
+   
+  documentImage = request.files.get('documento', None)
+  selfie = request.files.get('selfie', None)
+
+  documentData = fileCv2(documentImage)
+  selfieData = fileCv2(selfie)
+
+  documentAnalisis = reconocimiento.analyzeFace(documentData)
+  selfieAnalisis = reconocimiento.analyzeFace(selfieData)
+
+  print(documentAnalisis)
+  print(selfieAnalisis)
+
+  return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
 
 @app.route('/log', methods=['POST'])
 def savelog():

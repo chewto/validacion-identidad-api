@@ -1277,3 +1277,125 @@ def rejectedValidation():
 
 
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUser, "coincidenciaDocumentoRostro": face, "estadoVerificacion":state})
+
+@validation_bp.route('/revalidacion', methods=['POST'])
+def revalidacion():
+
+  length = request.headers.get('Content-Length')
+
+  reqBody = request.get_json()
+
+  checkValuesDict = {}
+
+  documentType = reqBody['documentType']
+
+  validationPercent = reqBody['validationPercent'] if (reqBody['validationPercent'] is not None) else 60
+
+  print(validationPercent)
+
+  front = reqBody['front']
+  face = front['face']
+  faceDetected = front['faceDetected']
+# falta antispoofing
+  ocr = front['ocr']
+  test = [face, faceDetected]
+
+  checkValuesDict['confidence'] = face
+  checkValuesDict['faceDetected'] = faceDetected
+
+  ocrPercentages = ocr['percentage']
+  idPercentage = True if int(ocrPercentages['ID']) >= 50 else False
+  checkValuesDict['ocrID'] =idPercentage
+  namePercentage = True if int(ocrPercentages['name']) >= 50 else False
+  checkValuesDict['ocrName'] = namePercentage
+  lastnamePercentage = True if int(ocrPercentages['lastName']) >= 50 else False
+  checkValuesDict['ocrLastname'] = lastnamePercentage
+
+  ocrTotal = int(idPercentage) + int(namePercentage) + int(lastnamePercentage)
+  average = ocrTotal / 3
+  print(average)
+  ocrAverageCheck = True if(int(average) >= 75) else False
+  test.append(ocrAverageCheck)
+  checkValuesDict['ocrAverage'] = ocrAverageCheck
+
+  frontIsValid = front['validSide']
+
+  frontBarcode = front['barcode']
+  if(frontBarcode is not None):
+    checkValuesDict['barcode'] = frontBarcode
+    test.append(frontBarcode)
+  
+  frontMrz = front['mrz']
+  if(frontMrz['code'] is not None):
+    mrzName = True if(int(frontMrz['percentages']['name']) >= 75) else False
+    checkValuesDict['mrzName'] = mrzName
+
+    mrzLastname = True if(int(frontMrz['percentages']['lastName']) >= 75) else False
+    checkValuesDict['mrzLastname'] = mrzLastname
+
+  frontType = front['document']['typeCheck']
+  checkValuesDict['frontType'] = frontType
+
+  frontCountry = front['document']['countryCheck']
+  checkValuesDict['frontCountry'] = frontCountry
+
+  checkValuesDict['frontIsValid'] = frontIsValid
+
+  frontCheck = all([frontType, frontCountry])
+
+  test.append(frontCheck)
+
+  checkValuesDict['front'] = frontCheck
+
+
+  if(documentType != 'PASAPORTE'):
+    back = reqBody['back']
+    print("reverso",back)
+    backIsValid = back['validSide']
+
+    bothSide = [frontIsValid, backIsValid]
+
+    backBarcode = back['barcode']
+    if(backBarcode is not None):
+      checkValuesDict['barcode'] = backBarcode
+      test.append(backBarcode)
+    
+    backMrz = back['mrz']
+    if(backMrz['code'] is not None):
+      mrzName = True if(int(backMrz['percentages']['name']) >= 75) else False
+      checkValuesDict['mrzName'] = mrzName
+
+      mrzLastname = True if(int(backMrz['percentages']['lastName']) >= 75) else False
+      checkValuesDict['mrzLastname'] = mrzLastname
+
+    backType = back['document']['typeCheck']
+    checkValuesDict['backType'] = backType
+
+    backCountry = back['document']['countryCheck']
+    checkValuesDict['backCountry'] = backCountry
+
+    checkValuesDict['backIsValid'] = backIsValid
+
+    backCheck = all([backType, backCountry])
+
+    checkValuesDict['back'] = backCheck
+
+    validBothSide = all(bothSide)
+
+    checkValuesDict['bothSidesValid'] = validBothSide
+
+    checkValuesDict['sidesCountryConfidence'] = True if(frontCountry  and backCountry) else False
+    
+    checkValuesDict['sidesTypeConfidence'] = True if(frontType and backType) else False
+
+    test.append(backCheck)
+
+  boolResult, resultState, resultPercent = results(validatioAttendance='AUTOMATICA', percent=validationPercent, checksDict=checkValuesDict)
+
+  test = all(test)
+
+  final = all([test,boolResult])
+
+  checkValuesDict['percent'] = resultPercent
+
+  return jsonify({"state": resultState, "checkValues":checkValuesDict})

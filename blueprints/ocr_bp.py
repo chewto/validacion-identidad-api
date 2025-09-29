@@ -143,6 +143,7 @@ def verificarAnverso():
 
     nombreOcr, pctNombre = validacionOCR(ocr, nombre, onlyNumbers=False)
     apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
+    print(numeroDocumento)
     numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
     checkSide['percentName'] = True if pctNombre >= 50 else False

@@ -87,6 +87,22 @@ def antiSpoofingTest(selfie):
     except:
         return False
 
+
+def analyzeFace(image):
+    result = DeepFace.analyze(img_path=image, actions=['age', 'gender'])
+    # Convert any np.float types to native float recursively
+    def convert_npfloat(obj):
+        if isinstance(obj, dict):
+            return {k: convert_npfloat(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_npfloat(v) for v in obj]
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        else:
+            return obj
+    return convert_npfloat(result)
+
+
 def verifyFaces(imageArray1, imageArray2):
 
     try:

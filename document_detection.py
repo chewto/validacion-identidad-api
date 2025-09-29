@@ -381,7 +381,9 @@ def getMrz(data):
   mrz = mrz['dataOcr']
   return mrz, True
 
-def detection(img, classes:list[str]):
+def detection(img, classes:list[str], country):
+
+  modelPath = documentDetection[country]['modelPath']
 
   yoloModel = YOLO(modelPath)
 

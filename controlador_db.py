@@ -539,3 +539,37 @@ def setIDs(idEvidencias, idEvidenciasAdicionales, tipoDocumento, idValidacion):
     conn.commit()
     cursor.close()
     conn.close()
+
+#revalidation process
+
+
+def selectValidations(query, *values):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return ()
+  
+  try:
+    cursor = conn.cursor()
+
+    cursor.execute(query, values)
+
+    data = cursor.fetchall()
+
+    return data
+
+  except mariadb.Error as e:
+    print(e)
+    return ()
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()

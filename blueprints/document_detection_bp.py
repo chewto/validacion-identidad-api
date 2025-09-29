@@ -10,7 +10,7 @@ from mrz import MRZSide, comparisonMRZInfo, extractMRZ, mrzInfo
 from ocr import validacionOCR, validateDocumentCountry, validateDocumentType
 from reconocimiento import orientacionImagen, verifyFaces
 from request_parser import _parse_request
-from utilidades import fileCv2, textNormalize
+from utilidades import fileCv2, readDataURL, textNormalize
 import document_detection
 import numpy as np
 
@@ -24,45 +24,22 @@ def documentDetection():
   if(request.method == 'GET'):
     return 'vayase pal diablo'
 
-  image = request.files.get("image", None)
+  testing = request.args.get("testing", "false").lower() == "true"
 
-  imageData = fileCv2(image)
+  if testing:
+    image = request.files.get("image", None)
+    labels = request.form.get('labels', None)
+    labels = labels.split(",")
+    country = request.form.get('country')
+    imageData = fileCv2(image)
+  else:
+    data = request.get_json()
+    labels = data["labels"]
+    labels = labels.split(",")
+    country = data['country']
+    imageData = readDataURL(data["image"])
 
-  results =  document_detection.detection(imageData, [
-  "CEDULA_CIUDADANIA_FRONTAL",
-  "NUMERO_DOCUMENTO",
-  "APELLIDOS",
-  "NOMBRES",
-  "FIRMA",
-  "FOTO",
-  "ENCABEZADO",
-  "CEDULA_CIUDADANIA_REVERSO",
-  "CODIGO_BARRAS",
-  "HUELLA",
-  "FECHA_NACIMIENTO",
-  "LUGAR_NACIMIENTO",
-  "ESTATURA",
-  "GRUPO_SANGUINEO",
-  "SEXO",
-  "FECHA_EXPEDICION",
-  "CODIGO",
-  "CEDULA_EXTRANJERIA_FRONTAL",
-  "NACIONALIDAD",
-  "FECHA_EXPIRACION",
-  "GHOST",
-  "CEDULA_EXTRANJERIA_REVERSO",
-  "MRZ",
-  "CEDULA_DIGITAL_FRONTAL",
-  "CEDULA_DIGITAL_REVERSO",
-  "PASAPORTE",
-  "NUMERO_PERSONAL",
-  "AUTORIDAD",
-  "CODIGO_PAIS",
-  "TIPO",
-  "CODIG_BARRAS_LATERAL",
-  "NUMERO_LATERAL",
-  "NUMERO_PASAPORTE"
-])
+  results =  document_detection.detection(imageData, labels, country)
 
   return results
 
