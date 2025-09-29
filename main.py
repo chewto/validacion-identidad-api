@@ -2,7 +2,6 @@ import base64
 import ffmpeg
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
-from insightface.app import FaceAnalysis
 from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
 import logs

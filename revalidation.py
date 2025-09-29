@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 import argparse
 
+baseRoute = 'https://desarrollo.web.honducert.com/'
+
 parser = argparse.ArgumentParser(description="Revalidación de identidad por lotes")
 parser.add_argument("--initialId", type=int, required=True, help="ID inicial para comenzar la revalidación")
 parser.add_argument("--revalidationBatch", type=int, default=1, help="Cantidad de registros a procesar en el lote")
@@ -15,6 +17,8 @@ args = parser.parse_args()
 
 initialId = args.initialId
 revalidationBatch = args.revalidationBatch
+
+
 
 # Asegúrate de que la carpeta para los crops exista
 output_dir = "./recortes"
@@ -94,7 +98,7 @@ for validation in validations:
 
     # OCR para las imágenes de anverso y reverso
     def ocr_request(image, side):
-        response = requests.post("http://127.0.0.1:4500/ocr", json={"image": image})
+        response = requests.post(f"{baseRoute}validacion-ocr-back/ocr", json={"image": image})
         sides[side]['ocr'] = json.loads(response.text)
         sides[side]['image'] = image
 
@@ -119,11 +123,11 @@ for validation in validations:
             "country": country,
             "textAngle": sides[key]['ocr']['textAngle']
         }
-        response = requests.post(f"http://127.0.0.1:4000/ocr/{endPoint}", json=payload)
+        response = requests.post(f"{baseRoute}validacion-back/ocr/{endPoint}", json=payload)
         documentValidation[key] = json.loads(response.text)
 
     # Revalidación del documento
-    response = requests.post("http://127.0.0.1:4000/validation/revalidacion", json={
+    response = requests.post("{baseRoute}validacion-back/validation/revalidacion", json={
         "front": documentValidation['front'],
         "back": documentValidation['back'],
         "validationPercent": validationPercent,
@@ -141,7 +145,7 @@ for validation in validations:
             "image": documentValidation[val]['image'],
             "country": country
         }
-        response = requests.post("http://127.0.0.1:4000/document/detection", json=payload)
+        response = requests.post("{baseRoute}validacion-back/document/detection", json=payload)
         
         if response.status_code == 200:
             crops = json.loads(response.text)
