@@ -7,18 +7,28 @@ import json
 import cv2
 import numpy as np
 import argparse
+import getpass
+
+from utilidades import removeAccents
 
 baseRoute = 'https://desarrollo.web.honducert.com/'
 
 parser = argparse.ArgumentParser(description="Revalidación de identidad por lotes")
-parser.add_argument("--initialId", type=int, required=True, help="ID inicial para comenzar la revalidación")
+parser.add_argument("--id_entidad", type=int, required=True, help="ID de la entidad")
 parser.add_argument("--revalidationBatch", type=int, default=1, help="Cantidad de registros a procesar en el lote")
 args = parser.parse_args()
 
-initialId = args.initialId
+entityId = args.id_entidad
 revalidationBatch = args.revalidationBatch
 
+# Solicitar contraseña antes de iniciar el proceso
 
+PASSWORD = "12345"  # Cambia esto por la contraseña deseada
+
+user_password = getpass.getpass("Ingrese la contraseña para iniciar el proceso: ")
+if user_password != PASSWORD:
+  print("Contraseña incorrecta. El proceso no se iniciará.")
+  exit(1)
 
 # Asegúrate de que la carpeta para los crops exista
 output_dir = "./recortes"
@@ -28,9 +38,14 @@ if not os.path.exists(output_dir):
 validations = controlador_db.selectValidations(f'''
   SELECT docu.nombres, docu.apellidos, docu.numero_documento, docu.tipo_documento, 
          evi.anverso_documento, evi.reverso_documento, evi.foto_usuario, docu.id_usuario_efirma, docu.id
-  FROM pki_validacion.documento_usuario AS docu
-  INNER JOIN pki_validacion.evidencias_usuario AS evi ON evi.id = docu.id_evidencias
-  WHERE docu.id >= {initialId} LIMIT {revalidationBatch}
+FROM pki_validacion.documento_usuario AS docu 
+INNER JOIN pki_validacion.evidencias_usuario AS evi ON evi.id = docu.id_evidencias
+INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.id = docu.id_usuario_efirma
+INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON firma.id = firmador.firma_electronica_id
+INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
+INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id
+INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
+WHERE ent.entity_id = {entityId} LIMIT {revalidationBatch}
 ''', ())
 # Función para guardar crops
 def save_crop(base64_image, crop, label, side, id):
@@ -65,10 +80,12 @@ def save_crop(base64_image, crop, label, side, id):
 # Procesamiento de cada validación
 for validation in validations:
     id = validation[8]
+    print(id, 'id de la validacion')
     name = validation[0]
     lastname = validation[1]
     documentNumber = validation[2]
     documentType = validation[3]
+    documentType = removeAccents(documentType)
 
     # Convertir blob a base64
     def convert_to_base64(blob):
@@ -107,6 +124,24 @@ for validation in validations:
 
     documentValidation = {'front': {}, 'back': {}}
 
+    types = {
+      'HND': ['DNI', 'PASAPORTE'],
+      'COL': ['CEDULA DE CIUDADANIA', 'CEDULA DE EXTRANJERIA', 'PASAPORTE']
+    }
+
+    if country in types:
+      if documentType not in types[country]:
+        print(f"Tipo de documento '{documentType}' no corresponde al país '{country}'. Se omite la validación para id {id}.")
+        continue
+    else:
+      print(f"No hay tipos de documento configurados para el país '{country}'. Se omite la validación para id {id}.")
+      continue
+
+    documentDataStore = {
+      'front': {},
+      'back': {}
+    }
+
     # Validación de documentos usando OCR y selfie
     for key in sides:
         endPoint = "anverso" if key == 'front' else "reverso"
@@ -124,19 +159,28 @@ for validation in validations:
             "textAngle": sides[key]['ocr']['textAngle']
         }
         response = requests.post(f"{baseRoute}validacion-back/ocr/{endPoint}", json=payload)
-        documentValidation[key] = json.loads(response.text)
+        responseJson = json.loads(response.text)
+        documentValidation[key] = responseJson
+
+
+        if 'image' in responseJson:
+          del responseJson['image']
+          documentDataStore[key] = responseJson
 
     # Revalidación del documento
-    response = requests.post("{baseRoute}validacion-back/validation/revalidacion", json={
-        "front": documentValidation['front'],
-        "back": documentValidation['back'],
-        "validationPercent": validationPercent,
-        "documentType": documentType
+
+    response = requests.post(f"{baseRoute}validacion-back/validation/revalidacion", json={
+      "front": documentValidation['front'],
+      "back": documentValidation['back'],
+      "validationPercent": validationPercent,
+      "documentType": documentType
     })
+
 
     resJson = json.loads(response.text)
     state = resJson['state']
     checkValues = resJson['checkValues']
+    checkValues['documentValidation'] = documentDataStore
 
     # Procesamiento de crops
     for val in documentValidation:
@@ -145,7 +189,7 @@ for validation in validations:
             "image": documentValidation[val]['image'],
             "country": country
         }
-        response = requests.post("{baseRoute}validacion-back/document/detection", json=payload)
+        response = requests.post(f"{baseRoute}validacion-back/document/detection", json=payload)
         
         if response.status_code == 200:
             crops = json.loads(response.text)

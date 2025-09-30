@@ -1291,8 +1291,6 @@ def revalidacion():
 
   validationPercent = reqBody['validationPercent'] if (reqBody['validationPercent'] is not None) else 60
 
-  print(validationPercent)
-
   front = reqBody['front']
   face = front['face']
   faceDetected = front['faceDetected']
@@ -1397,5 +1395,8 @@ def revalidacion():
   final = all([test,boolResult])
 
   checkValuesDict['percent'] = resultPercent
+
+  if(not final):
+    resultState = 'validación fallida'
 
   return jsonify({"state": resultState, "checkValues":checkValuesDict})

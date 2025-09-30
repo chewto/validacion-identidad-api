@@ -18,6 +18,14 @@ browserPatterns = {
     "Opera": r"OPR\/([\d\.]+)"
 }
 
+def removeAccents(text):
+  """
+  Elimina acentos y convierte el texto a mayúsculas.
+  """
+  text = unicodedata.normalize('NFD', text)
+  text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+  return text.upper()
+
 def resizeImage(image, percentage):
 
   original_height, original_width = image.shape[:2]
