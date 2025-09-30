@@ -1313,7 +1313,7 @@ def revalidacion():
   average = ocrTotal / 3
   print(average)
   ocrAverageCheck = True if(int(average) >= 75) else False
-  test.append(ocrAverageCheck)
+  # test.append(ocrAverageCheck)
   checkValuesDict['ocrAverage'] = ocrAverageCheck
 
   frontIsValid = front['validSide']

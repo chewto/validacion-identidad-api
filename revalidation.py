@@ -162,10 +162,11 @@ for validation in validations:
         responseJson = json.loads(response.text)
         documentValidation[key] = responseJson
 
-
-        if 'image' in responseJson:
-          del responseJson['image']
-          documentDataStore[key] = responseJson
+        # Make a copy of responseJson and delete the 'image' property
+        responseJsonCopy = responseJson.copy()
+        if 'image' in responseJsonCopy:
+            del responseJsonCopy['image']
+        documentDataStore[key] = responseJsonCopy
 
     # Revalidación del documento
 
