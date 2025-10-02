@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import controlador_db
 import requests
 import base64
@@ -7,7 +6,6 @@ import json
 import cv2
 import numpy as np
 import argparse
-import getpass
 
 from utilidades import removeAccents
 
@@ -23,12 +21,12 @@ revalidationBatch = args.revalidationBatch
 
 # Solicitar contraseña antes de iniciar el proceso
 
-PASSWORD = "12345"  # Cambia esto por la contraseña deseada
+# PASSWORD = "12345"  # Cambia esto por la contraseña deseada
 
-user_password = getpass.getpass("Ingrese la contraseña para iniciar el proceso: ")
-if user_password != PASSWORD:
-  print("Contraseña incorrecta. El proceso no se iniciará.")
-  exit(1)
+# user_password = getpass.getpass("Ingrese la contraseña para iniciar el proceso: ")
+# if user_password != PASSWORD:
+#   print("Contraseña incorrecta. El proceso no se iniciará.")
+#   exit(1)
 
 # Asegúrate de que la carpeta para los crops exista
 output_dir = "./recortes"
@@ -47,6 +45,8 @@ INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id
 INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
 WHERE ent.entity_id = {entityId} LIMIT {revalidationBatch}
 ''', ())
+
+print(validations)
 # Función para guardar crops
 def save_crop(base64_image, crop, label, side, id):
   img_data = base64.b64decode(base64_image.split(",")[1])

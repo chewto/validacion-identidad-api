@@ -38,6 +38,8 @@ def selectData(query, *values):
     return ()
   
   try:
+    print('adasdasdasd')
+
     cursor = conn.cursor()
 
     cursor.execute(query, values)

@@ -11,6 +11,16 @@ from lector_codigo import hasBarcode
 from callback_request import callbackRequest
 import hashlib
 import urllib.parse
+import os
+import controlador_db
+import requests
+import base64
+import json
+import cv2
+import numpy as np
+import argparse
+
+from utilidades import removeAccents
 
 
 
@@ -1400,3 +1410,184 @@ def revalidacion():
     resultState = 'validación fallida'
 
   return jsonify({"state": resultState, "checkValues":checkValuesDict})
+
+@validation_bp.route('/process-revalidation', methods=['POST'])
+def process_revalidation():
+    baseRoute = 'https://desarrollo.web.honducert.com/'
+
+    api_key = request.headers.get('X-Api-Key')
+    password = 'me+15%,gc}FV-9ND(;(Rr'
+
+    if api_key != password:
+      return jsonify({"error": "No autorizado"}), 401
+
+    # Obtener parámetros de la query
+    entityId = request.args.get('id_entidad', type=int)
+    revalidationBatch = request.args.get('validacion_batch', default=1, type=int)
+
+    if not entityId:
+      return jsonify({"error": "El parámetro 'id_entidad' es requerido"}), 400
+
+    output_dir = "./recortes"
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    print('buscando')
+    validations = controlador_db.selectValidations(f'''
+      SELECT docu.nombres, docu.apellidos, docu.numero_documento, docu.tipo_documento, docu.id_usuario_efirma, docu.id, docu.id_evidencias, pais.codigo, pais.yolo_labels, ent.porcentaje_acierto, evi_ad.estado_verificacion
+      FROM pki_validacion.documento_usuario AS docu 
+      INNER JOIN pki_validacion.evidencias_adicionales AS evi_ad ON evi_ad.id = docu.id_evidencias_adicionales
+      INNER JOIN pki_validacion.evidencias_usuario AS evi ON evi.id = docu.id_evidencias
+      INNER JOIN pki_firma_electronica.firmador_pki AS firmador ON firmador.id = docu.id_usuario_efirma
+      INNER JOIN pki_firma_electronica.firma_electronica_pki AS firma ON firma.id = firmador.firma_electronica_id
+      INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
+      INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id
+      INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
+      WHERE ent.entity_id = {entityId} LIMIT {revalidationBatch}
+    ''', ())
+
+    def save_crop(base64_image, crop, label, side, id):
+      img_data = base64.b64decode(base64_image.split(",")[1])
+      np_arr = np.frombuffer(img_data, np.uint8)
+      img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+      if img is None:
+        print(f"Error: La imagen no se pudo decodificar correctamente.")
+        return
+      x, y, w, h = crop['x'], crop['y'], crop['width'], crop['height']
+      if x < 0 or y < 0 or w <= 0 or h <= 0:
+        print(f"Advertencia: Coordenadas no válidas para el crop en {side} {label}: {crop}")
+        return
+      crop_img = img[y:y+h, x:x+w]
+      if crop_img.size != 0:
+        id_dir = os.path.join(output_dir, str(id))
+        if not os.path.exists(id_dir):
+          os.makedirs(id_dir)
+        filename = f"{side}_{label}.jpg"
+        file_path = os.path.join(id_dir, filename)
+        cv2.imwrite(file_path, crop_img)
+        print(f"Guardado: {file_path}")
+      else:
+        print(f"Advertencia: El recorte está vacío para {side} {label} en las coordenadas {crop}")
+
+    results_list = []
+    for validation in validations:
+      name = validation[0]
+      lastname = validation[1]
+      documentNumber = validation[2]
+      documentType = removeAccents(validation[3])
+      signerId = validation[4]
+      id = validation[5]
+      idEvidence = validation[6]
+      country = validation[7]
+      yoloLabels = validation[8]
+      validationPercent = validation[9]
+      originalState = validation[10]
+
+      evidence = controlador_db.selectData(f'''SELECT evi.foto_usuario, evi.anverso_documento, evi.reverso_documento FROM pki_validacion.evidencias_usuario AS evi WHERE evi.id = {idEvidence}''', ())
+
+      # print(evidence)
+      # return 'asdasd'
+
+      def convert_to_base64(blob):
+        return f"data:image/jpeg;base64,{base64.b64encode(blob).decode('utf-8')}"
+
+      selfieImage = convert_to_base64(evidence[0])
+      frontImage = convert_to_base64(evidence[1])
+      backImage = convert_to_base64(evidence[2])
+
+      sides = {"front": {}, "back": {}}
+
+      def ocr_request(image, side):
+        response = requests.post(f"{baseRoute}validacion-ocr-back/ocr", json={"image": image})
+        sides[side]['ocr'] = json.loads(response.text)
+        sides[side]['image'] = image
+
+      ocr_request(frontImage, "front")
+      ocr_request(backImage, "back")
+
+      documentValidation = {'front': {}, 'back': {}}
+
+      types = {
+        'HND': ['DNI', 'PASAPORTE'],
+        'COL': ['CEDULA DE CIUDADANIA', 'CEDULA DE EXTRANJERIA', 'PASAPORTE']
+      }
+
+      if country in types:
+        if documentType not in types[country]:
+          print(f"Tipo de documento '{documentType}' no corresponde al país '{country}'. Se omite la validación para id {id}.")
+          continue
+      else:
+        print(f"No hay tipos de documento configurados para el país '{country}'. Se omite la validación para id {id}.")
+        continue
+
+      documentDataStore = {'front': {}, 'back': {}}
+
+      for key in sides:
+        endPoint = "anverso" if key == 'front' else "reverso"
+        payload = {
+          "imagenPersona": selfieImage,
+          "imagen": sides[key]['image'],
+          "nombre": name,
+          "apellido": lastname,
+          "documento": documentNumber,
+          "tipoDocumento": documentType,
+          "ocr": sides[key]['ocr']['ocr'],
+          "ladoDocumento": endPoint,
+          "tries": 0,
+          "country": country,
+          "textAngle": sides[key]['ocr']['textAngle']
+        }
+        response = requests.post(f"{baseRoute}validacion-back/ocr/{endPoint}", json=payload)
+        print(response.text)
+        responseJson = json.loads(response.text)
+        documentValidation[key] = responseJson
+        responseJsonCopy = responseJson.copy()
+        if 'image' in responseJsonCopy:
+          del responseJsonCopy['image']
+        documentDataStore[key] = responseJsonCopy
+
+      response = requests.post(f"{baseRoute}validacion-back/validation/revalidacion", json={
+        "front": documentValidation['front'],
+        "back": documentValidation['back'],
+        "validationPercent": validationPercent,
+        "documentType": documentType
+      })
+
+      resJson = json.loads(response.text)
+      state = resJson['state']
+      checkValues = resJson['checkValues']
+      checkValues['documentValidation'] = documentDataStore
+
+      for val in documentValidation:
+        payload = {
+          "labels": yoloLabels,
+          "image": documentValidation[val]['image'],
+          "country": country
+        }
+        response = requests.post(f"{baseRoute}validacion-back/document/detection", json=payload)
+        if response.status_code == 200:
+          crops = json.loads(response.text)
+          for crop in crops:
+            label = crop.get('label', 'unknown')
+            y1, y2 = crop['crop'][0]
+            x1, x2 = crop['crop'][1]
+            x = x1
+            y = y1
+            w = x2 - x1
+            h = y2 - y1
+            crop_dict = {'x': x, 'y': y, 'width': w, 'height': h}
+            save_crop(documentValidation[val]['image'], crop_dict, label, val, id)
+        else:
+          print(f"Error en la solicitud de detección para {val}: {response.status_code}")
+
+      columns = ('revalidacion_registro.revalidacion', 'revalidacion_registro.id_recortes', 'revalidacion_registro.estado', 'revalidacion_registro.id_entidad', 'estado_original')
+      table = 'pki_validacion.revalidacion_registro'
+      revalidacion_value = json.dumps(checkValues, ensure_ascii=False)
+      id_recortes_value = id
+      estado_value = state
+      values = (revalidacion_value, id_recortes_value, estado_value, entityId, originalState)
+      controlador_db.insertTabla(columns, table, values)
+      print(f"finalizada revalidacion id: {id}")
+      results_list.append({"id": id, "estado": state})
+
+    return jsonify({"procesados": len(results_list), "resultados": results_list})
