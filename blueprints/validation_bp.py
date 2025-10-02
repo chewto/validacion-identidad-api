@@ -1413,7 +1413,7 @@ def revalidacion():
 
 @validation_bp.route('/process-revalidation', methods=['POST'])
 def process_revalidation():
-    baseRoute = 'https://desarrollo.web.honducert.com/'
+    baseRoute = request.args.get('baseroute')
 
     api_key = request.headers.get('X-Api-Key')
     password = 'me+15%,gc}FV-9ND(;(Rr'
