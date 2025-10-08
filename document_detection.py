@@ -153,7 +153,7 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
             'typeCheck': document_validation,
             'isExpired': None,
             'code': country_code,
-            'countryDetected': country_detected,
+            'country': country_detected,
             'countryCheck': isCountry
         }
 
