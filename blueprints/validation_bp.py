@@ -21,6 +21,7 @@ import numpy as np
 import argparse
 
 from utilidades import removeAccents
+import time
 
 
 
@@ -1413,7 +1414,9 @@ def revalidacion():
 
 @validation_bp.route('/process-revalidation', methods=['POST'])
 def process_revalidation():
-    baseRoute = request.args.get('baseroute')
+
+    initTime = time.time()
+    baseRoute = ''
 
     api_key = request.headers.get('X-Api-Key')
     password = 'me+15%,gc}FV-9ND(;(Rr'
@@ -1423,17 +1426,9 @@ def process_revalidation():
 
     # Obtener parámetros de la query
     entityId = request.args.get('id_entidad', type=int)
-    revalidationBatch = request.args.get('validacion_batch', default=1, type=int)
-
-    if not entityId:
-      return jsonify({"error": "El parámetro 'id_entidad' es requerido"}), 400
-
-    output_dir = "./recortes"
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
-
-    print('buscando')
-    validations = controlador_db.selectValidations(f'''
+    revalidationBatch = request.args.get('lote_validacion', default=1, type=int)
+    initialId = request.args.get('id_inicial', default=0, type=int)
+    queryValidation = f'''
       SELECT docu.nombres, docu.apellidos, docu.numero_documento, docu.tipo_documento, docu.id_usuario_efirma, docu.id, docu.id_evidencias, pais.codigo, pais.yolo_labels, ent.porcentaje_acierto, evi_ad.estado_verificacion
       FROM pki_validacion.documento_usuario AS docu 
       INNER JOIN pki_validacion.evidencias_adicionales AS evi_ad ON evi_ad.id = docu.id_evidencias_adicionales
@@ -1443,8 +1438,19 @@ def process_revalidation():
       INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
       INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id
       INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
-      WHERE ent.entity_id = {entityId} LIMIT {revalidationBatch}
-    ''', ())
+      WHERE ent.entity_id = {entityId} {'AND docu.id >= {}'.format(initialId) if initialId != 0 else ''} LIMIT {revalidationBatch}
+'''
+
+    if not entityId:
+      return jsonify({"error": "El parámetro 'id_entidad' es requerido"}), 400
+
+    output_dir = "./recortes"
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    validations = controlador_db.selectValidations(queryValidation, ())
+
+    print(validations)
 
     def save_crop(base64_image, crop, label, side, id):
       img_data = base64.b64decode(base64_image.split(",")[1])
@@ -1482,6 +1488,8 @@ def process_revalidation():
       yoloLabels = validation[8]
       validationPercent = validation[9]
       originalState = validation[10]
+      
+      time.sleep(60)
 
       evidence = controlador_db.selectData(f'''SELECT evi.foto_usuario, evi.anverso_documento, evi.reverso_documento FROM pki_validacion.evidencias_usuario AS evi WHERE evi.id = {idEvidence}''', ())
 
@@ -1589,5 +1597,8 @@ def process_revalidation():
       controlador_db.insertTabla(columns, table, values)
       print(f"finalizada revalidacion id: {id}")
       results_list.append({"id": id, "estado": state})
+
+      endTime = time.time()
+      print(f"Tiempo transcurrido para la revalidación id {id}: {endTime - initTime:.2f} segundos")
 
     return jsonify({"procesados": len(results_list), "resultados": results_list})

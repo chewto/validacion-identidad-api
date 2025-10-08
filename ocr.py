@@ -308,6 +308,7 @@ def validacionOCR(dataOCR, dataUsuario, onlyNumbers):
     # Ordena por porcentaje descendente y similitud ascendente
     mejores_resultados = sorted(mejores_resultados, key=lambda x: (-x['porcentaje'], x['similitud']))
 
+
     if mejores_resultados:
         mejor = mejores_resultados[0]
         return mejor['linea'], round(mejor['porcentaje'])

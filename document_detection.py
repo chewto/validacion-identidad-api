@@ -5,6 +5,7 @@ from ocr import ocr, validateDocumentCountry, validateDocumentType
 from PIL import Image
 import base64
 from io import BytesIO
+import numpy as np
 
 countryHash = {
   'COL': 'COLOMBIA',
@@ -73,6 +74,39 @@ documentDetection = {
   }
 }
 
+def searchDocumentSelfie(yoloLabels, img, useCountry, documentType):
+  modelPath = documentDetection[useCountry]['modelPath']
+
+  # Run YOLO detection if yoloLabels is not already results object
+  if not hasattr(yoloLabels, "boxes"):
+    results = yoloReader(img=img, modelPath=modelPath)
+  else:
+    results = yoloLabels
+
+  # Use YOLO results to find the selfie/photo region
+  for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
+    class_idx = int(cls)
+    # Try to get label from yoloLabels if possible, else from results
+    if hasattr(results, "names"):
+      label = results.names[class_idx]
+    elif isinstance(yoloLabels, dict) and 'names' in yoloLabels:
+      label = yoloLabels['names'][class_idx]
+    else:
+      label = str(class_idx)
+    if label.lower() in ["foto", "foto_persona"]:
+      x1, y1, x2, y2 = map(int, box)
+      # Always return as numpy array (matlike)
+      if isinstance(img, Image.Image):
+        img_np = np.array(img)
+      else:
+        img_np = img
+      cropped = img_np[y1:y2, x1:x2]
+      return cropped
+  # If not found, return original as numpy array
+  if isinstance(img, Image.Image):
+    return np.array(img)
+  return img
+
 
 def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_country, ocr_data, yoloLabels):
     """Función unificada para detección y validación de documentos.
@@ -88,6 +122,8 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
     messages = []
     checkSide = {}
 
+    cropImage = None
+
     # Decide si el país tiene un modelo de detección basado en la configuración.
     has_model = documentDetection[user_country]["hasModel"]
     modelPath = documentDetection[user_country]['modelPath']
@@ -96,74 +132,98 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
     if has_model and documentHasModel:
         # Usar detectModel (flujo tipo COL)
         print("usando modelo")
-        document_type, document_validation, country_code, country_detected, isCountry, _ = detectDocument(
+        document_type, document_validation, country_code, country_detected, isCountry, croppedDocument, documentLabel = detectDocument(
             img=documento_data, countryCode=user_country, side=lado_documento, type=tipo_documento, yoloLabels=yoloLabels, modelPath=modelPath
         )
 
-        documentSection = {
-            'type': document_type,
-            'typeCheck': document_validation,
-            'isExpired': None,
-        }
-
-        checkSide['documentValidation'] = document_validation
-
-        if not isCountry:
-            country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
-            code_c, country_name, country_validation = testingCountry([
-                {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
-            ])
-
-            documentSection.update({'code': code_c, 'country': country_name, 'countryCheck': country_validation})
-            checkSide['countryValidation'] = country_validation
-
-            if not country_validation:
-                messages.append('El pais del documento no se encontro en el documento.')
-
+        if documentLabel is not None:
+            labelLower = documentLabel.lower()
+            labelSplit = labelLower.split('_')
+            documentLabelNormalized = ' '.join(labelSplit)
         else:
-            documentSection.update({'code': country_code, 'country': country_detected, 'countryCheck': isCountry})
-            checkSide['countryValidation'] = isCountry
+            documentLabelNormalized = 'no detectado'
+        # requieredSide ='reverso' if labelSplit[-1] == 'reverso' else 'frontal'
+        documentSide = 'frontal' if lado_documento == 'anverso' else 'reverso'
+        
 
-            if documentSection['countryCheck'] != True:
-                messages.append('El pais del documento no se encontro en el documento.')
-
-        if not document_validation:
-            messages.append('El tipo de documento no coincide con el seleccionado.')
-
-    else:
-        # Modo genérico basado en OCR/detección por texto
-        print("modo generico usando ocr")
-        type_detected_pre, document_type_validation_pre = validateDocumentType(
-            tipo_documento, lado_documento, ocr, detectionData=ocr_data
-        )
-        document_type, document_validation = testingType([
-            {'type': type_detected_pre, 'validation': document_type_validation_pre}
-        ])
-        country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
-        code_c, country_name, country_validation = testingCountry([
-                {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
-            ])
-
-        checkSide['documentValidation'] = document_validation
-        checkSide['countryValidation'] = country_validation
+        cropImage = croppedDocument
 
         documentSection = {
-            'type': document_type,
+            'type': documentLabelNormalized.upper(),
             'typeCheck': document_validation,
             'isExpired': None,
-            'code': code_c, 'country': country_name, 'countryCheck': country_validation
+            'code': country_code,
+            'countryDetected': country_detected,
+            'countryCheck': isCountry
         }
 
-        if not country_validation:
-          messages.append('El pais del documento no se encontro en el documento.')
+        checkSide['documentValidation'] = document_validation
 
         if not document_validation:
-            messages.append('El tipo de documento no coincide con el seleccionado.')
+            messages.append(f'El tipo de documento no coincide con el seleccionado, documento detectado: {documentLabelNormalized}. se requiere {tipo_documento.lower()} {documentSide}')
+            # if(requieredSide != documentSide):
+            #   messages.append(f'se requiere que suba el {requieredSide} de su documento')
+        if not isCountry:
+          messages.append('El pais del documento no se encontro en el documento.')
+        # if not isCountry:
+        #     country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
+        #     code_c, country_name, country_validation = testingCountry([
+        #         {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+        #     ])
 
-    return documentSection, checkSide, messages
+        #     documentSection.update({'code': code_c, 'country': country_name, 'countryCheck': country_validation})
+        #     checkSide['countryValidation'] = country_validation
+
+
+        # else:
+        #     documentSection.update({'code': country_code, 'country': country_detected, 'countryCheck': isCountry})
+        #     checkSide['countryValidation'] = isCountry
+
+        #     if documentSection['countryCheck'] != True:
+        #         messages.append('El pais del documento no se encontro en el documento.')
+
+
+    # else:
+    #     # Modo genérico basado en OCR/detección por texto
+    #     print("modo generico usando ocr")
+    #     type_detected_pre, document_type_validation_pre = validateDocumentType(
+    #         tipo_documento, lado_documento, ocr, detectionData=ocr_data
+    #     )
+    #     document_type, document_validation = testingType([
+    #         {'type': type_detected_pre, 'validation': document_type_validation_pre}
+    #     ])
+    #     country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
+    #     code_c, country_name, country_validation = testingCountry([
+    #             {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+    #         ])
+
+    #     checkSide['documentValidation'] = document_validation
+    #     checkSide['countryValidation'] = country_validation
+
+    #     documentSection = {
+    #         'type': document_type,
+    #         'typeCheck': document_validation,
+    #         'isExpired': None,
+    #         'code': code_c, 'country': country_name, 'countryCheck': country_validation
+    #     }
+
+    #     if not country_validation:
+    #       messages.append('El pais del documento no se encontro en el documento.')
+
+    #     if not document_validation:
+    #         messages.append('El tipo de documento no coincide con el seleccionado.')
+
+    return documentSection, checkSide, messages, cropImage
 
 def checkModel(country):
   return documentDetection[country]["hasModel"]
+
+def yoloReader(img, modelPath):
+  yoloModel = YOLO(modelPath)
+
+  results = yoloModel(img)[0]
+
+  return results
 
 def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list[str], modelPath: str):
   documentClass = documentDetection[countryCode][type][side]
@@ -171,47 +231,7 @@ def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list
 
   country = countryHash[countryCode]
 
-  # Cargar el modelo YOLO
-  yoloModel = YOLO(modelPath)
-
-  # Definir las clases a detectar
-  # labels = [
-  #   "CEDULA_CIUDADANIA_FRONTAL",
-  #   "NUMERO_DOCUMENTO",
-  #   "APELLIDOS",
-  #   "NOMBRES",
-  #   "FIRMA",
-  #   "FOTO",
-  #   "ENCABEZADO",
-  #   "CEDULA_CIUDADANIA_REVERSO",
-  #   "CODIGO_BARRAS",
-  #   "HUELLA",
-  #   "FECHA_NACIMIENTO",
-  #   "LUGAR_NACIMIENTO",
-  #   "ESTATURA",
-  #   "GRUPO_SANGUINEO",
-  #   "SEXO",
-  #   "FECHA_EXPEDICION",
-  #   "CODIGO",
-  #   "CEDULA_EXTRANJERIA_FRONTAL",
-  #   "NACIONALIDAD",
-  #   "FECHA_EXPIRACION",
-  #   "GHOST",
-  #   "CEDULA_EXTRANJERIA_REVERSO",
-  #   "MRZ",
-  #   "CEDULA_DIGITAL_FRONTAL",
-  #   "CEDULA_DIGITAL_REVERSO",
-  #   "PASAPORTE",
-  #   "NUMERO_PERSONAL",
-  #   "AUTORIDAD",
-  #   "CODIGO_PAIS",
-  #   "TIPO",
-  #   "CODIG_BARRAS_LATERAL",
-  #   "NUMERO_LATERAL",
-  #   "NUMERO_PASAPORTE"
-  # ]
-
-  results = yoloModel(img)[0]
+  results = yoloReader(img=img, modelPath=modelPath)
 
   detected_classes = set()
   cropped_img = None
@@ -250,9 +270,14 @@ def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list
       else:
         data_url = None
 
-      return type, True, countryCode, country, True, data_url
+      return type, True, countryCode, country, True, data_url, classes
 
-  return "no detectado", False, "no detectado", "no detectado", False, None
+  # Si no se detectó ninguna clase exacta, buscar etiquetas que comiencen con CEDULA o PASAPORTE
+  for detected in detected_classes:
+    if detected.upper().startswith("CEDULA") or detected.upper().startswith("PASAPORTE"):
+      return detected, False, countryCode, country, True, None, detected
+
+  return "no detectado", False, "no detectado", "no detectado", False, None, None
 
 def getClasses(country:str ,side:str, type:str):
   

@@ -1,7 +1,7 @@
 
 import json
 from flask import Blueprint, request, jsonify
-from document_detection import detectDocument, validateDocument
+from document_detection import detectDocument, searchDocumentSelfie, validateDocument
 from formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from name_search import searchId, searchName
@@ -95,6 +95,8 @@ def verificarAnverso():
     checkSide = {}
     documentoOrientado = rotateImage(documentoData, textAngle)
 
+    documentSelfie = searchDocumentSelfie(yoloLabels=yoloLabels,img=documentoData, useCountry=userCountry, documentType=tipoDocumento)
+
     extractFace = extractFaces(documentoOrientado, anti_spoofing=False)
 
     if (extractFace):
@@ -111,7 +113,7 @@ def verificarAnverso():
 
     preprocessedDocument = preprocessing(documentoOrientado, resolution, filters='sharp')
 
-    _, confidence, _ = verifyFaces(selfieOrientada, documentoOrientado)
+    _, confidence, _ = verifyFaces(selfieOrientada, documentSelfie)
 
     resultsDict['face'] = True if confidence <= confidenceThreshold else False
     resultsDict['confidence'] = confidence
@@ -121,7 +123,7 @@ def verificarAnverso():
 
     
 
-    document_section, doc_check, doc_messages = validateDocument(
+    document_section, doc_check, doc_messages, croppedImage = validateDocument(
         documentoOrientado,
         ocr,
         tipoDocumento,
@@ -130,6 +132,11 @@ def verificarAnverso():
         ocrData,
         yoloLabels
     )
+
+    if(croppedImage is not None):
+      resultsDict['image'] = croppedImage
+    else:
+      resultsDict['image'] =  imageToDataURL(preprocessedDocument)
 
     # Fusionar resultados de validación de documento
     checkSide.update(doc_check)
@@ -143,7 +150,6 @@ def verificarAnverso():
 
     nombreOcr, pctNombre = validacionOCR(ocr, nombre, onlyNumbers=False)
     apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
-    print(numeroDocumento)
     numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
     checkSide['percentName'] = True if pctNombre >= 50 else False
@@ -157,10 +163,6 @@ def verificarAnverso():
     if pctNumero <= 50:
         messages.append('El número del identificación no se ha encontrado en el documento.')
 
-  
-    image = imageToDataURL(preprocessedDocument)
-
-    resultsDict['image'] = image
     resultsDict['ocr'] = {
         'data':{
           'name': nombreOcr,
@@ -186,7 +188,6 @@ def verificarAnverso():
           resultsDict['barcode'] = detectedBarcodes
           checkSide['barcode'] = detectedBarcodes
       else:
-        print('mibomo')
         resultsDict['barcode'] = detectedBarcodes
         checkSide['barcode'] = detectedBarcodes
         if not detectedBarcodes:
@@ -361,21 +362,13 @@ def verificarReverso():
     }
   }
 
-    resultsDict['image'] = imageToDataURL(imagenDocumento)
-
     checkSide = {
 
     }
 
-    temp = {
-      'barcode': None,
-      'mrz': None
-    }
-
-
     ocr = ocr
 
-    document_section, doc_check, doc_messages = validateDocument(
+    document_section, doc_check, doc_messages, croppedImage = validateDocument(
         imagenDocumento,
         ocr,
         tipoDocumento,
@@ -384,6 +377,12 @@ def verificarReverso():
         ocrData,
         yoloLabels
     )
+
+    if(croppedImage is not None):
+      resultsDict['image'] = croppedImage
+    else:
+      resultsDict['image'] = imageToDataURL(imagenDocumento)
+    
 
     # Fusionar resultados de validación de documento
     checkSide.update(doc_check)
