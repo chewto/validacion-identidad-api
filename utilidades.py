@@ -18,6 +18,14 @@ browserPatterns = {
     "Opera": r"OPR\/([\d\.]+)"
 }
 
+def removeAccents(text):
+  """
+  Elimina acentos y convierte el texto a mayúsculas.
+  """
+  text = unicodedata.normalize('NFD', text)
+  text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+  return text.upper()
+
 def resizeImage(image, percentage):
 
   original_height, original_width = image.shape[:2]
@@ -101,22 +109,47 @@ def readDataURL(imagen):
 
   return imagen
 
-def readDataUrlFrames(images:list):
+# def readDataUrlFrames(images:list):
 
-  if(len(imagen) <= 0):
-    with open('./assets/img/placeholder.jpeg', "rb") as image_file: 
-      encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-      imagen =  f"data:image/jpeg;base64,{encoded_string}"
+#   if(len(imagen) <= 0):
+#     with open('./assets/img/placeholder.jpeg', "rb") as image_file: 
+#       encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+#       imagen =  f"data:image/jpeg;base64,{encoded_string}"
 
-  imagenURL = imagen
+#   imagenURL = imagen
 
-  imagenData = base64.b64decode(imagenURL.split(",")[1])
+#   imagenData = base64.b64decode(imagenURL.split(",")[1])
 
-  npArray = np.frombuffer(imagenData, np.uint8)
+#   npArray = np.frombuffer(imagenData, np.uint8)
 
-  imagen = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
+#   imagen = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
 
-  return imagen
+#   return imagen
+
+def rotateImage(image, angle):
+    
+    print(angle)
+    
+    if isinstance(angle, str):
+      try:
+        angle = int(angle)
+      except ValueError:
+        return image
+    """
+    Rota la imagen según el ángulo proporcionado (90, 180, 270 grados antihorario).
+    """
+    if angle == 90:
+      print('estos 09')
+      return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    elif angle == 180:
+      print('estos 180')
+      return cv2.rotate(image, cv2.ROTATE_180)
+    elif angle == 270:
+      print('estos 270')
+      return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    else:
+      # Si el ángulo no es válido, retorna la imagen original
+      return image
 
 def ordenamiento(data):
 
@@ -166,3 +199,11 @@ def leerFileStorage(archivo):
   return data
 
 
+def orientation(image):
+  height, width = image.shape[:2]
+  if height > width:
+    # Rotate the image 90 degrees to make it horizontal
+    rotated = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return rotated
+  
+  return image

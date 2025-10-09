@@ -1,9 +1,10 @@
 import base64
+import ffmpeg
 from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
-import requests
-# from blueprints.test_bp import test_bp
-from blueprints.document_bp import document_bp
+from blueprints.test_bp import test_bp
+from blueprints.document_detection_bp import document_detection_bp
+import logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import controlador_db
 from utilidades import fileCv2, imageToDataURL, readDataURL
@@ -14,12 +15,19 @@ from blueprints.validation_bp import validation_bp
 from lector_codigo import barcodeReader
 from PIL import Image
 import numpy as np
-
-import cv2
 from ultralytics import YOLO
 import easyocr
+import reconocimiento
 
+from werkzeug import Request
+
+# db = SQLAlchemy()
 app = Flask(__name__)
+
+# app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+# db.init_app(app)
+
+
 
 
 CORS(app, resources={
@@ -28,9 +36,10 @@ CORS(app, resources={
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-UPLOAD_FOLDER = 'uploads'
+Request.max_form_parts = 5000
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 MODEL_PATH = 'models/modelov11-medium.pt'             # tu modelo YOLO entrenado
 OCR_LANGS = ['es', 'en']                              # idiomas OCR
@@ -39,240 +48,17 @@ CLASS_NAMES = ['dni_anverso','nombre','apellido','numero_documento',
                'fecha_nacimiento','fecha_expiracion','tipo_documento',
                'foto_persona','firma','nacionalidad','lugar_nacimiento','ghost']
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# CORS(app, resources={r"/validation/*": {"origins": "*"}})
-
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
-app.register_blueprint(document_bp)
-# app.register_blueprint(test_bp)
+app.register_blueprint(document_detection_bp)
+app.register_blueprint(test_bp)
 
 
 # Cargar modelos
 yolo_model = YOLO(MODEL_PATH)
 ocr_reader = easyocr.Reader(OCR_LANGS, gpu=False)
 
-# HTML template
-HTML = '''
-<!doctype html>
-<title>Detección DNI Honduras</title>
-<h2>Sube imagen del anverso del DNI</h2>
-<form method=post enctype=multipart/form-data>
-  <input type=file name=file accept="image/*">
-  <input type=submit value=Subir>
-</form>
-{% if crops %}
-  <h3>Recortes detectados:</h3>
-  {% for label, img_url in crops %}
-    <div style="display:inline-block; margin:10px; text-align:center;">
-      <p>{{ label }}</p>
-      <img src="{{ img_url }}" style="max-width:200px; max-height:200px;"><br>
-    </div>
-  {% endfor %}
-{% endif %}
-{% if result_img %}
-<h3>Resultado Anotado:</h3>
-<img src="{{ result_img }}" style="max-width:500px;"><br>
-{% endif %}
-{% if ocr_text %}
-<h3>Resultado OCR (anverso):</h3>
-<pre>{{ ocr_text }}</pre>
-{% endif %}
-''' 
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def preprocess_crop(img_crop: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return thresh
-
-
-@app.route('/prueba-modelo', methods=['GET','POST'])
-def upload_and_detect():
-    result_img = None
-    ocr_text = ''
-    crops = []  # lista de (label, url)
-
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file and allowed_file(file.filename):
-            img = fileCv2(file)
-            h, w = img.shape[:2]
-
-            # Inference YOLO
-            results = yolo_model(img)[0]
-
-            # Procesar detecciones
-            for i, (box, score, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.conf, results.boxes.cls)):
-                if score < CONF_THRESHOLD:
-                    continue
-                x1, y1, x2, y2 = map(int, box)
-                label = CLASS_NAMES[int(cls)] if int(cls) < len(CLASS_NAMES) else str(int(cls))
-                crop = img[y1:y2, x1:x2]
-
-                cropUrl = imageToDataURL(crop)
-
-                # crop_fname = f"crop_{label}{i}{filename}"
-                # crop_path = os.path.join(app.config['UPLOAD_FOLDER'], crop_fname)
-                # cv2.imwrite(crop_path, crop)
-                # crop_url = url_for('static', filename='uploads/' + crop_fname)
-                crops.append((label, cropUrl))
-
-                # Si es anverso, hacer OCR
-                if label == 'dni_anverso':
-                    proc = preprocess_crop(crop)
-                    ocr_res = ocr_reader.readtext(proc)
-                    texts = [res[1] for res in ocr_res]
-                    ocr_text = "\n".join(texts)
-
-                # Dibujar cuadro y etiqueta en la imagen principal
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-            result_img = imageToDataURL(img)
-
-    return render_template_string(HTML, result_img=result_img, ocr_text=ocr_text, crops=crops)
-
-
-
-OCR_READER = easyocr.Reader(['es'], gpu=False)
-@app.route('/ocr', methods=['POST'])
-def ocr():
-    file = request.files['image']
-    resolution = int(request.form.get('resolution', 1080))
-    filters = request.form.get('filters', '').split(',')
-
-    file_bytes = file.read()
-    np_arr = np.frombuffer(file_bytes, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-    h0, w0 = img.shape[:2]
-    if resolution < w0:
-        h1 = int(h0 * resolution / w0)
-        img = cv2.resize(img, (resolution, h1), interpolation=cv2.INTER_AREA)
-
-    proc = img.copy()
-    if 'gray' in filters:
-        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-    if 'hist' in filters:
-        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    if 'sharp' in filters:
-        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
-        proc = cv2.filter2D(proc, -1, kernel)
-    if 'blur' in filters:
-        proc = cv2.medianBlur(proc, 3)
-    if 'thresh' in filters:
-        if proc.ndim == 2:
-            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
-    text = '\n'.join(OCR_READER.readtext(proc_rgb, detail=0))
-
-    _, buffer = cv2.imencode('.png', proc_rgb)
-    annotated_b64 = base64.b64encode(buffer).decode('ascii')
-
-    return jsonify({'text': text, 'annotated': annotated_b64})
-
-
-TEMPLATE = """
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <title>OCR con EasyOCR</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-  <div class="container py-4">
-    <h1 class="mb-4">OCR con EasyOCR</h1>
-    <form method="POST" enctype="multipart/form-data" class="card p-4 mb-4 bg-white">
-      <div class="mb-3">
-        <label class="form-label">Subir imagen</label>
-        <input type="file" class="form-control" name="image" required accept="image/*">
-      </div>
-      <div class="mb-3">
-        <label for="resolution" class="form-label">Resolución: <span id="resVal">{{ resolution }}</span> px</label>
-        <input type="range" class="form-range" id="resolution" name="resolution"
-               min="300" max="4000" value="{{ resolution }}"
-               oninput="resVal.innerText=this.value">
-      </div>
-      <fieldset class="mb-3">
-        <legend class="col-form-label">Filtros</legend>
-        {% for f in filters %}
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="checkbox" id="f_{{ f }}" name="filter_{{ f }}" {% if defaults['filter_' + f] %}checked{% endif %}>
-          <label class="form-check-label" for="f_{{ f }}">{{ labels[f] }}</label>
-        </div>
-        {% endfor %}
-      </fieldset>
-      <button type="submit" class="btn btn-primary">Realizar OCR</button>
-    </form>
-
-    {% if result %}
-    <div class="card p-3 bg-white">
-      <h5>Texto Reconocido</h5>
-      <pre>{{ result.text }}</pre>
-      <h5>Imagen Procesada</h5>
-      <img src="data:image/png;base64,{{ result.annotated }}" class="img-fluid">
-    </div>
-    {% endif %}
-  </div>
-</body>
-</html>
-"""
-
-filters = ['gray', 'thresh', 'blur', 'hist', 'sharp']
-labels = {
-    'gray': 'Escala de grises',
-    'thresh': 'Umbralización',
-    'blur': 'Desenfoque',
-    'hist': 'Equalización (CLAHE)',
-    'sharp': 'Enfoque'
-}
-
-
-@app.route('/front-ocr', methods=['GET', 'POST'])
-def nuevaRuta():
-    result = None
-    defaults = {f'filter_{f}': f == 'sharp' for f in filters}
-    resolution = 1080
-
-    if request.method == 'POST':
-        image = request.files['image']
-        resolution = int(request.form.get('resolution', 1080))
-        applied_filters = {f: f'filter_{f}' in request.form for f in filters}
-
-        files = {'image': (image.filename, image.stream, image.mimetype)}
-        data = {
-            'resolution': resolution,
-            'filters': ','.join([f for f, v in applied_filters.items() if v])
-        }
-
-        try:
-            # response = requests.post('http://localhost:4000/ocr', files=files, data=data)
-            response = requests.post('https://desarrollo.e-custodia.com/validacion-back/ocr', files=files, data=data)
-            if response.ok:
-                result = response.json()
-        except Exception as e:
-            result = {'text': f'Error comunicando con backend: {e}', 'annotated': ''}
-
-        defaults.update({f'filter_' + f: applied_filters[f] for f in filters})
-
-    return render_template_string(
-        TEMPLATE,
-        result=result,
-        filters=filters,
-        labels=labels,
-        defaults=defaults,
-        resolution=resolution
-    )
 
 @app.route('/obtener-firmador/<id>', methods=['GET'])
 def obtenerFirmador(id):
@@ -292,69 +78,140 @@ def obtenerFirmador(id):
     }
 })
 
-carpetaPruebaVida = "./evidencias-vida"
+@app.route('/edad-test-nuevo', methods=['POST'])
+def agesTest():
+    app = FaceAnalysis(allowed_modules=['detection', 'landmark', 'attribute'])
+    # prepare descarga/carga modelos; ctx_id=-1 para usar CPU
+    app.prepare(ctx_id=-1, det_size=(640, 640))
+
+    img = request.files.get('img', None)
+    img = fileCv2(img)
+    if img is None:
+        raise SystemExit("Coloca una imagen llamada test.jpg en el directorio o ajusta la ruta")
+
+    faces = app.get(img)
+    print(f"Caras detectadas: {len(faces)}")
+    for i, face in enumerate(faces):
+        # face.attrs contiene atributos como age/gender en muchas builds
+        age = None
+        print(face)
+        if hasattr(face, "age"):
+            age = face.age
+        elif getattr(face, "attrs", None):
+            age = face.attrs.get("age")  # alternativa dependiendo de la versión
+        print(f"Face {i}: bbox={face.bbox}, edad aprox: {age}")
+
+    return ''
+
+@app.route('/edad-test', methods=['POST'])
+def ageTest():
+   
+  documentImage = request.files.get('documento', None)
+  selfie = request.files.get('selfie', None)
+
+  documentData = fileCv2(documentImage)
+  selfieData = fileCv2(selfie)
+
+  documentAnalisis = reconocimiento.analyzeFace(documentData)
+  selfieAnalisis = reconocimiento.analyzeFace(selfieData)
+
+  print(documentAnalisis)
+  print(selfieAnalisis)
+
+  return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
+
+@app.route('/log', methods=['POST'])
+def savelog():
+   
+  reqBody = request.get_json()
+
+  logMessage = reqBody.get('message', None)
+
+  path =  logs.checkLogsFile()
+
+  logs.addLog(path, logMessage)
+
+  return 'log añadido'
 
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
   
-  id = request.args.get("id")
+  path = request.args.get("path")
+  device = request.args.get("device")
 
-  formato = "webm"
+  framesCounter = 12
 
-  video = request.files.get("video")
+  if not path or not os.path.exists(path):
+    return jsonify({"error": "El path no existe"}), 400
 
-  usuarioId, entidadId = controlador_db.obtenerEntidad(id)
+  video = "video_out.mp4"
 
-  pathEntidad = f"{carpetaPruebaVida}/{entidadId}"
-
-  pathUsuario = f"{pathEntidad}/{usuarioId}"
-
-  existenciaCarpetaEntidad = os.path.exists(pathEntidad)
-
-  existenciaCarpetaUsuario = os.path.exists(pathUsuario)
-
-  creadoEntidad = False
-  creadoUsuario = False
-
-  if(not existenciaCarpetaEntidad):
-    os.mkdir(pathEntidad)
-    creadoEntidad = True
-
-  if(not existenciaCarpetaUsuario):
-    os.mkdir(pathUsuario)
-    creadoUsuario = True
-
-  pathPrueba = ""
-
-  if((creadoEntidad and creadoUsuario)or( existenciaCarpetaEntidad and existenciaCarpetaUsuario) or (creadoEntidad and existenciaCarpetaUsuario) or (creadoUsuario and existenciaCarpetaEntidad)):
-    pathPrueba = f"{pathUsuario}/{entidadId}-{usuarioId}.{formato}"
-    video.save(pathPrueba)
+  # Build ffmpeg command as a list for subprocess
+  try:
+    ffmpeg.input(path).output(
+      video,
+      vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
+      vcodec='libx264',
+      pix_fmt='yuv420p',
+      preset='ultrafast',
+      crf=28,
+      acodec='aac',
+      r=str(30),
+      movflags='faststart'
+    ).run(overwrite_output=True)
+    print(f"Video convertido y guardado como '{video}'")
+  except ffmpeg.Error as e:
+    error_msg = e.stderr.decode() if e.stderr else str(e)
+    print(f"Error durante la conversión: {error_msg}")
+  except Exception as e:
+    print(f"Ocurrió un error inesperado durante la conversión: {e}")
 
   messages = []
 
-  frames = getFrames(pathPrueba)
+  frames = getFrames(video, frameCounter=framesCounter)
+
+  if(frames == 'no hay'):
+    return 'no se pudo abrir el video'
+  
+  if(frames == 'path invalido'):
+    return 'path invalido'
 
   photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
-  if(len(photoDataURL) <= 0):
-    return jsonify({'messages': ['intentelo de nuevo']}), 201
+  # if(len(photoDataURL) <= 0):
+  #   return jsonify({'messages': ['intentelo de nuevo']}), 201
 
   photoAccess = readDataURL(photoDataURL)
 
   result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
+
+  resultDetected = False
+
+  if (result):
+      for face in result:
+        faceDetected = face.get('detected')
+        resultDetected = faceDetected
+        if not faceDetected:
+        #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
+        # if not faceDetected and tries >=1:
+        #   print('nose xdxdx')
+          messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
   movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
   isRealFilter = filter(lambda x: x['isReal'] != True, result)
   isRealFilter = list(isRealFilter)
 
-  if(len(photoDataURL) <= 0):
-    messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+  if(movimientoDetectado != 'OK'):
+    messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
+
+  # if(len(photoDataURL) <= 0):
+  #   messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
   if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
-    messages.append('Por favor, tome la foto de un rostro real.')
+    messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
-  return jsonify({"idCarpetaUsuario":f"{usuarioId}", "idCarpetaEntidad":f"{entidadId}", "movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages}), 200
+  return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages, "faceDetected": resultDetected}), 200
 
 
 @app.route('/get-media', methods=['GET'])

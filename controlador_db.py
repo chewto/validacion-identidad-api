@@ -3,124 +3,16 @@ import base64
 import socket
 import requests
 import logs
+import os
+from dotenv import load_dotenv
 
-credencialesDB = {
-  "desarrollo":{
-    "password":'30265611',
-    "nombre":'pki_validacion',
-    "host":'localhost',
-    "port":3306,
-    "user":'root'
-  },
-  "libertador":{
-    "password":'30265611',
-    "nombre":'pki_validacion',
-    "host":'93.93.119.219',
-    "port":3306,
-    "user":'administrador'
-  },
-  "panama-desarrollo":{
-    "password":'10830921',
-    "nombre":'pki_validacion',
-    "host":'74.208.221.227',
-    "port":3306,
-    "user":'root'
-  },
-  "eFirmaCO":{
-    "password":'30265611',
-    "nombre":'pki_validacion',
-    "host":'216.225.195.14',
-    "port":3306,
-    "user":'administrador'
-  },
-  "honducert":{
-    "password":'10830921',
-    "nombre":'pki_validacion',
-    "host":'154.38.190.87',
-    "port":3300,
-    "user":'root'
-  },
-  "honducert-desarrollo":{
-    "password":'10830921',
-    "nombre":'pki_validacion',
-    "host":'154.38.190.87',
-    "port":3306,
-    "user":'root'
-  },
-  "efirma-plus":{
-    "password":'10830921',
-    "nombre":'pki_validacion',
-    "host":'69.48.200.78',
-    "port":3306,
-    "user":'administrador'
-  }
-}
+load_dotenv()
 
-credencialesDBEntidad = {
-  "desarrollo":{
-    "password":'30265611',
-    "nombre":'pki_firma_electronica',
-    "host":'localhost',
-    "port":3306,
-    "user":'root'
-  },
-  "libertador":{
-    "password":'30265611',
-    "nombre":'pki_firma_electronica',
-    "host":'93.93.119.219',
-    "port":3306,
-    "user":'administrador'
-  },
-  "panama-desarrollo":{
-    "password":'10830921',
-    "nombre":'pki_firma_electronica',
-    "host":'74.208.221.227',
-    "port":3306,
-    "user":'root'
-  },
-  "eFirmaCO":{
-    "password":'30265611',
-    "nombre":'pki_firma_electronica',
-    "host":'216.225.195.14',
-    "port":3306,
-    "user":'administrador'
-  },
-  "honducert":{
-    "password":'10830921',
-    "nombre":'pki_firma_electronica',
-    "host":'154.38.190.87',
-    "port":3300,
-    "user":'root'
-  },
-  "honducert-desarrollo":{
-    "password":'10830921',
-    "nombre":'pki_firma_electronica',
-    "host":'154.38.190.87',
-    "port":3306,
-    "user":'root'
-  },
-  "efirma-plus":{
-    "password":'10830921',
-    "nombre":'pki_firma_electronica',
-    "host":'69.48.200.78',
-    "port":3306,
-    "user":'administrador'
-  },
-}
-
-credenciales = 'honducert-desarrollo'
-
-passwordDB = credencialesDB[credenciales]["password"]
-nombreDB = credencialesDB[credenciales]["nombre"]
-hostDB = credencialesDB[credenciales]["host"]
-portDB = credencialesDB[credenciales]["port"]
-userDB = credencialesDB[credenciales]["user"]
-
-passwordDBEntidad = credencialesDBEntidad[credenciales]["password"]
-nombreDBEntidad = credencialesDBEntidad[credenciales]["nombre"]
-hostDBEntidad = credencialesDBEntidad[credenciales]["host"]
-portDBEntidad = credencialesDBEntidad[credenciales]["port"]
-userDBEntidad = credencialesDBEntidad[credenciales]["user"]
+passwordDB = os.getenv("DB_PASSWORD")
+nombreDB = os.getenv("DB_NAME")
+hostDB = os.getenv("DB_HOST")
+portDB = int(os.getenv("DB_PORT"))
+userDB = os.getenv("DB_USER")
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
@@ -146,6 +38,8 @@ def selectData(query, *values):
     return ()
   
   try:
+    print('adasdasdasd')
+
     cursor = conn.cursor()
 
     cursor.execute(query, values)
@@ -337,11 +231,11 @@ def obtenerEntidad(query):
 
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
   except mariadb.Error as e:
     print(e)
@@ -374,11 +268,11 @@ def obtenerEntidadHash(hash):
 
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
   except mariadb.Error as e:
     print(e)
@@ -416,11 +310,11 @@ def selectProvider(id):
   
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
   except mariadb.Error as e:
     print(e)
@@ -461,11 +355,11 @@ def selectValidationParams(id, query):
   
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
     # conn = mariadb.connect(
     #   user="root",
@@ -500,11 +394,11 @@ def selectCallback(id, query):
 
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
 
   except mariadb.Error as e:
@@ -616,11 +510,11 @@ def setIDs(idEvidencias, idEvidenciasAdicionales, tipoDocumento, idValidacion):
   
   try:
     conn = mariadb.connect(
-      user=userDBEntidad,
-      password=passwordDBEntidad,
-      host=hostDBEntidad,
-      port=portDBEntidad,
-      database=nombreDBEntidad
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
     )
   except mariadb.Error as e:
     return 'error'
@@ -642,6 +536,40 @@ def setIDs(idEvidencias, idEvidenciasAdicionales, tipoDocumento, idValidacion):
   except mariadb.Error as e:
     print(e)
     return 'error'
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+#revalidation process
+
+
+def selectValidations(query, *values):
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return ()
+  
+  try:
+    cursor = conn.cursor()
+
+    cursor.execute(query, values)
+
+    data = cursor.fetchall()
+
+    return data
+
+  except mariadb.Error as e:
+    print(e)
+    return ()
 
   finally:
     conn.commit()

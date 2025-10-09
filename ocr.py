@@ -10,10 +10,11 @@ from utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
 import datetime
 import re
+import unicodedata
 
 countries = {
     'HND': ['HONDURAS'],
-    'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA'],
+    'COL': ['COLOMBIA', 'AMAZONAS', 'ANTIOQUIA', 'BOGOTA' 'ARAUCA', 'ATLANTICO', 'BOLIVAR', 'BOYACA', 'CALDAS', 'CAQUETA', 'CASANARE', 'CAUCA', 'CESAR', 'CHOCO', 'CORDOBA', 'CUNDINAMARCA', 'GUAINIA', 'GUAVIARE', 'HUILA', 'LA GUAJIRA', 'MAGDALENA', 'META', 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDIO', 'RISARALDA', 'SAN ANDRES Y PROVIDENCIA', 'SANTANDER', 'SUCRE', 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPES', 'VICHADA', 'GUAVATA'],
     'PTY': ['PANAMA'],
     'SLV': ['EL SALVADOR', 'SAN SALVADOR', 'AHUACHAPAN', 'SONSONATE', 'SANTA ANA', 'LA LIBERTAD', 'CHALATENANGO', 'CUSCATLAN', 'LA PAZ', 'SAN VICENTE', 'CABAÑAS', 'USULUTAN', 'SAN MIGUEL', 'MORAZAN', 'LA UNION']
 }
@@ -179,23 +180,23 @@ def preprocessing(img, resolution, filters):
 
     proc = img.copy()
     print(proc.shape[:2], 'post')
-    if 'gray' in filters:
-        proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-    if 'hist' in filters:
-        gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
-        proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    if 'sharp' in filters:
-        kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
-        proc = cv2.filter2D(proc, -1, kernel)
-    if 'blur' in filters:
-        proc = cv2.medianBlur(proc, 3)
-    if 'thresh' in filters:
-        if proc.ndim == 2:
-            _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # if 'gray' in filters:
+    #     proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    # if 'hist' in filters:
+    #     gray = proc if proc.ndim == 2 else cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
+    #     proc = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    # if 'sharp' in filters:
+    #     kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+    #     proc = cv2.filter2D(proc, -1, kernel)
+    # if 'blur' in filters:
+    #     proc = cv2.medianBlur(proc, 3)
+    # if 'thresh' in filters:
+    #     if proc.ndim == 2:
+    #         _, proc = cv2.threshold(proc, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
+    # proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
 
-    return proc_rgb
+    return proc
 
 def ocr(img):
 
@@ -218,15 +219,13 @@ def validateDocumentType(documentType, documentSide, ocr, detectionData):
     documentWords = detectionData['documentDectection'][documentType][documentSide]
 
     for line in ocr:
-
         for documentLine in documentWords:
             lineUpper = documentLine.upper()
             if(len(line) >= 1 and len(lineUpper) >= 1):
                 if(line in lineUpper or lineUpper in line):
-                    print(line, lineUpper, 'asdasdasdsd')
-                    return f'{documentType}', 'OK'
+                    return f'{documentType}', True
 
-    return 'no detectado', '!OK'
+    return 'no detectado', False
 
 def validateDocumentCountry(ocr, country):
 
@@ -237,46 +236,123 @@ def validateDocumentCountry(ocr, country):
             for location in value:
                 if(location in line):
                     if(key == country):
-                        return key,value[0],'OK'
+                        return key,value[0],True
             if(key in line):
                 if(key == country):
-                    return key,value[0],'OK'
+                    return key,value[0],True
 
-    return 'no detectado','no detectado', '!OK'
+    return 'no detectado','no detectado', False
 
-def validacionOCR(dataOCR, dataUsuario):
+def extraerPorcentaje(str1, str2):
+    """Calcula el porcentaje de similitud entre dos cadenas."""
+    if not str1 and not str2:
+        return 100.0
+    distance = Levenshtein.distance(str1, str2)
+    max_len = max(len(str1), len(str2))
+    if max_len == 0:
+        return 100.0
+    similitud = (1 - distance / max_len) * 100
+    return similitud
 
-    dataUsuario = dataUsuario.split(" ")
+def percentsSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
+    """
+    Busca la secuencia de palabras más similar en el OCR usando Levenshtein
+    y un cálculo de porcentaje de similitud.
+    """
+    def limpiar_texto(texto):
+        texto = texto.upper().strip().replace(",", "").replace(".", "").replace("-", "")
+        texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+        if onlyNumbers:
+            texto = re.sub(r'\D', '', texto)
+        return texto
 
-    porcentajes = []
+    dataUsuarioArr = [limpiar_texto(x) for x in dataUsuario.split()]
+    n = len(dataUsuarioArr)
+    if n == 0:
+        return 'no encontrado', 0
+        
+    mejores_resultados = []
+    ocr_limpio = [limpiar_texto(linea) for linea in dataOCR if len(linea.strip()) > 0]
+
+    for linea in ocr_limpio:
+        palabras = linea.split()
+        if len(palabras) >= n:
+            for i in range(len(palabras) - n + 1):
+                secuencia = palabras[i:i+n]
+                porcentaje_total = sum(extraerPorcentaje(dataUsuarioArr[idx], palabra_ocr) for idx, palabra_ocr in enumerate(secuencia))
+                similitud_total = sum(Levenshtein.distance(dataUsuarioArr[idx], palabra_ocr) for idx, palabra_ocr in enumerate(secuencia))
+                
+                mejores_resultados.append({
+                    "similitud": similitud_total / n,
+                    "porcentaje": porcentaje_total / n,
+                    "linea": " ".join(secuencia)
+                })
+
+    if not mejores_resultados:
+        return 'no encontrado', 0
+
+    mejores_resultados = sorted(mejores_resultados, key=lambda x: (-x['porcentaje'], x['similitud']))
     
-    for linea in dataOCR:
+    mejor = mejores_resultados[0]
+    return mejor['linea'], round(mejor['porcentaje'])
 
-        linea = linea.upper()
-        linea = linea.strip()
-        linea = linea.replace(",","").replace(".","").replace("-","")
-        linea = linea.split(" ")
+# VERSIÓN CORREGIDA
+def substringSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
+    """
+    Busca la línea del OCR con la mayor cantidad de coincidencias de substrings
+    y retorna esa línea junto con su porcentaje de acierto.
+    """
+    def limpiar_simple(texto):
+        texto = texto.upper()
+        if onlyNumbers:
+            return re.sub(r'\D', '', texto)
+        return texto
 
-        for lineaElemento in linea:
+    dataUserArr = [limpiar_simple(word) for word in dataUsuario.split() if word]
+    if not dataUserArr:
+        return 'no encontrado', 0
 
-            for dataElemento in dataUsuario:
-                if(len(lineaElemento) >=1):
-                    porcentaje = extraerPorcentaje(dataElemento, lineaElemento)
-                    similitud = Levenshtein.distance(dataElemento, lineaElemento)
-                    data = {
-                        "similitud": similitud,
-                        "porcentaje": porcentaje,
-                        "linea": lineaElemento
-                    }
+    best_match = {'linea': 'no encontrado', 'score': -1, 'len': float('inf')}
 
-                    porcentajes.append(data)
+    for linea_original in dataOCR:
+        if not linea_original.strip():
+            continue
+        
+        linea_limpia = limpiar_simple(linea_original)
+        current_score = 0
+        
+        for user_word in dataUserArr:
+            if user_word in linea_limpia:
+                current_score += 1
 
-    porcentajesOrdenados = ordenamiento(porcentajes)
+        # Si el puntaje actual es mejor que el mejor que teníamos
+        if current_score > best_match['score']:
+            best_match = {'linea': linea_original.strip(), 'score': current_score, 'len': len(linea_original)}
+        # Si el puntaje es el mismo, usamos la línea más corta como desempate
+        elif current_score == best_match['score'] and current_score > 0:
+            if len(linea_original) < best_match['len']:
+                best_match = {'linea': linea_original.strip(), 'score': current_score, 'len': len(linea_original)}
 
-    data, porcentaje = busquedaResultado(porcentajesOrdenados, dataUsuario)
+    if best_match['score'] == -1:
+        return 'no encontrado', 0
 
-    return data, porcentaje
+    # El porcentaje se basa en cuántas palabras del usuario se encontraron
+    final_percent = (best_match['score'] / len(dataUserArr)) * 100
+    
+    return best_match['linea'], round(final_percent)
 
+# --- Función Principal de Validación (Ahora más simple) ---
+
+def validacionOCR(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
+    linea_ps, porcentaje_ps = percentsSearch(dataOCR, dataUsuario, onlyNumbers)
+
+    linea_ss, porcentaje_ss = substringSearch(dataOCR, dataUsuario, onlyNumbers)
+    
+    # La comparación ahora es directa
+    if porcentaje_ps >= porcentaje_ss:
+        return linea_ps, porcentaje_ps
+    else:
+        return linea_ss, porcentaje_ss
 
 def busquedaResultado(porcentajes, dataUsuario):
 
