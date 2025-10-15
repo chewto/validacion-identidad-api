@@ -1416,7 +1416,9 @@ def revalidacion():
 def process_revalidation():
 
     initTime = time.time()
-    baseRoute = 'http://127.0.0.1:4000'
+    baseRoute = 'http://desarrollo.e-custodia.com'
+    ocrUrl = f"{baseRoute}/validacion-ocr-back"
+    validateUrl = f"{baseRoute}/validacion-back"
 
     api_key = request.headers.get('X-Api-Key')
     password = 'me+15%,gc}FV-9ND(;(Rr'
@@ -1521,7 +1523,7 @@ LIMIT 1
 
       sides = {"front": {}, "back": {}}
       def getOrientation(image, side):
-          response = requests.post(f"http://127.0.0.1:4500/rotate", json={"image":image})
+          response = requests.post(f"{ocrUrl}/rotate", json={"image":image})
           data = json.loads(response.text)
           sides[side]['textAngle'] = data['textAngle']
 
@@ -1531,7 +1533,7 @@ LIMIT 1
       ocr = {}
 
       def getLabelCrop(image, country, side):
-        response = requests.post(f"{baseRoute}/document/detection", json={"image":image, "country": country})
+        response = requests.post(f"{validateUrl}/document/detection", json={"image":image, "country": country})
         sides[side]['coords'] = json.loads(response.text)
         sides[side]['image'] = image
 
@@ -1540,7 +1542,7 @@ LIMIT 1
       getLabelCrop(backImage, country, 'back')
 
       def ocr_request(image, coords, noOCRLabels, side):
-        response = requests.post("http://127.0.0.1:4500/yolo-ocr", json={"image": image, "labels": coords, 'noOcrLabels': noOCRLabels})
+        response = requests.post(f"{ocrUrl}/yolo-ocr", json={"image": image, "labels": coords, 'noOcrLabels': noOCRLabels})
         sides[side]['ocr'] = json.loads(response.text)
         ocr[side] = json.loads(response.text)
 
@@ -1580,7 +1582,7 @@ LIMIT 1
           # "textAngle": sides[key]['ocr']['textAngle']
           "textAngle": 0
         }
-        response = requests.post(f"http://127.0.0.1:4000/document/validate?side={side}", json=payload)
+        response = requests.post(f"{validateUrl}/document/validate?side={side}", json=payload)
         responseJson = json.loads(response.text)
         documentValidation[key] = responseJson
         responseJsonCopy = responseJson.copy()
@@ -1588,7 +1590,7 @@ LIMIT 1
           del responseJsonCopy['image']
         documentDataStore[key] = responseJsonCopy
 
-      response = requests.post(f"{baseRoute}/validation/revalidacion", json={
+      response = requests.post(f"{validateUrl}/validation/revalidacion", json={
         "front": documentValidation['front'],
         "back": documentValidation['back'],
         "validationPercent": validationPercent,
@@ -1606,7 +1608,7 @@ LIMIT 1
           "image": documentValidation[val]['image'],
           "country": country
         }
-        response = requests.post(f"{baseRoute}/document/detection", json=payload)
+        response = requests.post(f"{validateUrl}/document/detection", json=payload)
         if response.status_code == 200:
           crops = json.loads(response.text)
           for crop in crops:
