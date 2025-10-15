@@ -74,6 +74,15 @@ documentDetection = {
   }
 }
 
+def getLabelContent(data,labelName):
+
+    for item in data:
+
+        if item['label'] in labelName:
+            return item['text']
+
+    return 'no se pudo detectar'
+
 def searchDocumentSelfie(yoloLabels, img, useCountry, documentType):
   modelPath = documentDetection[useCountry]['modelPath']
 
@@ -216,7 +225,11 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
     return documentSection, checkSide, messages, cropImage
 
 def checkModel(country):
-  return documentDetection[country]["hasModel"]
+  
+  
+  hasModel = documentDetection[country]["hasModel"]
+  modelPath = documentDetection[country]["modelPath"]
+  return hasModel, modelPath
 
 def yoloReader(img, modelPath):
   yoloModel = YOLO(modelPath)
@@ -278,6 +291,62 @@ def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list
       return detected, False, countryCode, country, True, None, detected
 
   return "no detectado", False, "no detectado", "no detectado", False, None, None
+
+def detectDocumentStand(img, countryCode: str, side: str, type: str, yoloLabels: list[str], modelPath: str):
+
+  documentClass = documentDetection[countryCode][type][side]
+  documentClass = documentClass.split(" ")
+
+  country = countryHash[countryCode]
+
+  results = yoloReader(img=img, modelPath=modelPath)
+
+  detected_classes = set()
+  cropped_img = None
+
+  for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
+    class_idx = int(cls)
+    label = yoloLabels[class_idx] if class_idx < len(yoloLabels) else str(class_idx)
+    detected_classes.add(label)
+    if label in documentClass and cropped_img is None:
+      # Recortar la imagen usando las coordenadas del bounding box
+      x1, y1, x2, y2 = map(int, box)
+      # Si img es un path, cargar con cv2 o PIL
+      if hasattr(img, 'shape'):  # numpy array
+        # Convertir a RGB si es necesario
+        if img.shape[-1] == 3:
+          cropped_img = Image.fromarray(img[y1:y2, x1:x2][..., ::-1])  # BGR a RGB
+        else:
+          cropped_img = Image.fromarray(img[y1:y2, x1:x2])
+      else:
+        try:
+          if isinstance(img, Image.Image):
+            cropped_img = img.crop((x1, y1, x2, y2))
+        except ImportError:
+          cropped_img = None
+
+  for classes in documentClass:
+    if classes in detected_classes:
+      if cropped_img is not None:
+        # Convert cropped_img to PIL Image if it's a numpy array
+        if not isinstance(cropped_img, Image.Image):
+          cropped_img = Image.fromarray(cropped_img)
+        buffered = BytesIO()
+        cropped_img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        data_url = f"data:image/png;base64,{img_str}"
+      else:
+        data_url = None
+
+      return type, True, countryCode, country, True, data_url, classes
+
+  # Si no se detectó ninguna clase exacta, buscar etiquetas que comiencen con CEDULA o PASAPORTE
+  for detected in detected_classes:
+    if detected.upper().startswith("CEDULA") or detected.upper().startswith("PASAPORTE"):
+      return type, False, countryCode, country, True, None, detected
+
+  return "no detectado", False, "no detectado", "no detectado", False, None, None
+
 
 def getClasses(country:str ,side:str, type:str):
   

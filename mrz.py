@@ -2,11 +2,9 @@ import datetime
 import re
 import numpy as np
 from passporteye import read_mrz
-import PIL.Image
 from check_result import testingCountry
-from ocr import ocr, validateDocumentCountry
+from ocr import validateDocumentCountry
 import pytesseract as tess
-from utilidades import listToText
 from utilidades import extraerPorcentaje
 import io
 from PIL import ImageFilter, Image
@@ -14,7 +12,7 @@ import cv2
 import os
 
 if os.name == 'nt':
-  tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    tess.pytesseract.tesseract_cmd = r'D:\tesseract\tesseract.exe'
 
 documentMRZ = {
   "COL": {

@@ -265,16 +265,19 @@ def percentsSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
         if onlyNumbers:
             texto = re.sub(r'\D', '', texto)
         return texto
-
+    
     dataUsuarioArr = [limpiar_texto(x) for x in dataUsuario.split()]
+
+
     n = len(dataUsuarioArr)
     if n == 0:
         return 'no encontrado', 0
         
     mejores_resultados = []
+    print(dataOCR)
     ocr_limpio = [limpiar_texto(linea) for linea in dataOCR if len(linea.strip()) > 0]
 
-    for linea in ocr_limpio:
+    for linea in ocr_limpio:    
         palabras = linea.split()
         if len(palabras) >= n:
             for i in range(len(palabras) - n + 1):
@@ -309,6 +312,7 @@ def substringSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
         return texto
 
     dataUserArr = [limpiar_simple(word) for word in dataUsuario.split() if word]
+
     if not dataUserArr:
         return 'no encontrado', 0
 
@@ -347,7 +351,7 @@ def validacionOCR(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
     linea_ps, porcentaje_ps = percentsSearch(dataOCR, dataUsuario, onlyNumbers)
 
     linea_ss, porcentaje_ss = substringSearch(dataOCR, dataUsuario, onlyNumbers)
-    
+
     # La comparación ahora es directa
     if porcentaje_ps >= porcentaje_ss:
         return linea_ps, porcentaje_ps

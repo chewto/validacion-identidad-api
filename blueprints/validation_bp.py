@@ -1416,18 +1416,32 @@ def revalidacion():
 def process_revalidation():
 
     initTime = time.time()
-    baseRoute = ''
+    baseRoute = 'http://127.0.0.1:4000'
 
     api_key = request.headers.get('X-Api-Key')
     password = 'me+15%,gc}FV-9ND(;(Rr'
 
     if api_key != password:
       return jsonify({"error": "No autorizado"}), 401
+    
+    entityId = request.args.get('id_entidad', type=int)
+
+    # obtener ultima validacion
+
+    queryLastVal = f'''
+      SELECT regis.id_recortes FROM pki_validacion.revalidacion_registro AS regis
+WHERE regis.id_entidad = {entityId}
+ORDER BY regis.id_firmador DESC
+LIMIT 1 
+''' 
+
+
+    lastIndex =  controlador_db.selectData(queryLastVal, ())
+    if(lastIndex is not None):
+      lastIndex = lastIndex[0]
 
     # Obtener parámetros de la query
-    entityId = request.args.get('id_entidad', type=int)
     revalidationBatch = request.args.get('lote_validacion', default=1, type=int)
-    initialId = request.args.get('id_inicial', default=0, type=int)
     queryValidation = f'''
       SELECT docu.nombres, docu.apellidos, docu.numero_documento, docu.tipo_documento, docu.id_usuario_efirma, docu.id, docu.id_evidencias, pais.codigo, pais.yolo_labels, ent.porcentaje_acierto, evi_ad.estado_verificacion
       FROM pki_validacion.documento_usuario AS docu 
@@ -1438,7 +1452,7 @@ def process_revalidation():
       INNER JOIN usuarios.usuarios AS usu ON usu.id = firma.usuario_id
       INNER JOIN usuarios.entidades AS ent ON usu.entity_id = ent.entity_id
       INNER JOIN pki_validacion.pais AS pais ON pais.codigo = usu.pais
-      WHERE ent.entity_id = {entityId} {'AND docu.id >= {}'.format(initialId) if initialId != 0 else ''} LIMIT {revalidationBatch}
+      WHERE ent.entity_id = {entityId} {'AND docu.id > {}'.format(lastIndex) if lastIndex is not None else ''} LIMIT {revalidationBatch}
 '''
 
     if not entityId:
@@ -1477,6 +1491,8 @@ def process_revalidation():
 
     results_list = []
     for validation in validations:
+
+
       name = validation[0]
       lastname = validation[1]
       documentNumber = validation[2]
@@ -1504,14 +1520,32 @@ def process_revalidation():
       backImage = convert_to_base64(evidence[2])
 
       sides = {"front": {}, "back": {}}
+      def getOrientation(image, side):
+          response = requests.post(f"http://127.0.0.1:4500/rotate", json={"image":image})
+          data = json.loads(response.text)
+          sides[side]['textAngle'] = data['textAngle']
 
-      def ocr_request(image, side):
-        response = requests.post(f"{baseRoute}validacion-ocr-back/ocr", json={"image": image})
-        sides[side]['ocr'] = json.loads(response.text)
+      getOrientation(frontImage, 'front')
+      getOrientation(backImage, 'back')
+
+      ocr = {}
+
+      def getLabelCrop(image, country, side):
+        response = requests.post(f"{baseRoute}/document/detection", json={"image":image, "country": country})
+        sides[side]['coords'] = json.loads(response.text)
         sides[side]['image'] = image
 
-      ocr_request(frontImage, "front")
-      ocr_request(backImage, "back")
+
+      getLabelCrop(frontImage, country, 'front')
+      getLabelCrop(backImage, country, 'back')
+
+      def ocr_request(image, coords, noOCRLabels, side):
+        response = requests.post("http://127.0.0.1:4500/yolo-ocr", json={"image": image, "labels": coords, 'noOcrLabels': noOCRLabels})
+        sides[side]['ocr'] = json.loads(response.text)
+        ocr[side] = json.loads(response.text)
+
+      ocr_request(frontImage, sides['front']['coords'], '', 'front')
+      ocr_request(backImage, sides['back']['coords'], '', 'back')
 
       documentValidation = {'front': {}, 'back': {}}
 
@@ -1531,7 +1565,7 @@ def process_revalidation():
       documentDataStore = {'front': {}, 'back': {}}
 
       for key in sides:
-        endPoint = "anverso" if key == 'front' else "reverso"
+        side = "anverso" if key == 'front' else "reverso"
         payload = {
           "imagenPersona": selfieImage,
           "imagen": sides[key]['image'],
@@ -1539,14 +1573,14 @@ def process_revalidation():
           "apellido": lastname,
           "documento": documentNumber,
           "tipoDocumento": documentType,
-          "ocr": sides[key]['ocr']['ocr'],
-          "ladoDocumento": endPoint,
+          "ocr": sides[key]['ocr'],
+          "ladoDocumento": side,
           "tries": 0,
           "country": country,
-          "textAngle": sides[key]['ocr']['textAngle']
+          # "textAngle": sides[key]['ocr']['textAngle']
+          "textAngle": 0
         }
-        response = requests.post(f"{baseRoute}validacion-back/ocr/{endPoint}", json=payload)
-        print(response.text)
+        response = requests.post(f"http://127.0.0.1:4000/document/validate?side={side}", json=payload)
         responseJson = json.loads(response.text)
         documentValidation[key] = responseJson
         responseJsonCopy = responseJson.copy()
@@ -1554,7 +1588,7 @@ def process_revalidation():
           del responseJsonCopy['image']
         documentDataStore[key] = responseJsonCopy
 
-      response = requests.post(f"{baseRoute}validacion-back/validation/revalidacion", json={
+      response = requests.post(f"{baseRoute}/validation/revalidacion", json={
         "front": documentValidation['front'],
         "back": documentValidation['back'],
         "validationPercent": validationPercent,
@@ -1572,7 +1606,7 @@ def process_revalidation():
           "image": documentValidation[val]['image'],
           "country": country
         }
-        response = requests.post(f"{baseRoute}validacion-back/document/detection", json=payload)
+        response = requests.post(f"{baseRoute}/document/detection", json=payload)
         if response.status_code == 200:
           crops = json.loads(response.text)
           for crop in crops:
@@ -1588,12 +1622,13 @@ def process_revalidation():
         else:
           print(f"Error en la solicitud de detección para {val}: {response.status_code}")
 
-      columns = ('revalidacion_registro.revalidacion', 'revalidacion_registro.id_recortes', 'revalidacion_registro.estado', 'revalidacion_registro.id_entidad', 'estado_original')
+      columns = ('revalidacion_registro.revalidacion', 'revalidacion_registro.id_recortes', 'revalidacion_registro.estado', 'revalidacion_registro.id_entidad', 'estado_original', 'id_firmador', 'ocr_yolo')
       table = 'pki_validacion.revalidacion_registro'
       revalidacion_value = json.dumps(checkValues, ensure_ascii=False)
+      ocrValue = json.dumps(ocr, ensure_ascii=False)
       id_recortes_value = id
       estado_value = state
-      values = (revalidacion_value, id_recortes_value, estado_value, entityId, originalState)
+      values = (revalidacion_value, id_recortes_value, estado_value, entityId, originalState, signerId, ocrValue)
       controlador_db.insertTabla(columns, table, values)
       print(f"finalizada revalidacion id: {id}")
       results_list.append({"id": id, "estado": state})
