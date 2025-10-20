@@ -274,7 +274,6 @@ def percentsSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
         return 'no encontrado', 0
         
     mejores_resultados = []
-    print(dataOCR)
     ocr_limpio = [limpiar_texto(linea) for linea in dataOCR if len(linea.strip()) > 0]
 
     for linea in ocr_limpio:    

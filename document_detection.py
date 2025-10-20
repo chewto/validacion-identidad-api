@@ -192,35 +192,35 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
         #         messages.append('El pais del documento no se encontro en el documento.')
 
 
-    # else:
-    #     # Modo genérico basado en OCR/detección por texto
-    #     print("modo generico usando ocr")
-    #     type_detected_pre, document_type_validation_pre = validateDocumentType(
-    #         tipo_documento, lado_documento, ocr, detectionData=ocr_data
-    #     )
-    #     document_type, document_validation = testingType([
-    #         {'type': type_detected_pre, 'validation': document_type_validation_pre}
-    #     ])
-    #     country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
-    #     code_c, country_name, country_validation = testingCountry([
-    #             {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
-    #         ])
+    else:
+        # Modo genérico basado en OCR/detección por texto
+        print("modo generico usando ocr")
+        type_detected_pre, document_type_validation_pre = validateDocumentType(
+            tipo_documento, lado_documento, ocr, detectionData=ocr_data
+        )
+        document_type, document_validation = testingType([
+            {'type': type_detected_pre, 'validation': document_type_validation_pre}
+        ])
+        country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
+        code_c, country_name, country_validation = testingCountry([
+                {'country': country_code_pre, 'countryDetected': country_detected_pre, 'validation': doc_country_validation_pre}
+            ])
 
-    #     checkSide['documentValidation'] = document_validation
-    #     checkSide['countryValidation'] = country_validation
+        checkSide['documentValidation'] = document_validation
+        checkSide['countryValidation'] = country_validation
 
-    #     documentSection = {
-    #         'type': document_type,
-    #         'typeCheck': document_validation,
-    #         'isExpired': None,
-    #         'code': code_c, 'country': country_name, 'countryCheck': country_validation
-    #     }
+        documentSection = {
+            'type': document_type,
+            'typeCheck': document_validation,
+            'isExpired': None,
+            'code': code_c, 'country': country_name, 'countryCheck': country_validation
+        }
 
-    #     if not country_validation:
-    #       messages.append('El pais del documento no se encontro en el documento.')
+        if not country_validation and tipo_documento != "PASAPORTE":
+          messages.append('El pais del documento no se encontro en el documento.')
 
-    #     if not document_validation:
-    #         messages.append('El tipo de documento no coincide con el seleccionado.')
+        if not document_validation and tipo_documento != "PASAPORTE":
+            messages.append('El tipo de documento no coincide con el seleccionado.')
 
     return documentSection, checkSide, messages, cropImage
 

@@ -55,71 +55,80 @@ def verificarAnverso():
     # resultsDict = {}
 
     resultsDict = {
-    "barcode": None,
-    "confidence": 0.99,
-    "document": {
-        "code": "",
-        "country": "",
-        "countryCheck": "",
-        "isExpired": None,
-        "type": "",
-        "typeCheck": ""
-    },
-    "face": False,
-    "image": "",
-    "mrz": {
-        "code": None,
-        "data": {
-            "lastName": "",
-            "name": ""
-        },
-        "percentages": {
-            "lastName": 0,
-            "name": 0
-        }
-    },
-    "ocr": {
-        "data": {
-            "ID": "",
-            "lastName": "",
-            "name": ""
-        },
-        "percentage": {
-            "ID": 0,
-            "lastName": 0,
-            "name": 0
-        }
-    },
-  }
+      "barcode": None,
+      "confidence": 0.99,
+      "document": {
+          "code": "",
+          "country": "",
+          "countryCheck": "",
+          "isExpired": None,
+          "type": "",
+          "typeCheck": ""
+      },
+      "face": False,
+      "image": "",
+      "mrz": {
+          "code": None,
+          "data": {
+              "lastName": "",
+              "name": ""
+          },
+          "percentages": {
+              "lastName": 0,
+              "name": 0
+          }
+      },
+      "ocr": {
+          "data": {
+              "ID": "",
+              "lastName": "",
+              "name": ""
+          },
+          "percentage": {
+              "ID": 0,
+              "lastName": 0,
+              "name": 0
+          }
+      },
+    }
     messages = []
     checkSide = {}
     documentoOrientado = rotateImage(documentoData, textAngle)
 
-    documentSelfie = searchDocumentSelfie(yoloLabels=yoloLabels,img=documentoData, useCountry=userCountry, documentType=tipoDocumento)
+    documentSelfie = searchDocumentSelfie(
+      yoloLabels=yoloLabels,
+      img=documentoData,
+      useCountry=userCountry,
+      documentType=tipoDocumento
+    )
 
     extractFace = extractFaces(documentoOrientado, anti_spoofing=False)
 
     if (extractFace):
-      for face in extractFace:
-        faceDetected = face.get('detected')
-        resultsDict['faceDetected'] = faceDetected
-        checkSide['faceDetected'] = faceDetected
-        if not faceDetected:
-          messages.append("No se ha detectado el rostro en el documento.")
+        for face in extractFace:
+            faceDetected = face.get('detected')
+            resultsDict['faceDetected'] = faceDetected
+            checkSide['faceDetected'] = faceDetected
+            if not faceDetected:
+                messages.append("No se ha detectado el rostro en el documento.")
 
     # return jsonify(extractFace)
 
     selfieOrientada = personaData
 
-    preprocessedDocument = preprocessing(documentoOrientado, resolution, filters='sharp')
+    preprocessedDocument = preprocessing(
+      documentoOrientado,
+      resolution,
+      filters='sharp'
+    )
 
     _, confidence, _ = verifyFaces(selfieOrientada, documentSelfie)
 
     resultsDict['face'] = True if confidence <= confidenceThreshold else False
     resultsDict['confidence'] = confidence
     checkSide['face'] = True if confidence <= confidenceThreshold else False
-    if(confidence >= confidenceThreshold):
-      messages.append('Los rostros no coincidén.')
+    if (confidence >= confidenceThreshold):
+        messages.append('Los rostros no coincidén.')
 
     
 
@@ -133,10 +142,10 @@ def verificarAnverso():
         yoloLabels
     )
 
-    if(croppedImage is not None):
-      resultsDict['image'] = croppedImage
+    if (croppedImage is not None):
+        resultsDict['image'] = croppedImage
     else:
-      resultsDict['image'] =  imageToDataURL(preprocessedDocument)
+        resultsDict['image'] = imageToDataURL(preprocessedDocument)
 
     # Fusionar resultados de validación de documento
     checkSide.update(doc_check)
@@ -148,7 +157,11 @@ def verificarAnverso():
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
-    nombreOcr, pctNombre = validacionOCR(ocr, nombre, onlyNumbers=False)
+    nombreOcr, pctNombre = validacionOCR(
+      ocr,
+      nombre,
+      onlyNumbers=False
+    )
     apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
     numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
@@ -161,10 +174,12 @@ def verificarAnverso():
     if pctApellido <= 50:
         messages.append('El apellido no se ha encontrado en el documento.')
     if pctNumero <= 50:
-        messages.append('El número del identificación no se ha encontrado en el documento.')
+        messages.append(
+          'El número del identificación no se ha encontrado en el documento.'
+        )
 
     resultsDict['ocr'] = {
-        'data':{
+        'data': {
           'name': nombreOcr,
           'lastName': apellidoOcr,
           'ID': numeroOcr
@@ -176,88 +191,131 @@ def verificarAnverso():
         }
     }
 
-    hasbarcode,barcodeType,barcodetbr  = barcodeSide(documentType=tipoDocumento, documentSide=ladoDocumento, barcodeData=barcodeData)
+    hasbarcode, barcodeType, barcodetbr = barcodeSide(
+      documentType=tipoDocumento,
+      documentSide=ladoDocumento,
+      barcodeData=barcodeData
+    )
     barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
 
     if hasbarcode:
-      detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
-      detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
+        detectedBarcodes = barcodeReader(
+          preprocessedDocument,
+          efirmaId,
+          ladoDocumento,
+          barcodeType,
+          barcodetbr
+        )
+        detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
 
-      if barcodeIsOptional:
-        if detectedBarcodes:
-          resultsDict['barcode'] = detectedBarcodes
-          checkSide['barcode'] = detectedBarcodes
-      else:
-        resultsDict['barcode'] = detectedBarcodes
-        checkSide['barcode'] = detectedBarcodes
-        if not detectedBarcodes:
-          messages.append('No se pudo detectar el código de barras del documento.')
+        if barcodeIsOptional:
+            if detectedBarcodes:
+                resultsDict['barcode'] = detectedBarcodes
+                checkSide['barcode'] = detectedBarcodes
+        else:
+            resultsDict['barcode'] = detectedBarcodes
+            checkSide['barcode'] = detectedBarcodes
+            if not detectedBarcodes:
+                messages.append(
+                  'No se pudo detectar el código de barras del documento.'
+                )
 
-    
-    mrzLetter, documentMRZ = MRZSide(documentType=tipoDocumento, documentSide=ladoDocumento, mrzData=mrzData)
+    mrzLetter, documentMRZ = MRZSide(
+        documentType=tipoDocumento,
+        documentSide=ladoDocumento,
+        mrzData=mrzData
+    )
+
+    print(documentMRZ)
 
     mrzIsOptional = mrzData[tipoDocumento]['optional']
 
     if documentMRZ:
-      mrz = extractMRZ(preprocessedDocument)
 
-      if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
-        messages.append('No se pudo detecar el código mrz del documento.')
+        mrz = extractMRZ(preprocessedDocument)
 
-      if 'valid_score' in mrz:
-        if mrz['valid_score'] >= 51:
-          extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
-          extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
-
-          nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
-          lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
-
-          # Si MRZ no es opcional, siempre se agrega. Si es opcional, solo si se detecta.
-          if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
-            resultsDict['mrz'] = {
-              'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
-              'data': {
-                'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
-                'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else ''
-              },
-              'percentages': {
-                'name': nameMRZ['percent'],
-                'lastName': lastNameMRZ['percent']
-              }
-            }
-
-          # Si MRZ no es opcional, siempre se agregan los checks y mensajes
-          if not mrzIsOptional:
-            checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
-            checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
-            if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-              messages.append('No se encontró el nombre en el codigo mrz.')
-            if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-              messages.append('No se encontró el apellido en el codigo mrz.')
-          # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
-          elif mrzIsOptional and 'raw_text' in mrz:
-            if nameMRZ['percent'] >= 51:
-              checkSide['nameMrz'] = True
-            if lastNameMRZ['percent'] >= 51:
-              checkSide['lastNameMrz'] = True
-        else:
-          # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
-          if not mrzIsOptional:
-            resultsDict['mrz'] = {
-              'code': "No se pudo detectar MRZ válido en la imagen.",
-              'data': {
-                'name': '',
-                'lastName': ''
-              },
-              'percentages': {
-                'name': 0,
-                'lastName': 0
-              }
-            }
-
+        if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
             messages.append('No se pudo detecar el código mrz del documento.')
-            checkSide['nameMrz'] = False
-            checkSide['lastNameMrz'] = False
+
+        if 'valid_score' in mrz:
+            if mrz['valid_score'] >= 51:
+                if (userCountry == 'HND' and tipoDocumento =='PASAPORTE' and checkSide['documentValidation'] == False):
+                    if (mrz['type'] == 'P<'):
+                        checkSide['documentValidation'] = True
+                        resultsDict['document']['type'] = 'Pasaporte'
+                        resultsDict['document']['typeCheck'] = True
+                    else:
+                      messages.append('El tipo de documento no coincide con el seleccionado.')
+
+                    if (mrz['country'] == 'HND' and checkSide['countryValidation'] == False):
+                        checkSide['countryValidation'] = True
+                        resultsDict['document']["code"] = 'HND'
+                        resultsDict['document']['country'] = 'HONDURAS'
+                        resultsDict['document']['countryCheck'] = True
+                    else:
+                      messages.append('El pais del documento no se encontro en el documento.') 
+
+                extractName = mrzInfo(
+                  mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
+                  searchTerm=nombre
+                )
+                extractLastname = mrzInfo(
+                  mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
+                  searchTerm=apellido
+                )
+
+                nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
+                lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
+
+                #Si MRZ no es opcional, siempre se agrega.
+                #Si es opcional, solo si se detecta.
+                if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
+                    resultsDict['mrz'] = {
+                      'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
+                      'data': {
+                        'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else ''
+                      },
+                      'percentages': {
+                        'name': nameMRZ['percent'],
+                        'lastName': lastNameMRZ['percent']
+                      }
+                    }
+
+                # Si MRZ no es opcional, siempre se agregan los checks y mensajes
+                if not mrzIsOptional:
+                    checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
+                    checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
+                    if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+                        messages.append('No se encontró el nombre en el codigo mrz.')
+                    if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
+                        messages.append('No se encontró el apellido en el codigo mrz.')
+                # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
+                elif mrzIsOptional and 'raw_text' in mrz:
+                    if nameMRZ['percent'] >= 51:
+                        checkSide['nameMrz'] = True
+                    if lastNameMRZ['percent'] >= 51:
+                        checkSide['lastNameMrz'] = True
+        else:
+            # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
+            if not mrzIsOptional:
+                resultsDict['mrz'] = {
+                  'code': "No se pudo detectar MRZ válido en la imagen.",
+                  'data': {
+                    'name': '',
+                    'lastName': ''
+                  },
+                  'percentages': {
+                    'name': 0,
+                    'lastName': 0
+                  }
+                }
+
+                messages.append(
+                    'No se pudo detecar el código mrz del documento.'
+                )
+                checkSide['nameMrz'] = False
+                checkSide['lastNameMrz'] = False
 
     valid_side, _, _ = results(49, 'AUTOMATICA', checkSide)
 
