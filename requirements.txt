@@ -122,13 +122,13 @@ sqlacodegen==3.1.1
 SQLAlchemy==2.0.41
 stringzilla==3.12.6
 sympy==1.14.0
-tensorboard==2.19.0
+tensorboard==2.20.0
 tensorboard-data-server==0.7.2
-tensorflow==2.19.0
+tensorflow==2.20.0
 tensorflow-io-gcs-filesystem==0.31.0
 termcolor==3.1.0
 tesseract==0.1.3
-tf_keras==2.19.0
+tf_keras==2.20.1
 threadpoolctl==3.6.0
 tifffile==2025.6.11
 tomlkit==0.13.2

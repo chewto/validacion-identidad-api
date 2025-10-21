@@ -144,7 +144,7 @@ def antiSpoofing():
   if not path or not os.path.exists(path):
     return jsonify({"error": "El path no existe"}), 400
 
-  video = "video_out.mp4"
+  video = path.split('/')[-1]
 
   # Build ffmpeg command as a list for subprocess
   try:
@@ -487,7 +487,8 @@ def obtenerEvidencias():
   idEvidencias = usuario[6]
   idEvidenciasAdicionales = usuario[7]
 
-  return jsonify({'idEvidencias':idEvidencias, 'idEvidenciasAdicionales':idEvidenciasAdicionales, "tipo": tipo})
+  return jsonify({'idEvidencias': idEvidencias, 'idEvidenciasAdicionales': idEvidenciasAdicionales, "tipo": tipo})
+
 
 @app.route('/comprobacion-proceso', methods=['GET'])
 def comprobacionProceso():
@@ -498,15 +499,21 @@ def comprobacionProceso():
     if peticionProceso:
         return jsonify(peticionProceso)
     else:
-        return jsonify({"validaciones": 0, "estado":""})
+        return jsonify({"validaciones": 0, "estado": ""})
+
 
 @app.route('/', methods=['GET'])
 def health():
-  return 'Servicio activo'
+    return 'Servicio activo'
+
 
 if __name__ == "__main__":
-  try:
-    app.static_folder = '.'
-    app.run(debug=True,host="0.0.0.0", port=4000)
-  finally:
-    print('para reiniciar use el siguiente comando = python main.py')
+    try:
+        app.static_folder = '.'
+        app.run(debug=True, host="0.0.0.0", port=4000)
+    except Exception as e:
+        # e will contain the actual error message
+        print(f'An unexpected error occurred: {e}')
+        print('El programa se detuvo debido a un error.')
+    finally:
+        print('programa finalizado')
