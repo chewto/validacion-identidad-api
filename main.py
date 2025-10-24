@@ -143,7 +143,7 @@ def antiSpoofing():
     if not path or not os.path.exists(path):
         return jsonify({"error": "El path no existe"}), 400
 
-    video = path.split('/')[-1]
+    video = 'video_out.mp4'
 
     # Build ffmpeg command as a list for subprocess
     try:
