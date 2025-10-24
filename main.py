@@ -133,85 +133,79 @@ def savelog():
 
   return 'log añadido'
 
+
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
-  
-  path = request.args.get("path")
-  device = request.args.get("device")
+    path = request.args.get("path")
 
-  framesCounter = 12
+    framesCounter = 12
 
-  if not path or not os.path.exists(path):
-    return jsonify({"error": "El path no existe"}), 400
+    if not path or not os.path.exists(path):
+        return jsonify({"error": "El path no existe"}), 400
 
-  video = path.split('/')[-1]
+    video = path.split('/')[-1]
 
-  # Build ffmpeg command as a list for subprocess
-  try:
-    ffmpeg.input(path).output(
-      video,
-      vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
-      vcodec='libx264',
-      pix_fmt='yuv420p',
-      preset='ultrafast',
-      crf=28,
-      acodec='aac',
-      r=str(30),
-      movflags='faststart'
-    ).run(overwrite_output=True)
-    print(f"Video convertido y guardado como '{video}'")
-  except ffmpeg.Error as e:
-    error_msg = e.stderr.decode() if e.stderr else str(e)
-    print(f"Error durante la conversión: {error_msg}")
-  except Exception as e:
-    print(f"Ocurrió un error inesperado durante la conversión: {e}")
+    # Build ffmpeg command as a list for subprocess
+    try:
+        ffmpeg.input(path).output(
+          video,
+          vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
+          vcodec='libx264',
+          pix_fmt='yuv420p',
+          preset='ultrafast',
+          crf=28,
+          acodec='aac',
+          r=str(30),
+          movflags='faststart'
+        ).run(overwrite_output=True)
+    except ffmpeg.Error as e:
+        error_msg = e.stderr.decode() if e.stderr else str(e)
+        print(f"Error durante la conversión: {error_msg}")
+    except Exception as e:
+        print(f"Ocurrió un error inesperado durante la conversión: {e}")
 
-  messages = []
+    messages = []
 
-  frames = getFrames(video, frameCounter=framesCounter)
+    frames = getFrames(video, frameCounter=framesCounter)
 
-  if(frames == 'no hay'):
-    return 'no se pudo abrir el video'
-  
-  if(frames == 'path invalido'):
-    return 'path invalido'
+    if (frames == 'no hay'):
+        return 'no se pudo abrir el video'
+    if (frames == 'path invalido'):
+        return 'path invalido'
 
-  photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
+    photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
-  # if(len(photoDataURL) <= 0):
-  #   return jsonify({'messages': ['intentelo de nuevo']}), 201
+    # if(len(photoDataURL) <= 0):
+    #   return jsonify({'messages': ['intentelo de nuevo']}), 201
 
-  photoAccess = readDataURL(photoDataURL)
+    photoAccess = readDataURL(photoDataURL)
 
-  result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
+    result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
 
-  resultDetected = False
+    resultDetected = False
 
-  if (result):
-      for face in result:
-        faceDetected = face.get('detected')
-        resultDetected = faceDetected
-        if not faceDetected:
-        #   return jsonify({'messages': 'No se ha detectado el rostro en el documento.'})
-        # if not faceDetected and tries >=1:
-        #   print('nose xdxdx')
-          messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+    if (result):
+        for face in result:
+            faceDetected = face.get('detected')
+            resultDetected = faceDetected
+            if not faceDetected:
+                messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
-  movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
+    movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
-  isRealFilter = filter(lambda x: x['isReal'] != True, result)
-  isRealFilter = list(isRealFilter)
+    isRealFilter = filter(lambda x: x['isReal'] != True, result)
+    isRealFilter = list(isRealFilter)
 
-  if(movimientoDetectado != 'OK'):
-    messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
+    if (movimientoDetectado != 'OK'):
+        messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
 
-  # if(len(photoDataURL) <= 0):
-  #   messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+    # if(len(photoDataURL) <= 0):
+    #   messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
-  if(len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
-    messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
+    if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
+        messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
-  return jsonify({"movimientoDetectado":movimientoDetectado, "photo":photoDataURL, "photoResult": result, "messages": messages, "faceDetected": resultDetected}), 200
+    return jsonify({"movimientoDetectado": movimientoDetectado, "photo": photoDataURL, "photoResult": result, "messages": messages, "faceDetected": resultDetected}), 200
 
 
 @app.route('/get-media', methods=['GET'])
