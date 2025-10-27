@@ -226,8 +226,6 @@ def verificarAnverso():
         mrzData=mrzData
     )
 
-    print(documentMRZ)
-
     mrzIsOptional = mrzData[tipoDocumento]['optional']
 
     if documentMRZ:
@@ -341,36 +339,36 @@ def verificarReverso():
     is_testing = request.args.get('testing', 'false').lower() == 'true'
 
     if is_testing:
-      efirmaId = request.form.get('id')
-      imagenPersona = request.files.get('imagenPersona')
-      imagenDocumento = request.files.get('imagen')
-      ladoDocumento = request.form.get('ladoDocumento')
-      tipoDocumento = request.form.get('tipoDocumento')
-      nombre = request.form.get('nombre')
-      apellido = request.form.get('apellido')
-      numeroDocumento = request.form.get('documento')
-      userCountry = request.form.get('country')
-      tries = request.form.get('tries')
-      tries = int(tries)
-      imagenDocumento = fileCv2(imagenDocumento)
-      ocr = request.form.get('ocr').split(',')
-      textAngle = request.form.get('textAngle')
+        efirmaId = request.form.get('id')
+        imagenPersona = request.files.get('imagenPersona')
+        imagenDocumento = request.files.get('imagen')
+        ladoDocumento = request.form.get('ladoDocumento')
+        tipoDocumento = request.form.get('tipoDocumento')
+        nombre = request.form.get('nombre')
+        apellido = request.form.get('apellido')
+        numeroDocumento = request.form.get('documento')
+        userCountry = request.form.get('country')
+        tries = request.form.get('tries')
+        tries = int(tries)
+        imagenDocumento = fileCv2(imagenDocumento)
+        ocr = request.form.get('ocr').split(',')
+        textAngle = request.form.get('textAngle')
     else:
-      reqBody = request.get_json()
-      efirmaId = reqBody.get('id')
-      imagenPersona = None  # Not used in non-testing
-      imagenDocumento = reqBody.get('imagen')
-      ladoDocumento = reqBody.get('ladoDocumento')
-      tipoDocumento = reqBody.get('tipoDocumento')
-      nombre = reqBody.get('nombre')
-      apellido = reqBody.get('apellido')
-      numeroDocumento = reqBody.get('documento')
-      userCountry = reqBody.get('country')
-      tries = reqBody.get('tries')
-      tries = int(tries)
-      imagenDocumento = readDataURL(imagenDocumento)
-      ocr = reqBody.get('ocr')
-      textAngle = reqBody.get('textAngle')
+        reqBody = request.get_json()
+        efirmaId = reqBody.get('id')
+        imagenPersona = None  # Not used in non-testing
+        imagenDocumento = reqBody.get('imagen')
+        ladoDocumento = reqBody.get('ladoDocumento')
+        tipoDocumento = reqBody.get('tipoDocumento')
+        nombre = reqBody.get('nombre')
+        apellido = reqBody.get('apellido')
+        numeroDocumento = reqBody.get('documento')
+        userCountry = reqBody.get('country')
+        tries = reqBody.get('tries')
+        tries = int(tries)
+        imagenDocumento = readDataURL(imagenDocumento)
+        ocr = reqBody.get('ocr')
+        textAngle = reqBody.get('textAngle')
 
 
     # resolution = 600 if tries <=1 else 1080
@@ -460,7 +458,6 @@ def verificarReverso():
           resultsDict['barcode'] = detectedBarcodes
           checkSide['barcode'] = detectedBarcodes
       else:
-        print('mibomo')
         resultsDict['barcode'] = detectedBarcodes
         checkSide['barcode'] = detectedBarcodes
         if not detectedBarcodes:
@@ -545,31 +542,28 @@ def verificarReverso():
 
 @ocr_bp.route('/mrz', methods=['POST'])
 def mrzReader():
-  image = request.files.get('image')
-  imageData = fileCv2(image)
+    image = request.files.get('image')
+    imageData = fileCv2(image)
 
-  result = extractMRZ(imageData)
+    result = extractMRZ(imageData)
 
-  return jsonify(result)
+    return jsonify(result)
 
 
 @ocr_bp.route('/barcode-reader', methods=['POST'])
 def reader():
 
-  id = request.args.get('id')
-  image = request.files.get('image')
-  documentType = request.form.get('documentType')
-  documentSide = request.form.get('documentSide')
-  imageData = fileCv2(image)
-
-  print(id, documentType, documentSide)
+    id = request.args.get('id')
+    image = request.files.get('image')
+    documentType = request.form.get('documentType')
+    documentSide = request.form.get('documentSide')
+    imageData = fileCv2(image)
 
 
-  barcodes = barcodeReader(imageData, id, documentSide, "pdf417", "")
 
-  print(barcodes)
+    barcodes = barcodeReader(imageData, id, documentSide, "pdf417", "")
 
-  return jsonify({
-    # 'image': image,
-    'barcodeData': barcodes
-  })
+    return jsonify({
+      # 'image': image,
+      'barcodeData': barcodes
+    })

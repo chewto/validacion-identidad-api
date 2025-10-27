@@ -165,7 +165,6 @@ def hasBarcode(documentType, barcodeData):
 def extractBarcodeData(barcodeData, documentType):
   barcodeBytes = base64.b64decode(barcodeData)
   barcodeString = barcodeBytes.decode('utf-8', errors='ignore')
-  print(barcodeString)
   documentFormat = formatDefinition[documentType]
 
 # TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]

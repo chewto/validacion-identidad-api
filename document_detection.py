@@ -140,7 +140,6 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
 
     if has_model and documentHasModel:
         # Usar detectModel (flujo tipo COL)
-        print("usando modelo")
         document_type, document_validation, country_code, country_detected, isCountry, croppedDocument, documentLabel = detectDocument(
             img=documento_data, countryCode=user_country, side=lado_documento, type=tipo_documento, yoloLabels=yoloLabels, modelPath=modelPath
         )
@@ -194,7 +193,6 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
 
     else:
         # Modo genérico basado en OCR/detección por texto
-        print("modo generico usando ocr")
         type_detected_pre, document_type_validation_pre = validateDocumentType(
             tipo_documento, lado_documento, ocr, detectionData=ocr_data
         )

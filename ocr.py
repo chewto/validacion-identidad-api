@@ -173,13 +173,11 @@ def preprocessing(img, resolution, filters):
 
     h0, w0 = img.shape[:2]
 
-    print(img.shape[:2], 'previo')
     if resolution < w0:
         h1 = int(h0 * resolution / w0)
         img = cv2.resize(img, (resolution, h1), interpolation=cv2.INTER_AREA)
 
     proc = img.copy()
-    print(proc.shape[:2], 'post')
     # if 'gray' in filters:
     #     proc = cv2.cvtColor(proc, cv2.COLOR_BGR2GRAY)
     # if 'hist' in filters:
