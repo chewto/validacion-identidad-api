@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 import re
 
-from logs import checkLogsFile, writeLogs
-from utilidades import readDataURL
+from utilities.logs import checkLogsFile, writeLogs
+from utilities.utilidades import readDataURL
 
 countries = {
   'COL': {

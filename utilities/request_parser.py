@@ -1,4 +1,4 @@
-from utilidades import fileCv2, readDataURL
+from utilities.utilidades import fileCv2, readDataURL
 
 
 def _parse_request(req):

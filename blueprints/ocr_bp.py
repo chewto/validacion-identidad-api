@@ -2,18 +2,18 @@
 import json
 from flask import Blueprint, request, jsonify
 from document_detection import detectDocument, searchDocumentSelfie, validateDocument
-from formatter import _formatDocumentNumber
+from utilities.formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
-from name_search import searchId, searchName
+from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import extractFaces, orientacionImagen, verifyFaces
-from request_parser import _parse_request
-from utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
-from check_result import testingCountry, testingType, results
+from utilities.request_parser import _parse_request
+from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
+from utilities.check_result import testingCountry, testingType, results
 import time
-import controlador_db
+import request.controlador_db as controlador_db
 import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')

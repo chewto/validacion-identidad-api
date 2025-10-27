@@ -4,10 +4,10 @@ from flask import Flask, request, jsonify, render_template_string, url_for
 from flask_cors import CORS
 from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
-import logs
+import utilities.logs as logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
-import controlador_db
-from utilidades import fileCv2, imageToDataURL, readDataURL
+import request.controlador_db as controlador_db
+from utilities.utilidades import fileCv2, imageToDataURL, readDataURL
 import os
 from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
@@ -40,14 +40,6 @@ app.config['CORS_HEADER'] = 'Content-type'
 Request.max_form_parts = 5000
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-MODEL_PATH = 'models/modelov11-medium.pt'             # tu modelo YOLO entrenado
-OCR_LANGS = ['es', 'en']                              # idiomas OCR
-CONF_THRESHOLD = 0.3                                  # umbral de confianza YOLO
-CLASS_NAMES = ['dni_anverso','nombre','apellido','numero_documento',
-               'fecha_nacimiento','fecha_expiracion','tipo_documento',
-               'foto_persona','firma','nacionalidad','lugar_nacimiento','ghost']
-
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
@@ -55,83 +47,58 @@ app.register_blueprint(document_detection_bp)
 app.register_blueprint(test_bp)
 
 
-# Cargar modelos
-yolo_model = YOLO(MODEL_PATH)
-ocr_reader = easyocr.Reader(OCR_LANGS, gpu=False)
+# @app.route('/edad-test-nuevo', methods=['POST'])
+# def agesTest():
+#     app = FaceAnalysis(allowed_modules=['detection', 'landmark', 'attribute'])
+#     # prepare descarga/carga modelos; ctx_id=-1 para usar CPU
+#     app.prepare(ctx_id=-1, det_size=(640, 640))
 
+#     img = request.files.get('img', None)
+#     img = fileCv2(img)
+#     if img is None:
+#         raise SystemExit("Coloca una imagen llamada test.jpg en el directorio o ajusta la ruta")
 
-@app.route('/obtener-firmador/<id>', methods=['GET'])
-def obtenerFirmador(id):
-  return jsonify({
-    "dato": {
-        "id": 11,
-        "firmaElectronicaId": 11,
-        "nombre": "MARIA DOLORES",
-        "apellido": "MARTINEZ CASTRO",
-        "correo": "jesuselozada@gmail.com",
-        "tipoDocumento": "CEDULA",
-        "documento": "423105",
-        "evidenciasCargadas": False,
-        "enlaceTemporal": "nhxNYeTyF8",
-        "ordenFirma": 1,
-        "fechaCreacion": "2023-10-07T11:13:52-05:00"
-    }
-})
+#     faces = app.get(img)
+#     print(f"Caras detectadas: {len(faces)}")
+#     for i, face in enumerate(faces):
+#         # face.attrs contiene atributos como age/gender en muchas builds
+#         age = None
+#         print(face)
+#         if hasattr(face, "age"):
+#             age = face.age
+#         elif getattr(face, "attrs", None):
+#             age = face.attrs.get("age")  # alternativa dependiendo de la versión
+#         print(f"Face {i}: bbox={face.bbox}, edad aprox: {age}")
 
-@app.route('/edad-test-nuevo', methods=['POST'])
-def agesTest():
-    app = FaceAnalysis(allowed_modules=['detection', 'landmark', 'attribute'])
-    # prepare descarga/carga modelos; ctx_id=-1 para usar CPU
-    app.prepare(ctx_id=-1, det_size=(640, 640))
+#     return ''
 
-    img = request.files.get('img', None)
-    img = fileCv2(img)
-    if img is None:
-        raise SystemExit("Coloca una imagen llamada test.jpg en el directorio o ajusta la ruta")
+# @app.route('/edad-test', methods=['POST'])
+# def ageTest():
+#   documentImage = request.files.get('documento', None)
+#   selfie = request.files.get('selfie', None)
 
-    faces = app.get(img)
-    print(f"Caras detectadas: {len(faces)}")
-    for i, face in enumerate(faces):
-        # face.attrs contiene atributos como age/gender en muchas builds
-        age = None
-        print(face)
-        if hasattr(face, "age"):
-            age = face.age
-        elif getattr(face, "attrs", None):
-            age = face.attrs.get("age")  # alternativa dependiendo de la versión
-        print(f"Face {i}: bbox={face.bbox}, edad aprox: {age}")
+#   documentData = fileCv2(documentImage)
+#   selfieData = fileCv2(selfie)
 
-    return ''
+#   documentAnalisis = reconocimiento.analyzeFace(documentData)
+#   selfieAnalisis = reconocimiento.analyzeFace(selfieData)
 
-@app.route('/edad-test', methods=['POST'])
-def ageTest():
-   
-  documentImage = request.files.get('documento', None)
-  selfie = request.files.get('selfie', None)
+#   print(documentAnalisis)
+#   print(selfieAnalisis)
 
-  documentData = fileCv2(documentImage)
-  selfieData = fileCv2(selfie)
-
-  documentAnalisis = reconocimiento.analyzeFace(documentData)
-  selfieAnalisis = reconocimiento.analyzeFace(selfieData)
-
-  print(documentAnalisis)
-  print(selfieAnalisis)
-
-  return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
+#   return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
 
 @app.route('/log', methods=['POST'])
 def savelog():
-   
-  reqBody = request.get_json()
+    reqBody = request.get_json()
 
-  logMessage = reqBody.get('message', None)
+    logMessage = reqBody.get('message', None)
 
-  path =  logs.checkLogsFile()
+    path = logs.checkLogsFile()
 
-  logs.addLog(path, logMessage)
+    logs.addLog(path, logMessage)
 
-  return 'log añadido'
+    return 'log añadido'
 
 
 @app.route('/anti-spoof', methods=['POST'])
@@ -148,15 +115,15 @@ def antiSpoofing():
     # Build ffmpeg command as a list for subprocess
     try:
         ffmpeg.input(path).output(
-          video,
-          vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
-          vcodec='libx264',
-          pix_fmt='yuv420p',
-          preset='ultrafast',
-          crf=28,
-          acodec='aac',
-          r=str(30),
-          movflags='faststart'
+            video,
+            vf="scale='if(gt(iw,640),640,iw)':'if(gt(iw,640),-2,ih)'",
+            vcodec='libx264',
+            pix_fmt='yuv420p',
+            preset='ultrafast',
+            crf=28,
+            acodec='aac',
+            r=str(30),
+            movflags='faststart'
         ).run(overwrite_output=True)
     except ffmpeg.Error as e:
         error_msg = e.stderr.decode() if e.stderr else str(e)
@@ -193,7 +160,7 @@ def antiSpoofing():
 
     movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
-    isRealFilter = filter(lambda x: x['isReal'] != True, result)
+    isRealFilter = filter(lambda x: x['isReal'] is not True, result)
     isRealFilter = list(isRealFilter)
 
     if (movimientoDetectado != 'OK'):
@@ -205,7 +172,12 @@ def antiSpoofing():
     if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
         messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
-    return jsonify({"movimientoDetectado": movimientoDetectado, "photo": photoDataURL, "photoResult": result, "messages": messages, "faceDetected": resultDetected}), 200
+    return jsonify({
+        "movimientoDetectado": movimientoDetectado,
+        "photo": photoDataURL, "photoResult": result,
+        "messages": messages,
+        "faceDetected": resultDetected
+    }), 200
 
 
 @app.route('/get-media', methods=['GET'])

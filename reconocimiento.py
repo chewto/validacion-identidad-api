@@ -1,5 +1,5 @@
 import cv2
-from utilidades import cv2Blob
+from utilities.utilidades import cv2Blob
 from PIL import Image
 import base64
 import io

@@ -1,16 +1,16 @@
 import json
 from flask import Blueprint, request, jsonify
 from ultralytics import YOLO
-from check_result import results, testingCountry
-import controlador_db
+from utilities.check_result import results, testingCountry
+import request.controlador_db as controlador_db
 from expiry import expiryDateDetection, expiryDateOCR, hasExpiryDate
-from formatter import _formatDocumentNumber
+from utilities.formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode
 from mrz import MRZSide, comparisonMRZInfo, extractMRZ, mrzInfo
 from ocr import validacionOCR, validateDocumentCountry, validateDocumentType
 from reconocimiento import extractFaces, orientacionImagen, verifyFaces
-from request_parser import _parse_request
-from utilidades import fileCv2, imageToDataURL, readDataURL, textNormalize
+from utilities.request_parser import _parse_request
+from utilities.utilidades import fileCv2, imageToDataURL, readDataURL, textNormalize
 import document_detection
 import numpy as np
 

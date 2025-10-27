@@ -6,7 +6,7 @@ import pytesseract as tess
 import base64
 import cv2
 import Levenshtein
-from utilidades import readDataURL, ordenamiento, extraerPorcentaje
+from utilities.utilidades import readDataURL, ordenamiento, extraerPorcentaje
 import numpy as np
 import datetime
 import re

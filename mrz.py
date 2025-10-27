@@ -2,10 +2,10 @@ import datetime
 import re
 import numpy as np
 from passporteye import read_mrz
-from check_result import testingCountry
+from utilities.check_result import testingCountry
 from ocr import validateDocumentCountry
 import pytesseract as tess
-from utilidades import extraerPorcentaje
+from utilities.utilidades import extraerPorcentaje
 import io
 from PIL import ImageFilter, Image
 import cv2

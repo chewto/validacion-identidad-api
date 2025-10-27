@@ -1,6 +1,6 @@
 import re
 from ultralytics import YOLO
-from check_result import testingCountry, testingType
+from utilities.check_result import testingCountry, testingType
 from ocr import ocr, validateDocumentCountry, validateDocumentType
 from PIL import Image
 import base64

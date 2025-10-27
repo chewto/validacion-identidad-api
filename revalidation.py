@@ -1,5 +1,5 @@
 import os
-import controlador_db
+import request.controlador_db as controlador_db
 import requests
 import base64
 import json
@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import argparse
 
-from utilidades import removeAccents
+from utilities.utilidades import removeAccents
 
 baseRoute = 'https://desarrollo.web.honducert.com/'
 

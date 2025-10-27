@@ -2,7 +2,7 @@ import mariadb
 import base64
 import socket
 import requests
-import logs
+import utilities.logs as logs
 import os
 from dotenv import load_dotenv
 

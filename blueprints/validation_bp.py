@@ -1,18 +1,18 @@
 import uuid
 from flask import Blueprint, request, jsonify
-import controlador_db
+import request.controlador_db as controlador_db
 import json
 from reconocimiento import orientacionImagen, verifyFaces, antiSpoofingTest
-from utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
-from eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest, getSessionStatus
+from utilities.utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
+from request.eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest, getSessionStatus
 from mrz import validateMRZ, hasMRZ
-from check_result import results
+from utilities.check_result import results
 from lector_codigo import hasBarcode
-from callback_request import callbackRequest
+from request.callback_request import callbackRequest
 import hashlib
 import urllib.parse
 import os
-import controlador_db
+import request.controlador_db as controlador_db
 import requests
 import base64
 import json
@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 import argparse
 
-from utilidades import removeAccents
+from utilities.utilidades import removeAccents
 import time
 
 

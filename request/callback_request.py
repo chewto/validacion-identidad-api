@@ -1,5 +1,5 @@
 import requests
-import logs
+import utilities.logs as logs
 
 
 def callbackRequest(data, callbackBody):

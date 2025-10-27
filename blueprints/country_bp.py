@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-import controlador_db
+import request.controlador_db as controlador_db
 import json
 
 country_bp = Blueprint('country', __name__, url_prefix='/country')
