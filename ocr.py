@@ -1,6 +1,5 @@
 from PIL import Image
 from io import BytesIO
-import easyocr
 import imutils
 import pytesseract as tess
 import base64
@@ -166,8 +165,6 @@ def adjustBrightness(image_array):
     
     return adjusted_image.astype(np.uint8), current_brightness, np.mean(adjusted_image), adjustment_factor
 
-reader = easyocr.Reader(['es'])
-
 
 def preprocessing(img, resolution, filters):
 
@@ -195,21 +192,6 @@ def preprocessing(img, resolution, filters):
     # proc_rgb = proc if proc.ndim == 3 else cv2.cvtColor(proc, cv2.COLOR_GRAY2BGR)
 
     return proc
-
-def ocr(img):
-
-        lineas = []
-        
-        total_confidence = 0
-        result = reader.readtext(img)
-        for (bbox, text, prob) in result:
-            upperCase = text.upper()
-            lineas.append(upperCase)
-            total_confidence += prob
-
-        average_confidence = total_confidence / len(result) if result else 0
-
-        return result, lineas
 
 
 def validateDocumentType(documentType, documentSide, ocr, detectionData):
