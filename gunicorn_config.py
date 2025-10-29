@@ -11,9 +11,8 @@ max_requests = 1000
 max_requests_jitter = 50
 
 ...
-# Logging Settings
-accesslog = "/logs_python/app-python/gunicorn_access.log"  # Log HTTP requests to a file
-errorlog = "/logs_python/app-python/gunicorn_error.log"  # Log errors to a file
+accesslog = "/Logs/ekyc/gunicorn_access.log"  # Log HTTP requests to a file
+errorlog = "/Logs/ekyc/gunicorn_error.log"  # Log errors to a file
 loglevel = "info"  # Set log verbosity (debug, info, warning, error, critical)
 
 

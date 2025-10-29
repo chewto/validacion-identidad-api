@@ -1,24 +1,18 @@
 import base64
 import ffmpeg
-from flask import Flask, request, jsonify, render_template_string, url_for
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from blueprints.test_bp import test_bp
 from blueprints.document_detection_bp import document_detection_bp
 import utilities.logs as logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
 import request.controlador_db as controlador_db
-from utilities.utilidades import fileCv2, imageToDataURL, readDataURL
+from utilities.utilidades import readDataURL
 import os
 from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
-from lector_codigo import barcodeReader
 from PIL import Image
 import numpy as np
-from ultralytics import YOLO
-import easyocr
-import reconocimiento
-
 from werkzeug import Request
 
 # db = SQLAlchemy()
@@ -27,12 +21,9 @@ app = Flask(__name__)
 # app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 # db.init_app(app)
 
-
-
-
 CORS(app, resources={
-  r"/*":{
-    "origins":"*"
+  r"/*": {
+    "origins": "*"
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
@@ -44,7 +35,6 @@ app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
 app.register_blueprint(document_detection_bp)
-app.register_blueprint(test_bp)
 
 
 # @app.route('/edad-test-nuevo', methods=['POST'])
