@@ -18,7 +18,7 @@ def addLog(path, message):
 def checkLogsFile():
   logsFolder = './Logs/ekyc'
   logsFolderExist = os.path.exists(logsFolder)
-  logsFile = 'logs.txt'
+  logsFile = 'logs_python.txt'
   logsFilePath = os.path.join(logsFolder, logsFile)
 
   if not logsFolderExist:
@@ -26,6 +26,6 @@ def checkLogsFile():
 
   if not os.path.exists(logsFilePath):
     with open(logsFilePath, 'w') as file:
-      file.write('init log')
+      file.write('init log\n')
 
   return logsFilePath

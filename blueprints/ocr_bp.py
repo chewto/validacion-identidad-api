@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from document_detection import detectDocument, searchDocumentSelfie, validateDocument
 from utilities.formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
+from utilities.logs import addLog, checkLogsFile
 from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
@@ -42,9 +43,14 @@ def verificarAnverso():
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
 
+    getInitTime = time.time()
     countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
+    getEndTime = time.time()
+    getTime = getEndTime - getInitTime
+
+    print(getTime)
 
     mrzData = json.loads(countryData[0])
     barcodeData = json.loads(countryData[1])
@@ -95,14 +101,20 @@ def verificarAnverso():
     checkSide = {}
     documentoOrientado = rotateImage(documentoData, textAngle)
 
+    detectFaceInitTime = time.time()
     documentSelfie = searchDocumentSelfie(
       yoloLabels=yoloLabels,
       img=documentoData,
       useCountry=userCountry,
       documentType=tipoDocumento
     )
-
+    detectFaceEndTime = time.time()
+    detectFaceTime = detectFaceEndTime - detectFaceInitTime
+  
+    getFacesInit = time.time()
     extractFace = extractFaces(documentoOrientado, anti_spoofing=False)
+    getFacesEnd = time.time()
+    getFaces = getFacesEnd - getFacesInit
 
     if (extractFace):
         for face in extractFace:
@@ -122,7 +134,9 @@ def verificarAnverso():
       filters='sharp'
     )
 
+    compareFacesInit = time.time()
     _, confidence, _ = verifyFaces(selfieOrientada, documentSelfie)
+    compareFacesEnd = time.time()
 
     resultsDict['face'] = True if confidence <= confidenceThreshold else False
     resultsDict['confidence'] = confidence
@@ -131,7 +145,7 @@ def verificarAnverso():
         messages.append('Los rostros no coincidén.')
 
     
-
+    detectInit = time.time()
     document_section, doc_check, doc_messages, croppedImage = validateDocument(
         documentoOrientado,
         ocr,
@@ -141,6 +155,10 @@ def verificarAnverso():
         ocrData,
         yoloLabels
     )
+
+    detectEnd = time.time()
+
+    detectTime = detectEnd - detectInit
 
     if (croppedImage is not None):
         resultsDict['image'] = croppedImage
@@ -198,7 +216,10 @@ def verificarAnverso():
     )
     barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
 
+    barcodeTime = None
+
     if hasbarcode:
+        barcodeInit = time.time()
         detectedBarcodes = barcodeReader(
           preprocessedDocument,
           efirmaId,
@@ -206,6 +227,9 @@ def verificarAnverso():
           barcodeType,
           barcodetbr
         )
+
+        barcodeEnd = time.time()
+        barcodeTime = barcodeEnd - barcodeInit
         detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
 
         if barcodeIsOptional:
@@ -228,9 +252,15 @@ def verificarAnverso():
 
     mrzIsOptional = mrzData[tipoDocumento]['optional']
 
+    mrzTime = None
+
     if documentMRZ:
 
+        mrzInit = time.time()
         mrz = extractMRZ(preprocessedDocument)
+        mrzEnd = time.time()
+
+        mrzTime = mrzEnd - mrzInit
 
         if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
             messages.append('No se pudo detecar el código mrz del documento.')
@@ -319,6 +349,10 @@ def verificarAnverso():
 
     resultsDict['messages'] = messages
 
+    logsPath = checkLogsFile()
+    logString = f"anverso; data-server: {getTime}; extraccion-rostros: {detectFaceTime}, busqueda-rostros: {getFaces}; deteccion-documento: {detectTime}; mrz: {mrzTime}; codigo-barra: {barcodeTime};\n"
+    addLog(logsPath, logString)
+
     if confidence <= confidenceThreshold and valid_side and faceDetected:
         resultsDict['validSide'] = True if (valid_side and len(messages) <= 0) else False
         return jsonify(resultsDict)
@@ -382,9 +416,12 @@ def verificarReverso():
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
+    getInitTime = time.time()
     countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
+    getEndTime = time.time()
+    getTime = getEndTime - getInitTime
 
     mrzData = json.loads(countryData[0])
     barcodeData = json.loads(countryData[1])
@@ -424,6 +461,7 @@ def verificarReverso():
 
     ocr = ocr
 
+    detectInit = time.time()
     document_section, doc_check, doc_messages, croppedImage = validateDocument(
         imagenDocumento,
         ocr,
@@ -433,6 +471,9 @@ def verificarReverso():
         ocrData,
         yoloLabels
     )
+    detectEnd = time.time()
+
+    detectTime = detectEnd - detectInit
 
     if(croppedImage is not None):
       resultsDict['image'] = croppedImage
@@ -450,7 +491,11 @@ def verificarReverso():
     barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
 
     if hasbarcode:
+      barcodeInit = time.time()
       detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
+      barcodeEnd = time.time()
+      barcodeTime = barcodeEnd - barcodeInit
+      
       detectedBarcodes = True if (len(detectedBarcodes) >= 1) else False
 
       if barcodeIsOptional:
@@ -469,7 +514,12 @@ def verificarReverso():
     mrzIsOptional = mrzData[tipoDocumento]['optional']
 
     if documentMRZ:
+      mrzInit = time.time()
       mrz = extractMRZ(preprocessedDocument)
+      mrzEnd = time.time()
+
+      mrzTime = mrzEnd - mrzInit
+
 
       if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
         messages.append('No se pudo detecar el código mrz del documento.')
@@ -531,6 +581,10 @@ def verificarReverso():
 
 
     validSide, _, _percent = results(51, 'AUTOMATICA', checkSide)
+
+    logsPath = checkLogsFile()
+    logString = f"reverso; data-server: {getTime};  deteccion-documento: {detectTime}; mrz: {mrzTime}; codigo-barra: {barcodeTime};\n"
+    addLog(logsPath, logString)
 
 
     resultsDict['messages'] = messages
