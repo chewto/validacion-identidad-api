@@ -1,6 +1,4 @@
-import multiprocessing
-workers = 2 * multiprocessing.cpu_count() + 1
-print(workers)
+workers = 3
 worker_class = 'eventlet'  # Use gevent async workers
 worker_connections = 2000  # Maximum concurrent connections per worker
 timeout = 30
