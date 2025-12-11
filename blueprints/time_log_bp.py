@@ -18,7 +18,7 @@ def create_time_log():
 
     id_log = insert_time_log_record(user_id)
 
-    return jsonify({"message": f"created time stamp,  {id_log}"}), 201
+    return jsonify({"id": id_log}), 201
 
 
 @time_log_bp.route("/update", methods=["POST"])
