@@ -595,7 +595,7 @@ def insert_time_log_record(id: str) -> int:
 
     query = """
       INSERT INTO pki_validacion.log_tiempos
-      (id_firmador, fecha_inicio)
+      (id_firmador, inicio_fecha)
       VALUES (?, NOW())
     """
 
