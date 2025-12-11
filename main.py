@@ -2,6 +2,7 @@ import base64
 import ffmpeg
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from blueprints.time_log_bp import time_log_bp
 from blueprints.document_detection_bp import document_detection_bp
 import utilities.logs as logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
@@ -35,6 +36,7 @@ app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
 app.register_blueprint(document_detection_bp)
+app.register_blueprint(time_log_bp)
 
 
 # @app.route('/edad-test-nuevo', methods=['POST'])

@@ -575,3 +575,66 @@ def selectValidations(query, *values):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def insert_time_log_record(id: str) -> int:
+  try:
+    conn = mariadb.connect(
+      user=userDB,
+      password=passwordDB,
+      host=hostDB,
+      port=portDB,
+      database=nombreDB
+    )
+  except mariadb.Error as e:
+    print(e)
+    return 0
+
+  try:
+    cursor = conn.cursor()
+
+    query = """
+      INSERT INTO pki_validacion.log_tiempos
+      (id_firmador, fecha_inicio)
+      VALUES (?, NOW())
+    """
+
+    cursor.execute(query, (id,))
+    return cursor.lastrowid
+
+  except mariadb.Error as e:
+    print(e)
+    return 0
+
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def updateColumn(column: str, id: str) -> bool:
+    try:
+      conn = mariadb.connect(
+        user=userDB,
+        password=passwordDB,
+        host=hostDB,
+        port=portDB,
+        database=nombreDB
+      )
+    except mariadb.Error as e:
+      print(e)
+      return False
+
+    try:
+      cursor = conn.cursor()
+      query = f"UPDATE pki_validacion.log_tiempos as log SET {column} = NOW() WHERE log.id = {id}"
+      cursor.execute(query, ())
+      return cursor.rowcount > 0
+
+    except mariadb.Error as e:
+      print(e)
+      return False
+
+    finally:
+      conn.commit()
+      cursor.close()
+      conn.close()
