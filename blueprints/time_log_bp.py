@@ -18,8 +18,8 @@ def create_time_log():
 
     results = select_time_logs(user_id)
 
-    if(len(results) > 0):
-        return jsonify({"error": "Time log already exists for this user."})
+    if (len(results) > 0):
+        return jsonify({"id": results[0]})
 
     id_log = insert_time_log_record(user_id)
 
