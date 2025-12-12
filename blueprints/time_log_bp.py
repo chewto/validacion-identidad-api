@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timezone
 from threading import Lock
 
-from request.controlador_db import insert_time_log_record, updateColumn
+from request.controlador_db import insert_time_log_record, select_time_logs, updateColumn
 
 time_log_bp = Blueprint("time_logs", __name__, url_prefix="/time-logs")
 
@@ -15,6 +15,11 @@ def genTimestamp():
 @time_log_bp.route("/", methods=["POST"])
 def create_time_log():
     user_id = request.args.get("user_id")
+
+    results = select_time_logs(user_id)
+
+    if(len(results) > 0):
+        return jsonify({"error": "Time log already exists for this user."})
 
     id_log = insert_time_log_record(user_id)
 

@@ -576,6 +576,37 @@ def selectValidations(query, *values):
     cursor.close()
     conn.close()
 
+def select_time_logs(id_firmador: str):
+      try:
+        conn = mariadb.connect(
+          user=userDB,
+          password=passwordDB,
+          host=hostDB,
+          port=portDB,
+          database=nombreDB
+        )
+      except mariadb.Error as e:
+        print(e)
+        return ()
+
+      try:
+        cursor = conn.cursor()
+        query = """
+          SELECT id, id_firmador
+          FROM pki_validacion.log_tiempos
+          WHERE id_firmador = ?
+          ORDER BY inicio_fecha DESC
+        """
+        cursor.execute(query, (id_firmador,))
+        data = cursor.fetchall()
+        return data if data is not None else ()
+      except mariadb.Error as e:
+        print(e)
+        return ()
+      finally:
+        conn.commit()
+        cursor.close()
+        conn.close()
 
 def insert_time_log_record(id: str) -> int:
   try:
