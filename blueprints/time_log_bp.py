@@ -19,7 +19,9 @@ def create_time_log():
     results = select_time_logs(user_id)
 
     if (len(results) > 0):
-        return jsonify({"id": results[0]})
+        result = results[0]
+        id = result[0]
+        return jsonify({"id": id})
 
     id_log = insert_time_log_record(user_id)
 
