@@ -16,15 +16,13 @@ from PIL import Image
 import numpy as np
 from werkzeug import Request
 
-# db = SQLAlchemy()
 app = Flask(__name__)
-
-# app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
-# db.init_app(app)
 
 CORS(app, resources={
   r"/*": {
-    "origins": "*"
+    "origins": ["http://localhost:5173", "*"],
+    "methods": ["POST", "GET", "HEAD", "OPTIONS"],
+    "allow_headers": ["Content-Type"]
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
