@@ -40,3 +40,19 @@ def add_time_log():
     b = updateColumn(column_name, id)
 
     return jsonify({"result": b}), 201
+
+
+@time_log_bp.route("/update-speedtest", methods=["POST"])
+def add_speedtest_log():
+
+    id = request.args.get("id")
+    reqBody = request.get_json()
+    download = reqBody.get("downloadMbps")
+    upload = reqBody.get("uploadMbps")
+    ping = reqBody.get("ping")
+
+    b = updateColumn("velocidad_descarga", id, download)
+    b = updateColumn("velocidad_subida", id, upload)
+    b = updateColumn("velocidad_ping", id, ping)
+
+    return jsonify({"result": b}), 201
