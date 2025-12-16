@@ -80,7 +80,7 @@ app.register_blueprint(time_log_bp)
 
 #   return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
 
-@app.route('/ping', methods=['POST'])
+@app.route('/ping', methods=['POST', 'HEAD'])
 def ping():
 
     _ = request.get_data()
