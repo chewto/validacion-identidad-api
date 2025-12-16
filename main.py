@@ -30,7 +30,7 @@ CORS(app, resources={
 app.config['CORS_HEADER'] = 'Content-type'
 
 Request.max_form_parts = 5000
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
@@ -79,6 +79,14 @@ app.register_blueprint(time_log_bp)
 #   print(selfieAnalisis)
 
 #   return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
+
+@app.route('/ping', methods=['POST'])
+def ping():
+
+    _ = request.get_data()
+
+    return jsonify({"message": "pong"}), 200
+
 
 @app.route('/log', methods=['POST'])
 def savelog():
