@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timezone
 from threading import Lock
 
-from request.controlador_db import insert_time_log_record, select_time_logs, updateColumn
+from request.controlador_db import insert_time_log_record, select_time_logs, updateColumn, updateDate
 
 time_log_bp = Blueprint("time_logs", __name__, url_prefix="/time-logs")
 
@@ -37,7 +37,7 @@ def add_time_log():
 
     column_name = f"{action}_{column}"
 
-    b = updateColumn(column_name, id)
+    b = updateDate(column_name, id)
 
     return jsonify({"result": b}), 201
 
@@ -51,8 +51,6 @@ def add_speedtest_log():
     upload = reqBody.get("uploadMbps")
     ping = reqBody.get("ping")
 
-    b = updateColumn("velocidad_descarga", id, download)
-    b = updateColumn("velocidad_subida", id, upload)
-    b = updateColumn("velocidad_ping", id, ping)
+    b = updateColumn(id, (download, upload, ping))
 
     return jsonify({"result": b}), 201
