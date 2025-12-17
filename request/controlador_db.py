@@ -671,7 +671,7 @@ def updateDate(column: str, id: str) -> bool:
       conn.close()
 
 
-def updateColumn(id: str, values: tuple) -> bool:
+def updateSpeedtest(id: str, values: tuple) -> bool:
     try:
         conn = mariadb.connect(
           user=userDB,
@@ -688,7 +688,7 @@ def updateColumn(id: str, values: tuple) -> bool:
         cursor = conn.cursor()
         query = (
             "UPDATE pki_validacion.log_tiempos as log "
-            "SET velocidad_descarga = ?, velocidad_subida = ?, velocidad_ping = ? "
+            "SET velocidad_descarga = ?, tiempo_descarga = ?, velocidad_subida = ?, tiempo_subida = ?, velocidad_ping = ? "
             "WHERE log.id = ?"
         )
         cursor.execute(query, values + (id,))
