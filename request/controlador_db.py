@@ -702,3 +702,35 @@ def updateSpeedtest(id: str, values: tuple) -> bool:
         conn.commit()
         cursor.close()
         conn.close()
+
+def updateBodySize(values: tuple) -> bool:
+    try:
+        conn = mariadb.connect(
+          user=userDB,
+          password=passwordDB,
+          host=hostDB,
+          port=portDB,
+          database=nombreDB
+        )
+    except mariadb.Error as e:
+        print(e)
+        return False
+
+    try:
+        cursor = conn.cursor()
+        query = (
+            "UPDATE pki_validacion.log_tiempos as log "
+            "SET peso_evidencias = ? "
+            "WHERE log.id_firmador = ?"
+        )
+        cursor.execute(query, values)
+        return cursor.rowcount > 0
+
+    except mariadb.Error as e:
+        print(e)
+        return False
+
+    finally:
+        conn.commit()
+        cursor.close()
+        conn.close()
