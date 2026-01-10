@@ -85,50 +85,52 @@ def getUser(tabla,id):
 
   return usuarioDiccionario
 
-def insertTabla(columns: tuple, table:str, values: tuple):
 
-  try:
-    conn = mariadb.connect(
-      user=userDB,
-      password=passwordDB,
-      host=hostDB,
-      port=portDB,
-      database=nombreDB
-    )
-  except mariadb.Error as e:
-    print(f"error en la conexion, error = {e}")
-    return 0
+def insertTabla(columns: tuple, table: str, values: tuple):
+    conn = None
+    try:
+        # 1. Establecer conexión única para esta petición
+        conn = mariadb.connect(
+            user=userDB,
+            password=passwordDB,
+            host=hostDB,
+            port=portDB,
+            database=nombreDB
+        )
+        
+        # Usamos context managers para asegurar el cierre automático del cursor
+        with conn.cursor() as cursor:
+            columnasStr = ','.join(columns)
+            # Creamos los placeholders (?,?,?) de forma eficiente
+            placeHolderStr = ','.join(['?' for _ in columns])
 
-  try:
-    cursor = conn.cursor()
+            query = f"INSERT INTO {table} ({columnasStr}) VALUES ({placeHolderStr})"
+            
+            # 2. Ejecutar la inserción
+            cursor.execute(query, values)
+            
+            # 3. Capturar el ID antes de cualquier otra operación
+            documentoUsuarioID = cursor.lastrowid
+            
+            # 4. Confirmar los cambios solo si llegamos aquí sin errores
+            conn.commit()
+            
+            return documentoUsuarioID
 
-    columnasStr:str = ','.join(columns)
-    placeHolder:list = []
+    except mariadb.Error as e:
+        # 5. Si algo falla, revertimos cualquier cambio pendiente
+        if conn:
+            conn.rollback()
+            
+        print(f"Error en base de datos: {e}")
+        logsPath = logs.checkLogsFile()
+        logs.writeLogs(logsPath, f"Error en tabla {table}: {e}")
+        return 0
 
-    for columna in columns:
-      placeHolder.append('?')
-
-    placeHolderStr:str = ','.join(placeHolder)
-
-
-    query = f"INSERT INTO {table} ({columnasStr}) VALUES ({placeHolderStr})"
-    cursor.execute(query,values)
-
-    documentoUsuarioID = cursor.lastrowid
-
-    return documentoUsuarioID
-
-  except mariadb.Error as e:
-    print(e)
-    logsPath = logs.checkLogsFile()
-    logs.writeLogs(logsPath, e)
-
-    return 0
-
-  finally:
-    conn.commit()
-    cursor.close()
-    conn.close()
+    finally:
+        # 6. Asegurar que la conexión regrese al pool o se cierre
+        if conn:
+            conn.close()
 
 def comprobarProceso(id):
 

@@ -140,9 +140,6 @@ def antiSpoofing():
 
     photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
-    # if(len(photoDataURL) <= 0):
-    #   return jsonify({'messages': ['intentelo de nuevo']}), 201
-
     photoAccess = readDataURL(photoDataURL)
 
     result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
@@ -163,9 +160,6 @@ def antiSpoofing():
 
     if (movimientoDetectado != 'OK'):
         messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
-
-    # if(len(photoDataURL) <= 0):
-    #   messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
 
     if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
         messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
