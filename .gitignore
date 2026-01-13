@@ -8,6 +8,7 @@ BarcodeReaderCLI/
 videos/
 runs/
 recortes/
+videos_normalized/
 video_out.mp4
 
 #archivos
