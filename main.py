@@ -108,7 +108,10 @@ def antiSpoofing():
     if not path or not os.path.exists(path):
         return jsonify({"error": "El path no existe"}), 400
 
-    video = f'./videos_normalized/{os.path.basename(path).split(".")[0]}_normalized.mp4'
+    video_dir = os.path.join('.', 'videos_normalized')
+    os.makedirs(video_dir, exist_ok=True)
+    video_name = os.path.splitext(os.path.basename(path))[0] + '_normalized.mp4'
+    video = os.path.join(video_dir, video_name)
 
     # Build ffmpeg command as a list for subprocess
     try:
@@ -163,6 +166,13 @@ def antiSpoofing():
 
     if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
         messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
+
+    # Delete the normalized video to free disk space
+    try:
+        if os.path.exists(video):
+            os.remove(video)
+    except Exception as e:
+        print(f"No se pudo eliminar el video {video}: {e}")
 
     return jsonify({
         "movimientoDetectado": movimientoDetectado,
