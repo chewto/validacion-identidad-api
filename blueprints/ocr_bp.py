@@ -72,6 +72,7 @@ def verificarAnverso():
           "typeCheck": ""
       },
       "face": False,
+      "documentFace": None,
       "image": "",
       "mrz": {
           "code": None,
@@ -110,13 +111,14 @@ def verificarAnverso():
     )
     detectFaceEndTime = time.time()
     detectFaceTime = detectFaceEndTime - detectFaceInitTime
-  
     getFacesInit = time.time()
     extractFace = extractFaces(documentoOrientado, anti_spoofing=False)
+
     getFacesEnd = time.time()
     getFaces = getFacesEnd - getFacesInit
 
     if (extractFace):
+        resultsDict['documentFace'] = extractFace
         for face in extractFace:
             faceDetected = face.get('detected')
             resultsDict['faceDetected'] = faceDetected
