@@ -529,6 +529,7 @@ def validate():
     face = documentValidation['face']
     confidenceValue = documentValidation['confidence']
     confidenceValue = float(confidenceValue)
+    documentFace = documentValidation['documentFace']
 
     countryData = controlador_db.selectData(f'''
         SELECT * FROM pki_validacion.pais as pais 
@@ -544,7 +545,6 @@ def validate():
 
     # anversoOrientado, documentoValido = orientacionImagen(anversoData)
     # selfie, selfieValida = orientacionImagen(fotoPersonaData)
-
 
     checkValuesDict = {}
 
@@ -564,16 +564,15 @@ def validate():
 
     test = [movementCheck, antiSpoof, face]
 
-
     faceValidation['liveness_test'] = {
       'movement': movementCheck,
       'antiSpoofing':  antiSpoof
     }
 
-
     faceValidation['confidence_test'] = {
       'confidence': confidenceValue,
-      'value': face
+      'value': face,
+      'documentFace': documentFace
     }
 
     # faceValidation['img1_data'] = {
