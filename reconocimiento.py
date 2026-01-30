@@ -104,34 +104,24 @@ def analyzeFace(image):
 
 
 def verifyFaces(imageArray1, imageArray2):
-
     try:
         compareFaces = DeepFace.verify(
             img1_path=imageArray1,
             img2_path=imageArray2,
-            model_name='Facenet512'
+            model_name='Facenet512',
+            detector_backend='retinaface', # Mucho más estable
+            enforce_detection=False,       # Evita que el programa "muera" si no ve una cara clara
+            align=True                     # Ayuda a que Facenet reciba la cara derecha
         )
 
-        confidence = compareFaces['distance']
-        verified = compareFaces['verified']
-        img1 = compareFaces['facial_areas']['img1']
-        img2 = compareFaces['facial_areas']['img2']
-
-        landmarks = {
-            'img1': img1,
-            'img2': img2
-        }
-
-        return landmarks, confidence, verified
-    except:
-
-        landmarks = {
-            'img1': 0,
-            'img2': 0
-        }
-
-        return landmarks,0.99, False
-
+        return (
+            compareFaces['facial_areas'],
+            compareFaces['distance'],
+            compareFaces['verified']
+        )
+    except Exception as e:
+        print(f"Error en validación: {e}")
+        return {'img1': 0, 'img2': 0}, 1.67, False # Uso 1.0 para indicar distancia máxima
 
 
 # def getFrames(

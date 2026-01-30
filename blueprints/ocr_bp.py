@@ -38,7 +38,7 @@ def verificarAnverso():
     ocr =  parsed['ocr']
     textAngle = parsed['text_angle']
 
-    confidenceThreshold = 0.65 if tries >= 1 else 0.6
+    confidenceThreshold = 0.70 if tries >= 1 else 0.70
 
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
