@@ -1,19 +1,17 @@
 import cv2
-from utilities.utilidades import cv2Blob
 from PIL import Image
 import base64
 import io
 from deepface import DeepFace
 import os
-from typing import List, Tuple, Optional
+from typing import List, Optional
+import numpy as np
 
 try:
     import av
 except Exception as e:
     raise ImportError("PyAV no está instalado. Instala con: pip install av") from e
 
-import cv2
-import numpy as np
 
 
 haarscascade_frontal_face = 'haarcascade_frontalface_alt.xml'
@@ -114,14 +112,16 @@ def verifyFaces(imageArray1, imageArray2):
             align=True                     # Ayuda a que Facenet reciba la cara derecha
         )
 
+        distance = int(compareFaces['distance'] * 100) / 100
+
         return (
             compareFaces['facial_areas'],
-            compareFaces['distance'],
+            distance,
             compareFaces['verified']
         )
     except Exception as e:
         print(f"Error en validación: {e}")
-        return {'img1': 0, 'img2': 0}, 1.67, False # Uso 1.0 para indicar distancia máxima
+        return {'img1': 0, 'img2': 0}, 10.67, False # Uso 1.0 para indicar distancia máxima
 
 
 # def getFrames(
