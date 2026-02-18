@@ -236,6 +236,18 @@ def yoloReader(img, modelPath):
 
   return results
 
+def yoloTesting(img, modelPath, yoloLabels):
+  results = yoloReader(img, modelPath)
+
+  detected_classes = []
+
+  for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
+    class_idx = int(cls)
+    label = yoloLabels[class_idx] if class_idx < len(yoloLabels) else str(class_idx)
+    detected_classes.append(label)
+
+  return detected_classes
+
 def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list[str], modelPath: str):
   documentClass = documentDetection[countryCode][type][side]
   documentClass = documentClass.split(" ")

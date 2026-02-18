@@ -1,7 +1,7 @@
 
 import json
 from flask import Blueprint, request, jsonify
-from document_detection import detectDocument, searchDocumentSelfie, validateDocument
+from document_detection import detectDocument, searchDocumentSelfie, validateDocument, yoloTesting
 from utilities.formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from utilities.logs import addLog, checkLogsFile
@@ -616,22 +616,29 @@ def documentValidation():
   frames = getFrames(video_path=path, interval_ms=1000)
 
   initTime = time.time()
+
+  classes = []
+
+  frameCounter = 0
+
   for frame in frames:
-    document_section, doc_check, doc_messages, croppedImage = validateDocument(
+    frameCounter += 1
+    detected_classes = yoloTesting(
         frame,
-        [''],
-        'CEDULA DE CIUDADANIA',
-        'anverso',
-        'COL',
-        [''],
+        "./models/colombia-v0.1.pt",
         yoloLabels
     )
+    classes.append({"frame": frameCounter, "classes": detected_classes})
+
 
   endTime = time.time()
-  total = initTime - endTime
+  total = endTime - initTime
   print(total)
 
-  return 'working'
+  return jsonify({
+    'totalTime': total,
+    'framesResults': classes
+  })
 
 
 
