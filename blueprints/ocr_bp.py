@@ -601,6 +601,8 @@ def documentValidation():
   # video = request.files.get('video')
 
   path = request.args.get("path")
+  interval = request.args.get("intervalo")
+  interval = int(interval) if interval is not None else 1000
 
   countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
@@ -613,7 +615,7 @@ def documentValidation():
   yoloLabels = countryData[3]
   yoloLabels = yoloLabels.split(',')
 
-  frames = getFrames(video_path=path, interval_ms=1000)
+  frames = getFrames(video_path=path, interval_ms=interval)
 
   initTime = time.time()
 
