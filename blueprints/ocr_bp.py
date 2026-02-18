@@ -9,7 +9,7 @@ from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
-from reconocimiento import extractFaces, orientacionImagen, verifyFaces
+from reconocimiento import extractFaces, getFrames, orientacionImagen, verifyFaces
 from utilities.request_parser import _parse_request
 from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from utilities.check_result import testingCountry, testingType, results
@@ -418,12 +418,10 @@ def verificarReverso():
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
-    getInitTime = time.time()
     countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
-    getEndTime = time.time()
-    getTime = getEndTime - getInitTime
+
 
     mrzData = json.loads(countryData[0])
     barcodeData = json.loads(countryData[1])
@@ -594,6 +592,47 @@ def verificarReverso():
     resultsDict['validSide'] = validSide
 
     return jsonify(resultsDict)
+
+
+
+
+@ocr_bp.route('/document', methods=['POST'])
+def documentValidation():
+  # video = request.files.get('video')
+
+  path = request.args.get("path")
+
+  countryData = controlador_db.selectData(f'''
+      SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
+      WHERE pais.codigo = "COL"''', ())
+
+
+  mrzData = json.loads(countryData[0])
+  barcodeData = json.loads(countryData[1])
+  ocrData = json.loads(countryData[2])
+  yoloLabels = countryData[3]
+  yoloLabels = yoloLabels.split(',')
+
+  frames = getFrames(video_path=path, interval_ms=1000)
+
+  initTime = time.time()
+  for frame in frames:
+    document_section, doc_check, doc_messages, croppedImage = validateDocument(
+        frame,
+        [''],
+        'CEDULA DE CIUDADANIA',
+        'anverso',
+        'COL',
+        [''],
+        yoloLabels
+    )
+
+  endTime = time.time()
+  total = initTime - endTime
+  print(total)
+
+  return 'working'
+
 
 
 @ocr_bp.route('/mrz', methods=['POST'])
