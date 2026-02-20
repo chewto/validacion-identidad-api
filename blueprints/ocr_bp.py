@@ -603,6 +603,10 @@ def documentValidation():
   path = request.args.get("path")
   interval = request.args.get("intervalo")
   interval = int(interval) if interval is not None else 1000
+  documentType = request.args.get("documentType")
+  documentSide = request.args.get("documentSide")
+
+  document = f'{documentType}_{documentSide}'
 
   countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
@@ -624,13 +628,19 @@ def documentValidation():
   frameCounter = 0
 
   for frame in frames:
-    frameCounter += 1
-    detected_classes = yoloTesting(
-        frame,
-        "./models/colombia-v0.1.pt",
-        yoloLabels
-    )
-    classes.append({"frame": frameCounter, "classes": detected_classes})
+      frameCounter += 1
+      detected_classes = yoloTesting(
+          frame,
+          "./models/colombia-v0.1.pt",
+          yoloLabels
+      )
+
+      isDocument = False
+
+      if document in detected_classes:
+          isDocument = True
+
+      classes.append({"frame": frameCounter, "classes": detected_classes, "documentDetected": isDocument})
 
 
   endTime = time.time()
