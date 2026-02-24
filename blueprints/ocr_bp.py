@@ -582,9 +582,9 @@ def verificarReverso():
 
     validSide, _, _percent = results(51, 'AUTOMATICA', checkSide)
 
-    logsPath = checkLogsFile()
-    logString = f"reverso; data-server: {getTime};  deteccion-documento: {detectTime}; mrz: {mrzTime}; codigo-barra: {barcodeTime};\n"
-    addLog(logsPath, logString)
+    # logsPath = checkLogsFile()
+    # logString = f"reverso; data-server: {getTime};  deteccion-documento: {detectTime}; mrz: {mrzTime}; codigo-barra: {barcodeTime};\n"
+    # addLog(logsPath, logString)
 
 
     resultsDict['messages'] = messages

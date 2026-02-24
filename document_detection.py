@@ -240,13 +240,36 @@ def yoloTesting(img, modelPath, yoloLabels):
   results = yoloReader(img, modelPath)
 
   detected_classes = []
+  data = []
 
   for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
     class_idx = int(cls)
     label = yoloLabels[class_idx] if class_idx < len(yoloLabels) else str(class_idx)
-    detected_classes.append(label)
 
-  return detected_classes
+    # Crop the image using the bounding box
+    x1, y1, x2, y2 = map(int, box)
+    cropped_img = None
+    if hasattr(img, 'shape'):  # numpy array
+      if img.shape[-1] == 3:
+        cropped_img = Image.fromarray(img[y1:y2, x1:x2][..., ::-1])  # BGR to RGB
+      else:
+        cropped_img = Image.fromarray(img[y1:y2, x1:x2])
+    else:
+      if isinstance(img, Image.Image):
+        cropped_img = img.crop((x1, y1, x2, y2))
+
+    if cropped_img is not None:
+      buffered = BytesIO()
+      cropped_img.save(buffered, format="PNG")
+      img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+      data_url = f"data:image/png;base64,{img_str}"
+    else:
+      data_url = None
+
+    detected_classes.append(label)
+    data.append({"label": label, "crop": data_url})
+
+  return data
 
 def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list[str], modelPath: str):
   documentClass = documentDetection[countryCode][type][side]
