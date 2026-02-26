@@ -98,6 +98,15 @@ def savelog():
 
     return 'log añadido'
 
+@app.route('/link', methods=['GET'])
+def getLink():
+
+    id = request.args.get('id')
+
+    data = controlador_db.selectData("SELECT firmador.enlace_temporal FROM pki_firma_electronica.firmador_pki AS firmador WHERE firmador.id = ?;", id)
+
+    return jsonify({"enlace": data[0] if data else None})
+
 
 @app.route('/anti-spoof', methods=['POST'])
 def antiSpoofing():
