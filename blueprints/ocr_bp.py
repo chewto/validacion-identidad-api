@@ -629,7 +629,7 @@ def documentValidation():
 
   for frame in frames:
       frameCounter += 1
-      detected_classes = yoloTesting(
+      data, detected_classes = yoloTesting(
           frame,
           "./models/colombia-v0.1.pt",
           yoloLabels
@@ -640,7 +640,7 @@ def documentValidation():
       if document in detected_classes:
           isDocument = True
 
-      classes.append({"frame": frameCounter, "classes": detected_classes, "documentDetected": isDocument})
+      classes.append({"frame": frameCounter, "classes": data, "documentDetected": isDocument})
 
 
   endTime = time.time()

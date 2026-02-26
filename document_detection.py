@@ -269,7 +269,7 @@ def yoloTesting(img, modelPath, yoloLabels):
     detected_classes.append(label)
     data.append({"label": label, "crop": data_url})
 
-  return data
+  return data, detected_classes
 
 def detectDocument(img, countryCode: str, side: str, type: str, yoloLabels: list[str], modelPath: str):
   documentClass = documentDetection[countryCode][type][side]
