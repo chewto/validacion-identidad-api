@@ -28,6 +28,9 @@ def documentDetection():
 
     document = f'{documentType}_{documentSide}'.upper()
 
+    if(documentType == 'PASAPORTE'):
+        document = 'PASAPORTE'
+
     if testing:
         image = request.files.get("image", None)
         country = request.form.get('country')
