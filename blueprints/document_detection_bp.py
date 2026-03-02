@@ -21,30 +21,55 @@ confidenceValue = 0.6
 @document_detection_bp.route('/detection', methods=['POST', 'GET'])
 def documentDetection():
 
-  if(request.method == 'GET'):
-    return 'vayase pal diablo'
+    testing = request.args.get("testing", "false").lower() == "true"
 
-  testing = request.args.get("testing", "false").lower() == "true"
+    documentType = request.args.get("documento")
+    documentSide = request.args.get("lado")
 
-  if testing:
-    image = request.files.get("image", None)
-    country = request.form.get('country')
-    imageData = fileCv2(image)
-  else:
-    data = request.get_json()
-    country = data['country']
-    imageData = readDataURL(data["image"])
+    document = f'{documentType}_{documentSide}'.upper()
 
-  countryData = controlador_db.selectData(f'''
-      SELECT yolo_labels FROM pki_validacion.pais as pais 
-      WHERE pais.codigo = "{country}"''', ())
+    if testing:
+        image = request.files.get("image", None)
+        country = request.form.get('country')
+        imageData = fileCv2(image)
+    else:
+        data = request.get_json()
+        country = data['country']
+        imageData = readDataURL(data["image"])
 
-  yoloLabels = countryData[0]
-  yoloLabels = yoloLabels.split(',')
+    countryData = controlador_db.selectData(f'''
+        SELECT yolo_labels FROM pki_validacion.pais as pais
+        WHERE pais.codigo = "{country}"''', ())
 
-  results =  document_detection.detection(imageData, yoloLabels, country)
+    yoloLabels = countryData[0]
+    yoloLabels = yoloLabels.split(',')
 
-  return results
+    results = document_detection.detection(imageData, yoloLabels, country)
+
+    labels = []
+
+    for result in results:
+        labels.append(result['label'])
+
+    isDocument = False
+
+
+
+    if document in labels:
+        isDocument = True
+    else:
+        for label in labels:
+            if 'CEDULA_DIGITAL' in label and documentType in 'CEDULA_CIUDADANIA':
+                documentType = f'CEDULA_DIGITAL_{documentSide}'
+                if documentType in labels:
+                    print(label)
+                    isDocument = True
+                    break
+
+    return jsonify({
+        "documentoValido": isDocument,
+        "etiquetas": labels
+    }), 200
 
 @document_detection_bp.route('/validate', methods=['POST', 'GET'])
 def validate():
