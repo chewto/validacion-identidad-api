@@ -509,6 +509,21 @@ def getMrz(data):
   return mrz, True
 
 def detection(img, classes:list[str], country):
+  """
+  Detects objects in an image using a YOLO model and returns their labels and crop coordinates.
+  Args:
+    img: The input image to process.
+    classes (list[str]): List of class names corresponding to the model's output classes.
+    country: The country key used to select the appropriate YOLO model path from `documentDetection`.
+  Returns:
+    list[dict]: A list of dictionaries, each containing:
+      - "label": The detected class label (str).
+      - "crop": The coordinates of the crop as [[y1, y2], [x1, x2]], where:
+        - x1, y1: Top-left corner of the bounding box.
+        - x2, y2: Bottom-right corner of the bounding box.
+        - The width of the box is (x2 - x1).
+        - The height of the box is (y2 - y1).
+  """
 
   modelPath = documentDetection[country]['modelPath']
 

@@ -18,6 +18,7 @@ document_detection_bp = Blueprint('document', __name__, url_prefix="/document")
 
 confidenceValue = 0.6
 
+
 @document_detection_bp.route('/detection', methods=['POST', 'GET'])
 def documentDetection():
 
@@ -28,7 +29,7 @@ def documentDetection():
 
     document = f'{documentType}_{documentSide}'.upper()
 
-    if(documentType == 'PASAPORTE'):
+    if (documentType == 'PASAPORTE'):
         document = 'PASAPORTE'
 
     if testing:
@@ -49,29 +50,38 @@ def documentDetection():
 
     results = document_detection.detection(imageData, yoloLabels, country)
 
+    crops = []
     labels = []
+    isDocument = False
 
     for result in results:
         labels.append(result['label'])
 
-    isDocument = False
+        if 'CEDULA_DIGITAL' in result['label'] and documentType in 'CEDULA_CIUDADANIA':
+            document = f'CEDULA_DIGITAL_{documentSide}'
 
+        if document in result['label'] or 'FOTO' in result['label']:
 
+            crop = {
+              "left": int(result['crop'][1][0]),
+              "right": int(result['crop'][1][1]),
+              "top": int(result['crop'][0][0]),
+              "bottom": int(result['crop'][0][1])
+            }
+            # Recortar la imagen y convertir a base64
+
+            crops.append({
+              "etiqueta": result['label'],
+              "recorte": crop,
+            })
 
     if document in labels:
         isDocument = True
-    else:
-        for label in labels:
-            if 'CEDULA_DIGITAL' in label and documentType in 'CEDULA_CIUDADANIA':
-                documentType = f'CEDULA_DIGITAL_{documentSide}'
-                if documentType in labels:
-                    print(label)
-                    isDocument = True
-                    break
 
     return jsonify({
         "documentoValido": isDocument,
-        "etiquetas": labels
+        "etiquetas": labels,
+        "recortes": crops
     }), 200
 
 @document_detection_bp.route('/validate', methods=['POST', 'GET'])

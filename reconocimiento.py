@@ -6,6 +6,7 @@ from deepface import DeepFace
 import os
 from typing import List, Optional
 import numpy as np
+from insightface.app import FaceAnalysis
 
 try:
     import av
@@ -453,3 +454,38 @@ def orientacionImagen(imagen):
             return imagen, carasAlmacenadas
 
     return imagen, carasAlmacenadas
+
+app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+app.prepare(ctx_id=0, det_size=(640, 640))
+
+def recognize(img1_path, img2_path, threshold=0.34):
+
+    faces_ref = app.get(img1_path)
+    faces_doc = app.get(img2_path)
+
+    # Validamos que haya rostros en ambos
+    if not faces_ref or not faces_doc:
+        return "No se detectó rostro en una de las imágenes", 0
+    
+    # Extraemos el embedding de la cara principal de referencia (la selfie)
+    # .normed_embedding es el vector numérico puro que Numpy entiende
+    emb1 = faces_ref[0].normed_embedding 
+    
+    similarities = []
+
+    # 2. Iteramos sobre los rostros encontrados en el documento
+    for face in faces_doc:
+        # Extraemos el vector numérico de la cara actual del documento
+        faceNormed = face.normed_embedding
+        
+        # Ahora sí, ambos son arrays de Numpy. Calculamos similitud.
+        similarity = np.dot(emb1, faceNormed)
+        similarities.append(similarity)
+
+    # 3. Determinamos la mayor similitud encontrada
+    print(similarities)
+    max_similarity = max(similarities)
+    print(max_similarity)
+    is_same = max_similarity > threshold
+
+    return is_same, max_similarity
