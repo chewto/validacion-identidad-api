@@ -6,7 +6,7 @@ from deepface import DeepFace
 import os
 from typing import List, Optional
 import numpy as np
-# from insightface.app import FaceAnalysis
+from insightface.app import FaceAnalysis
 
 try:
     import av
@@ -456,36 +456,36 @@ def orientacionImagen(imagen):
     return imagen, carasAlmacenadas
 
 
-# app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-# app.prepare(ctx_id=0, det_size=(640, 640))
+app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+app.prepare(ctx_id=0, det_size=(640, 640))
 
 
-# def recognize(frames_ref, img2_path, threshold=0.34):
+def recognize(frames_ref, img2_path, threshold=0.34):
 
-#     facesRefs = []
+    facesRefs = []
 
-#     for frame in frames_ref:
-#         faces = app.get(frame)
-#         if faces:
-#             # Usar la cara con mayor score en el frame
-#             main_face = max(faces, key=lambda f: f.det_score)
-#             facesRefs.append(main_face)
+    for frame in frames_ref:
+        faces = app.get(frame)
+        if faces:
+            # Usar la cara con mayor score en el frame
+            main_face = max(faces, key=lambda f: f.det_score)
+            facesRefs.append(main_face)
 
-#     faces_doc = app.get(img2_path)
+    faces_doc = app.get(img2_path)
 
-#     # Validamos que haya embedding de referencia y rostros en el documento
-#     if not facesRefs or not faces_doc:
-#         return False, 0.0001
+    # Validamos que haya embedding de referencia y rostros en el documento
+    if not facesRefs or not faces_doc:
+        return False, 0.0001
 
-#     similarities = []
-#     for face in faces_doc:
-#         faceNormed = face.normed_embedding
-#         for ref_face in facesRefs:
-#             scoreEmbeddng = ref_face.normed_embedding
-#             similarity = np.dot(scoreEmbeddng, faceNormed)
-#             similarities.append(similarity)
+    similarities = []
+    for face in faces_doc:
+        faceNormed = face.normed_embedding
+        for ref_face in facesRefs:
+            scoreEmbeddng = ref_face.normed_embedding
+            similarity = np.dot(scoreEmbeddng, faceNormed)
+            similarities.append(similarity)
 
-#     max_similarity = max(similarities)
-#     is_same = max_similarity > threshold
+    max_similarity = max(similarities)
+    is_same = max_similarity > threshold
 
-#     return bool(is_same), float(max_similarity)
+    return bool(is_same), float(max_similarity)
