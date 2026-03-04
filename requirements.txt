@@ -46,7 +46,6 @@ idna==3.10
 imageio==2.37.0
 imutils==0.5.4
 inflect==7.5.0
-insightface==0.7.3
 isort==6.0.1
 itsdangerous==2.2.0
 Jinja2==3.1.6
