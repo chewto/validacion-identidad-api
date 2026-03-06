@@ -1,9 +1,11 @@
 import os
 
+import cv2
 import ffmpeg
 from flask import Blueprint, request, jsonify
 from reconocimiento import getFrames, recognize
 from utilities.utilidades import fileCv2, readDataURL
+
 
 recognition_bp = Blueprint('recognition', __name__, url_prefix="/recognition")
 
@@ -11,17 +13,16 @@ recognition_bp = Blueprint('recognition', __name__, url_prefix="/recognition")
 @recognition_bp.route('/verify', methods=['POST'])
 def recog():
 
-    testing = request.args.get("testing", "false").lower() == "true"
+    # testing = request.args.get("testing", "false").lower() == "true"
 
-    if testing:
-        documentImage = fileCv2(request.files.get("imagenDocumento", None))
-        # personImage = fileCv2(request.files.get("imagenPersona", None))
-        personVideoPath = request.form.get("videoPersona", None)
-    else:
-        data = request.get_json()
-        documentImage = readDataURL(data["imagenDocumento"])
-        # personImage = readDataURL(data["imagenPersona"])
-        personVideoPath = data["videoPersona"]
+    documentImagePath = request.form.get("imagenDocumento", None)
+    documentImage = cv2.imread(documentImagePath)
+    personVideoPath = request.form.get("videoPersona", None)
+    # else:
+    #     data = request.get_json()
+    #     documentImage = readDataURL(data["imagenDocumento"])
+    #     # personImage = readDataURL(data["imagenPersona"])
+    #     personVideoPath = data["videoPersona"]
 
     if personVideoPath is None or not os.path.isfile(personVideoPath):
         return jsonify({"error": "No se proporcionó un video válido o el archivo no existe."}), 400
