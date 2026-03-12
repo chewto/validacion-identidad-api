@@ -3,6 +3,7 @@ import os
 import cv2
 import ffmpeg
 from flask import Blueprint, request, jsonify
+from lector_codigo import barcodereaderPath, formatData
 from reconocimiento import extractFaces, faceDetection, getFrames, movementDetection, recognize
 from utilities.utilidades import fileCv2, readDataURL
 from mrz import read_mrz
@@ -76,14 +77,15 @@ def recog():
     return jsonify({"similitud": result, "esMismaPersona": isSame, "movimiento": move, "antiSpoofing": antiSpoofing}), 200
 
 
-
 @recognition_bp.route('/mrz', methods=['POST'])
 def mrzReader():
     # 1. Obtienes la ruta (ej: "C:/fotos/pasaporte.jpg" o "/tmp/img.png")
     ruta_imagen = request.form.get('imagen')
 
     if not ruta_imagen:
-        return jsonify({"error": "No se proporcionó la ruta de la imagen"}), 400
+        return jsonify(
+            {"error": "No se proporcionó la ruta de la imagen"}
+        ), 400
 
     try:
         mrz = read_mrz(ruta_imagen)
@@ -98,3 +100,27 @@ def mrzReader():
 
     except Exception as e:
         return jsonify({"error": f"Error procesando MRZ: {str(e)}"}), 500
+
+
+@recognition_bp.route('/barcode', methods=['POST'])
+def reader():
+
+    image = request.form.get('imagen')
+    barcodeType = request.form.get('tipoCodigoBarras')
+    documentType = request.form.get('tipoDocumento')
+
+    exist = os.path.exists(image)
+
+    if (not exist):
+        return jsonify(
+            {"error": "No se proporcionó la ruta de la imagen"}
+        ), 400
+
+    barcodes = barcodereaderPath(image, barcodeType)
+
+    data = formatData(barcodes, documentType)
+
+    return jsonify({
+      # 'image': image,
+      'codigosBarras': data
+    }), 200

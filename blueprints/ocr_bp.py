@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from document_detection import detectDocument, searchDocumentSelfie, validateDocument, yoloTesting
 from utilities.formatter import _formatDocumentNumber
-from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
+from lector_codigo import barcodeReader, barcodeSide, barcodereaderPath, rotateBarcode, extractCountry
 from utilities.logs import addLog, checkLogsFile
 from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
@@ -653,21 +653,3 @@ def documentValidation():
     'totalTime': total,
     'framesResults': classes
   })
-
-@ocr_bp.route('/barcode-reader', methods=['POST'])
-def reader():
-
-    id = request.args.get('id')
-    image = request.files.get('image')
-    documentType = request.form.get('documentType')
-    documentSide = request.form.get('documentSide')
-    imageData = fileCv2(image)
-
-
-
-    barcodes = barcodeReader(imageData, id, documentSide, "pdf417", "")
-
-    return jsonify({
-      # 'image': image,
-      'barcodeData': barcodes
-    })

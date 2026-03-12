@@ -108,41 +108,6 @@ barcodes = {
   }
 }
 
-formatDefinition = {
-    "Cédula de ciudadanía": [
-        ("codigoAfis", 2, 10),
-        ("fingerCard", 40, 48),
-        ("numeroDocumento", 48, 58),
-        ("apellido", 58, 80),
-        ("segundaApellido", 81, 104),
-        ("nombre", 104, 127),
-        ("segundoNombre", 127, 150),
-        ("genero", 151, 152),
-        ("añoNacimeinto", 152, 156),
-        ("mesNacimiento", 156, 158),
-        ("diaNacimiento", 158, 160),
-        ("codigoMunicipalidad", 160, 162),
-        ("codigoDepartamento", 162, 165),
-        ("tipoSangre", 166, 168)
-    ],
-    "Cédula de extranjería": [
-        ("estado", 10, ),
-        ("fingerCard", 40, 48),
-        ("numeroDocumento", 28, 58),
-        ("apellido", 58, 80),
-        ("segundaApellido", 81, 104),
-        ("nombre", 104, 127),
-        ("segundoNombre", 127, 150),
-        ("genero", 151, 152),
-        ("añoNacimeinto", 152, 156),
-        ("mesNacimiento", 156, 158),
-        ("diaNacimiento", 158, 160),
-        ("codigoMunicipalidad", 160, 162),
-        ("codigoDepartamento", 162, 165),
-        ("tipoSangre", 166, 168)
-    ]
-}
-
 
 def barcodeSide(documentType, documentSide, barcodeData):
   hasBarcode, barcodeType, tbr = barcodeData[documentType][documentSide]
@@ -167,7 +132,7 @@ def extractBarcodeData(barcodeData, documentType):
   barcodeString = barcodeBytes.decode('utf-8', errors='ignore')
   documentFormat = formatDefinition[documentType]
 
-# TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
+TBR_CODES = [103,125, 115, 118, 112, 109, 106,121 ]
 # TBR_CODES = [103]
 
 def ejecutar_lector(imagen_path, tbr_code, barcodeType):
@@ -218,66 +183,95 @@ def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbrList):
 
   return barcodesExtracted
 
-# def barcodeReader(photo, idBarcodecode, barcodeSide, barcodeType, tbr):
-#   folderBarcodes = './codigos-barras'
-#   folderExistance = os.path.exists(folderBarcodes)
 
-#   # hsv = cv2.cvtColor(photo, cv2.COLOR_BGR2HSV)
+def barcodereaderPath(imagePath, barcodeType):
 
-#   # # Ajustar saturación (por ejemplo, aumentar un 30%)
-#   # saturation_scale = 1.3
-#   # hsv[..., 1] = np.clip(hsv[..., 1] * saturation_scale, 0, 255)
+    barcodesExtracted = []
 
-#   # # Volver a BGR
-#   # img_sat = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    found = False
+    for tbr in TBR_CODES:
+        res = ejecutar_lector(imagePath, tbr, barcodeType)
+        try:
+            data = json.loads(res)
+            sessions = data.get('sessions')
+            if sessions and isinstance(sessions[0], dict):
+                barcodes = sessions[0].get('barcodes')
+                if barcodes:
+                    found = True
+                    barcodesExtracted = barcodes
+                    break
+        except json.JSONDecodeError:
+            pass
+        if found:
+            break
 
-#   # # Ajustar contraste usando cv2.convertScaleAbs
-#   # # alpha > 1 aumenta el contraste, beta ajusta el brillo
-#   # alpha = 1.5  # Contraste
-#   # beta = 0     # Brillo
-#   # img_contrast = cv2.convertScaleAbs(img_sat, alpha=alpha, beta=beta)
+    return barcodesExtracted
 
-#   if not folderExistance:
-#     os.makedirs(folderBarcodes)
 
-#   imagePath = f"{folderBarcodes}/{idBarcodecode}-{barcodeSide}.jpeg"
-#   cv2.imwrite(imagePath, photo)
+formatDefinition = {
+    "CEDULA_CIUDADANIA": [
+        ("codigoAfis", 2, 10),
+        ("fingerCard", 40, 48),
+        ("numeroDocumento", 48, 58),
+        ("apellido", 58, 80),
+        ("segundaApellido", 81, 104),
+        ("nombre", 104, 127),
+        ("segundoNombre", 127, 150),
+        ("genero", 151, 152),
+        ("añoNacimeinto", 152, 156),
+        ("mesNacimiento", 156, 158),
+        ("diaNacimiento", 158, 160),
+        ("codigoMunicipalidad", 160, 162),
+        ("codigoDepartamento", 162, 165),
+        ("tipoSangre", 166, 168)
+    ],
+    "CEDULA_EXTRANJERIA": [
+        ("estado", 12, 20),                # "MIGRANTE"
+        ("numeroDocumento", 34, 52),        # "000000000000423105"
+        ("apellido", 52, 82),              # "OTERO" + espacios
+        ("segundoApellido", 82, 112),      # "CARREIRA" + espacios
+        ("nombre", 112, 142),              # "BENITO" + espacios
+        ("segundoNombre", 142, 172),       # Bloque de espacios vacíos
+        ("fechaNacimiento", 192, 200),       # "21"
+        ("genero", 200, 201),               # "M"
+        # Campos adicionales detectados en tu cadena:
+        ("fechaExpedicion", 201, 209),     # "20210802"
+        ("fechaVencimiento", 209, 217),    # "20240729"
+        ("tipoSangre", 217, 220),           # "A+ "
+        ("nacionalidad", 220, 224)
+    ]
+}
 
-#   exe = './BarcodeReaderCLI/bin/BarcodeReaderCLI'
 
-#   # args = []
-#   # args.append(exe)
-#   # args.append(f'-type={barcodeType}')
-#   # # args.append('-type=pdf417,qr,datamatrix,code39,code128,codabar,ucc128,code93,upca,ean8,upce,ean13,i25,imb,bpo,aust,sing')
-#   # args.append('-tbr=112,115,117')
-#   # args.append('-fields=text,data,rectangle,rotation')
-#   # args.append(imagePath)
+def formatData(barcodes: list, documentType: str):
+    if not barcodes:
+        return []
 
-#   cmd = [exe, '-type={barcodeType}', f'-tbr={tbr_code}', imagePath]
+    results = []
 
-#   try:
-#         process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#         process.check_returncode()
-#   except subprocess.CalledProcessError as e:
-#         print(e)
-#         print('no es detectaron')
-#         return '!OK'
-#   except PermissionError as e:
-#         print('error de permisos')
-#         return '!OK'
+    for barcode in barcodes:
+        raw_text = barcode.get('text', '')
+        text = raw_text.replace("{NUL}", " ")
 
-#   barcodeExistance = os.path.exists(imagePath)
-#   if(barcodeExistance):
-#     os.remove(imagePath)
+        definition = formatDefinition[documentType]
 
-#   string = process.stdout.decode('utf-8')
-#   jsonProcess = json.loads(string)
+        parsed_item = {}
 
-#   sessionsExtracted = jsonProcess["sessions"][0]
-#   barcodesExtracted = sessionsExtracted["barcodes"]
-#   print(barcodesExtracted)
+        for field in definition:
+            nombre_campo = field[0]
+            inicio = field[1]
+            fin = field[2]
 
-#   return barcodesExtracted
+            valor = text[inicio:fin].strip()
+
+            valor = valor.replace("|", "").strip()
+
+            parsed_item[nombre_campo] = valor
+
+        results.append(parsed_item)
+
+    return results
+
 
 def extractCountry(barcodes):
 
