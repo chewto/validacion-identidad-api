@@ -1,13 +1,16 @@
 
+import io
 import json
+from PIL import Image
 from flask import Blueprint, request, jsonify
+import numpy as np
 from document_detection import detectDocument, searchDocumentSelfie, validateDocument, yoloTesting
 from utilities.formatter import _formatDocumentNumber
 from lector_codigo import barcodeReader, barcodeSide, rotateBarcode, extractCountry
 from utilities.logs import addLog, checkLogsFile
 from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
-from mrz import MRZSide, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
+from mrz import MRZSide, aplicar_filtro_sharp, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import extractFaces, getFrames, orientacionImagen, verifyFaces
 from utilities.request_parser import _parse_request
@@ -15,7 +18,6 @@ from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fil
 from utilities.check_result import testingCountry, testingType, results
 import time
 import request.controlador_db as controlador_db
-import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
@@ -651,18 +653,6 @@ def documentValidation():
     'totalTime': total,
     'framesResults': classes
   })
-
-
-
-@ocr_bp.route('/mrz', methods=['POST'])
-def mrzReader():
-    image = request.files.get('image')
-    imageData = fileCv2(image)
-
-    result = extractMRZ(imageData)
-
-    return jsonify(result)
-
 
 @ocr_bp.route('/barcode-reader', methods=['POST'])
 def reader():

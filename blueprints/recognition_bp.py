@@ -3,9 +3,9 @@ import os
 import cv2
 import ffmpeg
 from flask import Blueprint, request, jsonify
-from reconocimiento import getFrames, recognize
+from reconocimiento import extractFaces, faceDetection, getFrames, movementDetection, recognize
 from utilities.utilidades import fileCv2, readDataURL
-
+from mrz import read_mrz
 
 recognition_bp = Blueprint('recognition', __name__, url_prefix="/recognition")
 
@@ -53,7 +53,18 @@ def recog():
 
     frames = getFrames(video, frameCounter=12)
 
-    isSame, result = recognize(frames, documentImage)
+    isSame, result, bestFrame = recognize(frames, documentImage)
+
+    _, refFace, faces = faceDetection(frames)
+
+    move = movementDetection(refFace, faces)
+
+    extractFace = extractFaces(bestFrame, anti_spoofing=True)
+
+    antiSpoofing = False
+
+    for face in extractFace:
+        antiSpoofing = face['isReal']
 
     # Delete the normalized video after processing
     if os.path.isfile(video):
@@ -62,4 +73,28 @@ def recog():
         except Exception as e:
             print(f"Error al eliminar el video normalizado: {e}")
 
-    return jsonify({"similitud": result, "esMismaPersona": isSame}), 200
+    return jsonify({"similitud": result, "esMismaPersona": isSame, "movimiento": move, "antiSpoofing": antiSpoofing}), 200
+
+
+
+@recognition_bp.route('/mrz', methods=['POST'])
+def mrzReader():
+    # 1. Obtienes la ruta (ej: "C:/fotos/pasaporte.jpg" o "/tmp/img.png")
+    ruta_imagen = request.form.get('imagen')
+
+    if not ruta_imagen:
+        return jsonify({"error": "No se proporcionó la ruta de la imagen"}), 400
+
+    try:
+        mrz = read_mrz(ruta_imagen)
+
+        if mrz is None:
+            return jsonify({"error": "No se detectó MRZ en la imagen"}), 404
+
+        data = mrz.to_dict()
+        raw = data['raw_text']
+
+        return jsonify({"mrz": raw, "data": data})
+
+    except Exception as e:
+        return jsonify({"error": f"Error procesando MRZ: {str(e)}"}), 500

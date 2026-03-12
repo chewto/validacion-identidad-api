@@ -378,8 +378,8 @@ def movementDetection(rostroReferencia, rostros, threshold=5, min_moving_frames=
         str: 'OK' si hay movimiento, '!OK' si no lo hay
     """
 
-    if not rostroReferencia or not rostros:
-        return '!OK'
+    # if not rostroReferencia or not rostros:
+    #     return '!OK'
 
     x_ref = rostroReferencia.get("x")
     y_ref = rostroReferencia.get("y")
@@ -459,33 +459,41 @@ def orientacionImagen(imagen):
 app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640))
 
+import numpy as np
 
 def recognize(frames_ref, img2_path, threshold=0.34):
+    best_frame = None
+    max_similarity = 0.0
+    
+    # 1. Extraer rostros de la imagen de destino (documento) una sola vez
+    faces_doc = app.get(img2_path)
+    if not faces_doc:
+        return False, 0.0001, None
 
-    facesRefs = []
-
+    # 2. Iterar sobre cada frame de referencia
     for frame in frames_ref:
         faces = app.get(frame)
-        if faces:
-            # Usar la cara con mayor score en el frame
-            main_face = max(faces, key=lambda f: f.det_score)
-            facesRefs.append(main_face)
+        if not faces:
+            continue
+            
+        # Tomamos la cara con mejor detección en este frame específico
+        main_face = max(faces, key=lambda f: f.det_score)
+        ref_embedding = main_face.normed_embedding
 
-    faces_doc = app.get(img2_path)
+        # 3. Comparar contra todas las caras detectadas en el documento
+        for face_doc in faces_doc:
+            doc_embedding = face_doc.normed_embedding
+            # Calculamos similitud (producto punto para embeddings normalizados)
+            similarity = np.dot(ref_embedding, doc_embedding)
 
-    # Validamos que haya embedding de referencia y rostros en el documento
-    if not facesRefs or not faces_doc:
-        return False, 0.0001
+            # 4. Si es la mayor similitud vista hasta ahora, guardamos el frame
+            if similarity > max_similarity:
+                max_similarity = similarity
+                best_frame = frame
 
-    similarities = []
-    for face in faces_doc:
-        faceNormed = face.normed_embedding
-        for ref_face in facesRefs:
-            scoreEmbeddng = ref_face.normed_embedding
-            similarity = np.dot(scoreEmbeddng, faceNormed)
-            similarities.append(similarity)
+    # Validación final por si no se encontró nada en los frames_ref
+    if best_frame is None:
+        return False, 0.0001, None
 
-    max_similarity = max(similarities)
     is_same = max_similarity > threshold
-
-    return bool(is_same), float(max_similarity)
+    return bool(is_same), float(max_similarity), best_frame
