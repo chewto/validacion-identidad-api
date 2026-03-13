@@ -378,8 +378,8 @@ def movementDetection(rostroReferencia, rostros, threshold=5, min_moving_frames=
         str: 'OK' si hay movimiento, '!OK' si no lo hay
     """
 
-    # if not rostroReferencia or not rostros:
-    #     return '!OK'
+    if not rostroReferencia or not rostros:
+        return '!OK'
 
     x_ref = rostroReferencia.get("x")
     y_ref = rostroReferencia.get("y")
