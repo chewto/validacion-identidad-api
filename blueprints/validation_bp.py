@@ -93,33 +93,38 @@ LIMIT 1;
 @validation_bp.route('/validation-params', methods=['GET'])
 def validationParams():
 
-  userSignId = request.args.get('efirmaId')
-  userHash = request.args.get('hash')
+    userSignId = request.args.get('efirmaId')
+    userHash = request.args.get('hash')
 
-  if(userHash != None):
-    validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent 
-    inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id 
-    INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id_usuario 
-    WHERE params.parametros_hash = ?""")
+    if (userHash is not None):
+        validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent 
+        inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id
+        INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id_usuario 
+        WHERE params.parametros_hash = ?""")
 
-    print(validationParameters)
+        params = {
+            "validationAttendance": validationParameters[0],
+            "validationPercent": validationParameters[1],
+            "documentsTries": validationParameters[2]
+        }
+        return jsonify(params)
+
+    validationParameters = controlador_db.selectValidationParams(id=userSignId, query="""
+      SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos, ent.intentos_deteccion from pki_firma_electronica.firmador_pki fir
+      INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id
+      INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id
+      INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?
+    """)
 
     params = {
-    "validationAttendance":validationParameters[0],
-    "validationPercent": validationParameters[1],
-    "documentsTries": validationParameters[2]
-  } 
+      "validationAttendance": validationParameters[0],
+      "validationPercent": validationParameters[1],
+      "documentsTries": validationParameters[2],
+      "detectionTries": validationParameters[3]
+    }
+
     return jsonify(params)
 
-  validationParameters = controlador_db.selectValidationParams(id=userSignId, query="SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos from pki_firma_electronica.firmador_pki fir INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?")
-
-  params = {
-    "validationAttendance":validationParameters[0],
-    "validationPercent": validationParameters[1],
-    "documentsTries": validationParameters[2]
-  }
-
-  return jsonify(params)
 
 @validation_bp.route('/validation-lleida', methods=['POST'])
 def lleidaValidation():

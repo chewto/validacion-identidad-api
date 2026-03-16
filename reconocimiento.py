@@ -455,6 +455,9 @@ def orientacionImagen(imagen):
 
     return imagen, carasAlmacenadas
 
+# linux
+# models_dir = os.path.expanduser('~/.insightface/models')
+# os.makedirs(models_dir, exist_ok=True)
 
 app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640))
