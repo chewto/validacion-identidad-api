@@ -250,6 +250,7 @@ def formatData(barcodes: list, documentType: str):
     results = []
 
     for barcode in barcodes:
+        print(barcode)
         raw_text = barcode.get('text', '')
         text = raw_text.replace("{NUL}", " ")
 

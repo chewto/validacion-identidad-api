@@ -109,14 +109,28 @@ def reader():
     barcodeType = request.form.get('tipoCodigoBarras')
     documentType = request.form.get('tipoDocumento')
 
+    # isWindows = image.startswith(".")
+
+    fileName = image.split("/")[-1]
+
+    if (len(fileName) <= 0):
+        return jsonify(
+            {"error": "No se encontro la imagen."}
+        ), 400
+
     exist = os.path.exists(image)
 
     if (not exist):
         return jsonify(
-            {"error": "No se proporcionó la ruta de la imagen"}
+            {"error": "No se proporcionó la ruta de la imagen."}
         ), 400
 
     barcodes = barcodereaderPath(image, barcodeType)
+
+    if (len(barcodes) <= 0):
+        return jsonify(
+            {"codigosBarras": "No se detecto ningun codigo de barras."}
+        ), 200
 
     data = formatData(barcodes, documentType)
 
