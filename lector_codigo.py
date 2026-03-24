@@ -249,14 +249,17 @@ def formatData(barcodes: list, documentType: str):
 
     results = []
 
+    barcodeId = 0
+
     for barcode in barcodes:
-        print(barcode)
+        barcodeId += 1
         raw_text = barcode.get('text', '')
         text = raw_text.replace("{NUL}", " ")
-
         definition = formatDefinition[documentType]
 
-        parsed_item = {}
+        parsed_item = {
+          'deteccionId': barcodeId
+        }
 
         for field in definition:
             nombre_campo = field[0]

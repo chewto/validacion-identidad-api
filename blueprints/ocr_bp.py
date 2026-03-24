@@ -12,7 +12,7 @@ from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, aplicar_filtro_sharp, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
-from reconocimiento import extractFaces, getFrames, orientacionImagen, verifyFaces
+from reconocimiento import extractFaces, getFrames, orientacionImagen, recognize, verifyFaces
 from utilities.request_parser import _parse_request
 from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from utilities.check_result import testingCountry, testingType, results
@@ -138,13 +138,14 @@ def verificarAnverso():
       filters='sharp'
     )
 
-    compareFacesInit = time.time()
-    _, confidence, _ = verifyFaces(selfieOrientada, documentSelfie)
-    compareFacesEnd = time.time()
+    # compareFacesInit = time.time()
+    # _, confidence, _ = verifyFaces
+    face, confidence, _ = recognize([selfieOrientada], documentSelfie)
+    # compareFacesEnd = time.time()
 
-    resultsDict['face'] = True if confidence <= confidenceThreshold else False
+    resultsDict['face'] = face
     resultsDict['confidence'] = confidence
-    checkSide['face'] = True if confidence <= confidenceThreshold else False
+    checkSide['face'] = face
     if (confidence >= confidenceThreshold):
         messages.append('Los rostros no coincidén.')
 
