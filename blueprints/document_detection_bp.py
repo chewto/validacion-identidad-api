@@ -27,7 +27,6 @@ def documentDetection():
     documentType = request.args.get("documento")
     documentSide = request.args.get("lado")
 
-    document = f'{documentType}_{documentSide}'.upper()
 
     if (documentType == 'PASAPORTE'):
         document = 'PASAPORTE'
@@ -41,11 +40,26 @@ def documentDetection():
         country = data['country']
         imageData = readDataURL(data["image"])
 
+    if (country == "HND"):
+        if (documentSide == 'FRONTAL'):
+            documentSide = 'ANVERSO'
+
+    document = f'{documentType}_{documentSide}'.upper()
+
+    if ('PASAPORTE' in documentType):
+        return jsonify({
+          "documentoValido": True
+        }), 200
+
+    print(document)
+
     countryData = controlador_db.selectData(f'''
-        SELECT yolo_labels FROM pki_validacion.pais as pais
+        SELECT yolo_labels, tipo_documento_validacion  FROM pki_validacion.pais as pais
         WHERE pais.codigo = "{country}"''', ())
 
     yoloLabels = countryData[0]
+    # documents = countryData[1]
+    yoloLabels = yoloLabels.upper()
     yoloLabels = yoloLabels.split(',')
 
     results = document_detection.detection(imageData, yoloLabels, country)
