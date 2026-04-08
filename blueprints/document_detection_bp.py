@@ -48,7 +48,7 @@ def documentDetection():
 
     if ('PASAPORTE' in documentType):
         return jsonify({
-          "documentoValido": None
+          "documentoValido": True,
         }), 200
 
     print(document)
