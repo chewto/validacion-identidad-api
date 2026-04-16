@@ -346,10 +346,6 @@ def verificarAnverso():
 
     resultsDict['messages'] = messages
 
-    logsPath = checkLogsFile()
-    logString = f"anverso; data-server: {getTime}; extraccion-rostros: {detectFaceTime}, busqueda-rostros: {getFaces}; deteccion-documento: {detectTime}; mrz: {mrzTime}; codigo-barra: {barcodeTime};\n"
-    addLog(logsPath, logString)
-
     if confidence <= confidenceThreshold and valid_side and faceDetected:
         resultsDict['validSide'] = True if (valid_side and len(messages) <= 0) else False
         return jsonify(resultsDict)
