@@ -84,37 +84,104 @@ def getLabelContent(data,labelName):
     return 'no se pudo detectar'
 
 def searchDocumentSelfie(yoloLabels, img, useCountry, documentType):
-  modelPath = documentDetection[useCountry]['modelPath']
+  """
+  Detecta y recorta la fotografía del documento de identidad.
 
-  # Run YOLO detection if yoloLabels is not already results object
+  Cascada de fallbacks (PUNTO 1.2 del plan de mejora):
+    1. YOLO (label 'foto' / 'foto_persona')  — rápido y preciso cuando funciona
+    2. InsightFace                            — robusto ante documentos deteriorados
+    3. DeepFace (retinaface)                 — segundo fallback si InsightFace falla
+    4. Imagen completa                       — último recurso (comportamiento original)
+
+  El crop incluye un padding del 15% para evitar cortar frente/barbilla.
+  """
+  from reconocimiento import app as insightface_app  # importar el modelo ya cargado
+
+  # Convertir a numpy si es PIL
+  if isinstance(img, Image.Image):
+    img_np = np.array(img)
+  else:
+    img_np = img
+
+  def _crop_con_padding(img_arr: np.ndarray, x1: int, y1: int, x2: int, y2: int, padding: float = 0.15) -> np.ndarray:
+    """Recorta la región con un padding proporcional para no cortar bordes del rostro."""
+    h, w = img_arr.shape[:2]
+    bw, bh = x2 - x1, y2 - y1
+    pad_x = int(bw * padding)
+    pad_y = int(bh * padding)
+    x1c = max(0, x1 - pad_x)
+    y1c = max(0, y1 - pad_y)
+    x2c = min(w, x2 + pad_x)
+    y2c = min(h, y2 + pad_y)
+    return img_arr[y1c:y2c, x1c:x2c]
+
+  # ── Paso 1: Detección YOLO ─────────────────────────────────────────────────
+  modelPath = documentDetection[useCountry]['modelPath']
   if not hasattr(yoloLabels, "boxes"):
-    results = yoloReader(img=img, modelPath=modelPath)
+    results = yoloReader(img=img_np, modelPath=modelPath)
   else:
     results = yoloLabels
 
-  # Use YOLO results to find the selfie/photo region
   for i, (box, cls) in enumerate(zip(results.boxes.xyxy, results.boxes.cls)):
     class_idx = int(cls)
-    # Try to get label from yoloLabels if possible, else from results
     if hasattr(results, "names"):
       label = results.names[class_idx]
     elif isinstance(yoloLabels, dict) and 'names' in yoloLabels:
       label = yoloLabels['names'][class_idx]
     else:
       label = str(class_idx)
+
     if label.lower() in ["foto", "foto_persona"]:
       x1, y1, x2, y2 = map(int, box)
-      # Always return as numpy array (matlike)
-      if isinstance(img, Image.Image):
-        img_np = np.array(img)
-      else:
-        img_np = img
-      cropped = img_np[y1:y2, x1:x2]
+      cropped = _crop_con_padding(img_np, x1, y1, x2, y2)
+      print("[searchDocumentSelfie] Rostro detectado con YOLO (paso 1).")
       return cropped
-  # If not found, return original as numpy array
-  if isinstance(img, Image.Image):
-    return np.array(img)
-  return img
+
+  # ── Paso 2: InsightFace como fallback ──────────────────────────────────────
+  print("[searchDocumentSelfie] YOLO no detectó 'foto_persona'. Intentando con InsightFace (paso 2)...")
+  try:
+    import cv2 as _cv2
+    img_bgr = _cv2.cvtColor(img_np, _cv2.COLOR_RGB2BGR) if img_np.shape[2] == 3 else img_np
+    faces = insightface_app.get(img_bgr)
+    if faces:
+      # Tomar la cara con mayor det_score
+      best_face = max(faces, key=lambda f: f.det_score)
+      bbox = best_face.bbox.astype(int)
+      x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+      cropped = _crop_con_padding(img_np, x1, y1, x2, y2)
+      print(f"[searchDocumentSelfie] Rostro detectado con InsightFace (paso 2). det_score={best_face.det_score:.3f}")
+      return cropped
+  except Exception as e:
+    print(f"[searchDocumentSelfie] InsightFace fallback falló: {e}")
+
+  # ── Paso 3: DeepFace como segundo fallback ─────────────────────────────────
+  print("[searchDocumentSelfie] InsightFace falló. Intentando con DeepFace/retinaface (paso 3)...")
+  try:
+    from deepface import DeepFace
+    import cv2 as _cv2
+    img_bgr = _cv2.cvtColor(img_np, _cv2.COLOR_RGB2BGR) if img_np.shape[2] == 3 else img_np
+    detected = DeepFace.extract_faces(
+      img_path=img_bgr,
+      detector_backend='retinaface',
+      enforce_detection=False,
+      align=False
+    )
+    if detected and detected[0].get('face') is not None:
+      area = detected[0]['facial_area']
+      x1 = area.get('x', 0)
+      y1 = area.get('y', 0)
+      x2 = x1 + area.get('w', 0)
+      y2 = y1 + area.get('h', 0)
+      if x2 > x1 and y2 > y1:
+        cropped = _crop_con_padding(img_np, x1, y1, x2, y2)
+        print("[searchDocumentSelfie] Rostro detectado con DeepFace/retinaface (paso 3).")
+        return cropped
+  except Exception as e:
+    print(f"[searchDocumentSelfie] DeepFace fallback falló: {e}")
+
+  # ── Paso 4: Último recurso — imagen completa ───────────────────────────────
+  print("[searchDocumentSelfie] Todos los métodos fallaron. Devolviendo imagen completa (paso 4).")
+  return img_np
 
 
 def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_country, ocr_data, yoloLabels):

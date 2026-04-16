@@ -45,14 +45,9 @@ def verificarAnverso():
     # resolution = 600 if tries <=1 else 1080
     resolution = 1080
 
-    getInitTime = time.time()
     countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
       WHERE pais.codigo = "{userCountry}"''', ())
-    getEndTime = time.time()
-    getTime = getEndTime - getInitTime
-
-    print(getTime)
 
     mrzData = json.loads(countryData[0])
     barcodeData = json.loads(countryData[1])
@@ -138,10 +133,7 @@ def verificarAnverso():
       filters='sharp'
     )
 
-    # compareFacesInit = time.time()
-    # _, confidence, _ = verifyFaces
     face, confidence, _ = recognize([selfieOrientada], documentSelfie)
-    # compareFacesEnd = time.time()
 
     resultsDict['face'] = face
     resultsDict['confidence'] = confidence
