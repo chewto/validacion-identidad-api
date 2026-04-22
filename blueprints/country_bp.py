@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 import request.controlador_db as controlador_db
 import json
+from utilities.token_utils import token_required
 
 country_bp = Blueprint('country', __name__, url_prefix='/country')
 
 
 @country_bp.route('/get', methods=['GET'])
+@token_required
 def getCountry():
 
   id = request.args.get('id')

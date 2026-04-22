@@ -1,3 +1,4 @@
+from utilities.token_utils import token_required
 import os
 
 import cv2
@@ -12,6 +13,7 @@ recognition_bp = Blueprint('recognition', __name__, url_prefix="/recognition")
 
 
 @recognition_bp.route('/verify', methods=['POST'])
+@token_required
 def recog():
 
     # testing = request.args.get("testing", "false").lower() == "true"
@@ -78,6 +80,7 @@ def recog():
 
 
 @recognition_bp.route('/mrz', methods=['POST'])
+@token_required
 def mrzReader():
     # 1. Obtienes la ruta (ej: "C:/fotos/pasaporte.jpg" o "/tmp/img.png")
     ruta_imagen = request.form.get('imagen')
@@ -103,6 +106,7 @@ def mrzReader():
 
 
 @recognition_bp.route('/barcode', methods=['POST'])
+@token_required
 def reader():
 
     image = request.form.get('imagen')

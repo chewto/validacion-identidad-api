@@ -13,9 +13,11 @@ import os
 from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
+from blueprints.auth_bp import auth_bp
 from PIL import Image
 import numpy as np
 from werkzeug import Request
+from utilities.token_utils import token_required
 
 app = Flask(__name__)
 
@@ -37,50 +39,11 @@ app.register_blueprint(country_bp)
 app.register_blueprint(document_detection_bp)
 app.register_blueprint(time_log_bp)
 app.register_blueprint(recognition_bp)
+app.register_blueprint(auth_bp)
 
-
-# @app.route('/edad-test-nuevo', methods=['POST'])
-# def agesTest():
-#     app = FaceAnalysis(allowed_modules=['detection', 'landmark', 'attribute'])
-#     # prepare descarga/carga modelos; ctx_id=-1 para usar CPU
-#     app.prepare(ctx_id=-1, det_size=(640, 640))
-
-#     img = request.files.get('img', None)
-#     img = fileCv2(img)
-#     if img is None:
-#         raise SystemExit("Coloca una imagen llamada test.jpg en el directorio o ajusta la ruta")
-
-#     faces = app.get(img)
-#     print(f"Caras detectadas: {len(faces)}")
-#     for i, face in enumerate(faces):
-#         # face.attrs contiene atributos como age/gender en muchas builds
-#         age = None
-#         print(face)
-#         if hasattr(face, "age"):
-#             age = face.age
-#         elif getattr(face, "attrs", None):
-#             age = face.attrs.get("age")  # alternativa dependiendo de la versión
-#         print(f"Face {i}: bbox={face.bbox}, edad aprox: {age}")
-
-#     return ''
-
-# @app.route('/edad-test', methods=['POST'])
-# def ageTest():
-#   documentImage = request.files.get('documento', None)
-#   selfie = request.files.get('selfie', None)
-
-#   documentData = fileCv2(documentImage)
-#   selfieData = fileCv2(selfie)
-
-#   documentAnalisis = reconocimiento.analyzeFace(documentData)
-#   selfieAnalisis = reconocimiento.analyzeFace(selfieData)
-
-#   print(documentAnalisis)
-#   print(selfieAnalisis)
-
-#   return jsonify({"selfie": selfieAnalisis, "documento": documentAnalisis})
 
 @app.route('/ping', methods=['POST', 'HEAD'])
+@token_required
 def ping():
 
     _ = request.get_data()
@@ -89,6 +52,7 @@ def ping():
 
 
 @app.route('/log', methods=['POST'])
+@token_required
 def savelog():
     reqBody = request.get_json()
 
@@ -101,6 +65,7 @@ def savelog():
     return 'log añadido'
 
 @app.route('/link', methods=['GET'])
+@token_required
 def getLink():
 
     id = request.args.get('id')
@@ -111,6 +76,7 @@ def getLink():
 
 
 @app.route('/anti-spoof', methods=['POST'])
+@token_required
 def antiSpoofing():
     path = request.args.get("path")
 
@@ -194,6 +160,7 @@ def antiSpoofing():
 
 
 @app.route('/get-media', methods=['GET'])
+@token_required
 def getUserMedia():
 
   carpetaPruebaVida = "./evidencias-vida"
@@ -350,6 +317,7 @@ def getUserMedia():
 #   return jsonify({"result":imageResultBool})
 
 @app.route('/liveness-test', methods=['POST'])
+@token_required
 def livenessTest():
     # Base directory for storing evidence
     carpetaPruebaVida = "./evidencias-vida"
@@ -446,6 +414,7 @@ def livenessTest():
     return jsonify({"result": imageResultBool})
 
 @app.route('/obtener-usuario', methods=['GET'])
+@token_required
 def getUser():
 
   id = request.args.get('id')
@@ -456,6 +425,7 @@ def getUser():
 
 
 @app.route('/obtener-evidencias', methods=['GET'])
+@token_required
 def obtenerEvidencias():
 
   id = request.args.get('id')
@@ -470,6 +440,7 @@ def obtenerEvidencias():
 
 
 @app.route('/comprobacion-proceso', methods=['GET'])
+@token_required
 def comprobacionProceso():
     idUsuarioEFirma = request.args.get('idUsuarioEFirma')
 

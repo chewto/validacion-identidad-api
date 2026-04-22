@@ -1,3 +1,4 @@
+from utilities.token_utils import token_required
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timezone
 from threading import Lock
@@ -13,6 +14,7 @@ def genTimestamp():
 
 
 @time_log_bp.route("/", methods=["POST"])
+@token_required
 def create_time_log():
     user_id = request.args.get("user_id")
 
@@ -29,6 +31,7 @@ def create_time_log():
 
 
 @time_log_bp.route("/update", methods=["POST"])
+@token_required
 def add_time_log():
 
     id = request.args.get("id")
@@ -43,6 +46,7 @@ def add_time_log():
 
 
 @time_log_bp.route("/update-speedtest", methods=["POST"])
+@token_required
 def add_speedtest_log():
 
     id = request.args.get("id")

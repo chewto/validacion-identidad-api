@@ -1,4 +1,5 @@
 
+from utilities.token_utils import token_required
 import io
 import json
 from PIL import Image
@@ -23,6 +24,7 @@ ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
 # confidenceThreshold = 0.6
 @ocr_bp.route('/anverso', methods=['POST'])
+@token_required
 def verificarAnverso():
 
     parsed = _parse_request(request)
@@ -359,6 +361,7 @@ def verificarAnverso():
 #rutas para el front
 
 @ocr_bp.route('/reverso', methods=['POST'])
+@token_required
 def verificarReverso():
     
     messages = []
@@ -588,6 +591,7 @@ def verificarReverso():
 
 
 @ocr_bp.route('/document', methods=['POST'])
+@token_required
 def documentValidation():
   # video = request.files.get('video')
 
