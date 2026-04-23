@@ -25,7 +25,7 @@ CORS(app, resources={
   r"/*": {
     "origins": ["http://localhost:5173", "*"],
     "methods": ["POST", "GET", "HEAD", "OPTIONS"],
-    "allow_headers": ["Content-Type"]
+    "allow_headers": ["Content-Type", "Authorization", "x-api-key"]
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
