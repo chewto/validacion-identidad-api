@@ -7,7 +7,6 @@ country_bp = Blueprint('country', __name__, url_prefix='/country')
 
 
 @country_bp.route('/get', methods=['GET'])
-@token_required
 def getCountry():
 
   id = request.args.get('id')

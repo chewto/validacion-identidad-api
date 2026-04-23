@@ -31,7 +31,6 @@ validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
 
 
 @validation_bp.route('/webhook-lleida', methods=['POST'])
-@token_required
 def webhook():
 
   reqBody = request.get_json()
@@ -39,7 +38,6 @@ def webhook():
   return jsonify({'180.45':'no response'})
 
 @validation_bp.route('/callback', methods=['POST'])
-@token_required
 def callback():
 
   reqBody = request.get_json()
@@ -49,7 +47,6 @@ def callback():
   return 'Datos añadidos al archivo', 200
 
 @validation_bp.route('/validation-provider', methods=['GET'])
-@token_required
 def validationProvider():
 
   entityId = request.args.get('entityId')
@@ -63,7 +60,6 @@ def validationProvider():
   return jsonify({"provider": validationProvider})
 
 @validation_bp.route('/check-validation', methods=['GET'])
-@token_required
 def checkValidation():
 
   userSignId = request.args.get("efirmaId")
@@ -96,7 +92,6 @@ LIMIT 1;
 
 
 @validation_bp.route('/validation-params', methods=['GET'])
-@token_required
 def validationParams():
 
     userSignId = request.args.get('efirmaId')
@@ -239,7 +234,6 @@ def lleidaValidation():
   }), 200
 
 @validation_bp.route('/cbs/get-session', methods=['POST'])
-@token_required
 def createSession():
 
   reqBody = request.get_json()
@@ -273,7 +267,6 @@ def createSession():
 
 
 @validation_bp.route('/crear', methods=['POST'])
-@token_required
 def testingCal():
 
   reqHeaders = request.headers
@@ -345,7 +338,6 @@ def testingCal():
   return 'La api key es invalida'
 
 @validation_bp.route('/get-user', methods=['GET'])
-@token_required
 def getInfo():
 
   userHash = request.args.get('hash')
@@ -374,7 +366,6 @@ def getInfo():
   return jsonify({'dato':info})
 
 @validation_bp.route('/get-livenesstest', methods=['GET'])
-@token_required
 def getLivenessTest():
 
   signerId = request.args.get('id')
@@ -405,7 +396,6 @@ def getLivenessTest():
 
 
 @validation_bp.route('/test', methods=['POST'])
-@token_required
 def test():
 
   length = request.headers.get('Content-Length')
@@ -415,7 +405,6 @@ def test():
   return ''
 
 @validation_bp.route('/type-3', methods=['POST'])
-@token_required
 def validate():
 
     dataSize = request.get_data()
@@ -879,7 +868,6 @@ def validate():
 
 
 @validation_bp.route('/standalone', methods=['POST'])
-@token_required
 def standoleValidation():
   idUsuario = request.args.get('idUsuario')
   idUsuario = int(idUsuario)
