@@ -1,8 +1,10 @@
 from functools import wraps
 from flask import request, jsonify, current_app
 import jwt
+import os
 
 ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 def token_required(f):
     @wraps(f)
@@ -22,7 +24,7 @@ def token_required(f):
 
         try:
             # Validamos el token
-            data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=[ALGORITHM])
+            data = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             # Guardamos los datos del token en el contexto de la petición por si los necesitas
             request.token_data = data 
         except jwt.ExpiredSignatureError:
