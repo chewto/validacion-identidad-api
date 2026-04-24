@@ -4,7 +4,7 @@ from utilities.token_utils import token_required
 import jwt
 import os
 
-secret_key = 'secret_key'
+secret_key = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 API_KEY = os.getenv("API_KEY")
 
