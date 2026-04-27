@@ -63,6 +63,7 @@ def savelog():
     return 'log añadido'
 
 @app.route('/link', methods=['GET'])
+@token_required
 def getLink():
 
     id = request.args.get('id')
@@ -157,6 +158,7 @@ def antiSpoofing():
 
 
 @app.route('/get-media', methods=['GET'])
+@token_required
 def getUserMedia():
 
   carpetaPruebaVida = "./evidencias-vida"
@@ -313,6 +315,7 @@ def getUserMedia():
 #   return jsonify({"result":imageResultBool})
 
 @app.route('/liveness-test', methods=['POST'])
+@token_required
 def livenessTest():
     # Base directory for storing evidence
     carpetaPruebaVida = "./evidencias-vida"
@@ -409,6 +412,7 @@ def livenessTest():
     return jsonify({"result": imageResultBool})
 
 @app.route('/obtener-usuario', methods=['GET'])
+@token_required
 def getUser():
 
   id = request.args.get('id')
@@ -419,6 +423,7 @@ def getUser():
 
 
 @app.route('/obtener-evidencias', methods=['GET'])
+@token_required
 def obtenerEvidencias():
 
   id = request.args.get('id')
@@ -433,6 +438,7 @@ def obtenerEvidencias():
 
 
 @app.route('/comprobacion-proceso', methods=['GET'])
+@token_required
 def comprobacionProceso():
     idUsuarioEFirma = request.args.get('idUsuarioEFirma')
 

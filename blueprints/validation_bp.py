@@ -47,6 +47,7 @@ def callback():
   return 'Datos añadidos al archivo', 200
 
 @validation_bp.route('/validation-provider', methods=['GET'])
+@token_required
 def validationProvider():
 
   entityId = request.args.get('entityId')
@@ -60,6 +61,7 @@ def validationProvider():
   return jsonify({"provider": validationProvider})
 
 @validation_bp.route('/check-validation', methods=['GET'])
+@token_required
 def checkValidation():
 
   userSignId = request.args.get("efirmaId")
@@ -92,6 +94,7 @@ LIMIT 1;
 
 
 @validation_bp.route('/validation-params', methods=['GET'])
+@token_required
 def validationParams():
 
     userSignId = request.args.get('efirmaId')
@@ -128,7 +131,6 @@ def validationParams():
 
 
 @validation_bp.route('/validation-lleida', methods=['POST'])
-@token_required
 def lleidaValidation():
 
   userSignId = request.args.get('efirmaId')
@@ -338,6 +340,7 @@ def testingCal():
   return 'La api key es invalida'
 
 @validation_bp.route('/get-user', methods=['GET'])
+@token_required
 def getInfo():
 
   userHash = request.args.get('hash')
@@ -366,6 +369,7 @@ def getInfo():
   return jsonify({'dato':info})
 
 @validation_bp.route('/get-livenesstest', methods=['GET'])
+@token_required
 def getLivenessTest():
 
   signerId = request.args.get('id')
@@ -405,6 +409,7 @@ def test():
   return ''
 
 @validation_bp.route('/type-3', methods=['POST'])
+@token_required
 def validate():
 
     dataSize = request.get_data()
