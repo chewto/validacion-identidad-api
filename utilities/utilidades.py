@@ -93,21 +93,32 @@ def imageToDataURL(image):
   return dataURL
 
 def readDataURL(imagen):
+    """Convierte una data URL base64 a una imagen OpenCV.
+    Si `imagen` es None o está vacía, se carga una imagen placeholder.
+    """
+    # Si la entrada es None o una cadena vacía, usar placeholder
+    if not imagen or len(imagen) <= 0:
+        print(imagen, "imagen")
+        placeholder_path = './assets/img/placeholder.jpeg'
+        try:
+            with open(placeholder_path, "rb") as image_file:
+                
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                imagen = f"data:image/jpeg;base64,{encoded_string}"
+        except Exception as e:
+            # Si no se puede cargar el placeholder, lanzar un error claro
+            raise FileNotFoundError(f"Placeholder image not found at {placeholder_path}: {e}")
 
-  if(len(imagen) <= 0):
-    with open('./assets/img/placeholder.jpeg', "rb") as image_file: 
-      encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-      imagen =  f"data:image/jpeg;base64,{encoded_string}"
+    # Extraer los datos base64 después de la coma
+    try:
+        imagenData = base64.b64decode(imagen.split(",")[1])
+    except Exception as e:
+        raise ValueError(f"Invalid data URL format: {e}")
 
-  imagenURL = imagen
-
-  imagenData = base64.b64decode(imagenURL.split(",")[1])
-
-  npArray = np.frombuffer(imagenData, np.uint8)
-
-  imagen = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
-
-  return imagen
+    # Convertir a numpy array y decodificar con OpenCV
+    npArray = np.frombuffer(imagenData, np.uint8)
+    img = cv2.imdecode(npArray, cv2.IMREAD_COLOR)
+    return img
 
 # def readDataUrlFrames(images:list):
 
