@@ -1,5 +1,7 @@
 import base64
 import ffmpeg
+import hmac
+import hashlib
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from blueprints.recognition_bp import recognition_bp
@@ -448,6 +450,73 @@ def comprobacionProceso():
         return jsonify(peticionProceso)
     else:
         return jsonify({"validaciones": 0, "estado": ""})
+
+
+# Load webhook secret from environment
+YCLOUD_WEBHOOK_SECRET = os.getenv("YCLOUD_WEBHOOK_SECRET")
+
+@app.route('/webhook/ycloud', methods=['POST'])
+def ycloud_webhook():
+    """
+    Ruta para recibir webhooks de YCloud WhatsApp.
+    Realiza la verificación de la firma digital (YCloud-Signature) si se ha configurado la variable de entorno YCLOUD_WEBHOOK_SECRET.
+    """
+    signature_header = request.headers.get("YCloud-Signature")
+    payload_bytes = request.get_data()
+    payload = payload_bytes.decode("utf-8")
+
+    # Verificar la firma si la clave secreta está configurada
+    if YCLOUD_WEBHOOK_SECRET:
+        if not signature_header:
+            log_path = logs.checkLogsFile()
+            logs.addLog(log_path, "YCloud Webhook Error: Falta la cabecera YCloud-Signature.")
+            return jsonify({"error": "Missing signature header"}), 401
+
+        try:
+            # El formato esperado es: t={timestamp},s={signature}
+            parts = dict(part.split('=') for part in signature_header.split(','))
+            timestamp = parts.get('t')
+            received_sig = parts.get('s')
+
+            if not timestamp or not received_sig:
+                raise ValueError("Formato de cabecera YCloud-Signature inválido")
+
+            # Construir la firma esperada: {timestamp}.{body}
+            signed_payload = f"{timestamp}.{payload}"
+            expected_sig = hmac.new(
+                YCLOUD_WEBHOOK_SECRET.encode('utf-8'),
+                signed_payload.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+
+            if not hmac.compare_digest(expected_sig, received_sig):
+                log_path = logs.checkLogsFile()
+                logs.addLog(log_path, f"YCloud Webhook Error: Firma inválida. Esperada: {expected_sig}, Recibida: {received_sig}")
+                return jsonify({"error": "Invalid signature"}), 401
+
+        except Exception as e:
+            log_path = logs.checkLogsFile()
+            logs.addLog(log_path, f"YCloud Webhook Error: Falló la verificación de la firma: {str(e)}")
+            return jsonify({"error": "Signature verification failed"}), 401
+    else:
+        # Registrar una advertencia de que no se está verificando la firma
+        log_path = logs.checkLogsFile()
+        logs.addLog(log_path, "YCloud Webhook Warning: YCLOUD_WEBHOOK_SECRET no está configurado. Se omite la verificación de firma.")
+
+    # Procesar el cuerpo del webhook
+    try:
+        data = request.get_json(silent=True) or {}
+        log_path = logs.checkLogsFile()
+        logs.addLog(log_path, f"YCloud Webhook Recibido: {data}")
+
+        # Aquí se puede procesar el evento recibido (ej. actualizar estado en DB, responder mensajes, etc.)
+        
+    except Exception as e:
+        log_path = logs.checkLogsFile()
+        logs.addLog(log_path, f"YCloud Webhook Error al procesar datos: {str(e)}")
+        return jsonify({"error": "Error processing webhook body"}), 500
+
+    return jsonify({"status": "received"}), 200
 
 
 @app.route('/', methods=['GET'])
