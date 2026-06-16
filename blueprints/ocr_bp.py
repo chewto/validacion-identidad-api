@@ -13,12 +13,13 @@ from utilities.name_search import searchId, searchName
 from ocr import comparacionOCR, validacionOCR, validarLadoDocumento, validateDocumentCountry, validateDocumentType, preprocessing
 from mrz import MRZSide, aplicar_filtro_sharp, extractMRZ, mrzInfo, comparisonMRZInfo, validateMrz
 from expiry import expiryDateOCR, hasExpiryDate
-from reconocimiento import extractFaces, getFrames, orientacionImagen, recognize, verifyFaces
+from reconocimiento import extractFaces, getFrames, orientacionImagen, recognize, verifyFaces, frame_to_dataurl
 from utilities.request_parser import _parse_request
 from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
 from utilities.check_result import testingCountry, testingType, results
 import time
 import request.controlador_db as controlador_db
+import cv2
 
 ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
@@ -32,6 +33,7 @@ def verificarAnverso():
     efirmaId = parsed['efirma_id']
     personaData = parsed['persona_data']
     documentoData = parsed['documento_data']
+    allFrames = parsed['all_frames']
     ladoDocumento = parsed['lado_documento']
     tipoDocumento = parsed['tipo_documento']
     nombre = parsed['nombre'] or ''
@@ -135,7 +137,37 @@ def verificarAnverso():
       filters='sharp'
     )
 
-    face, confidence, _ = recognize([selfieOrientada], documentSelfie)
+    # ─── Comparación facial con múltiples frames ───
+    # Si tenemos allFrames del video de liveness, comparar cada uno contra
+    # el rostro del documento y seleccionar el que mejor coincida.
+    # Si no hay allFrames, usar solo la selfie original (fallback).
+    faceComparisonInit = time.time()
+
+    if allFrames and len(allFrames) >= 1:
+        print(f"[Anverso] Comparando {len(allFrames)} frames del video contra el documento...")
+        # recognize devuelve: (is_same, max_similarity, best_frame)
+        face, confidence, bestFrame = recognize(allFrames, documentSelfie)
+
+        # Si encontramos un mejor frame, guardar su dataURL en el resultado
+        if bestFrame is not None:
+            resultsDict['bestFrame'] = frame_to_dataurl(bestFrame)
+            print(f"[Anverso] Mejor frame encontrado, confianza: {confidence:.4f}")
+        else:
+            # Fallback: si recognize no encontró un buen frame, usar selfie original
+            print("[Anverso] No se encontró buen frame, usando selfie original como fallback")
+            resultsDict['bestFrame'] = None
+            face, confidence, _ = recognize([selfieOrientada], documentSelfie)
+
+        resultsDict['framesAnalyzed'] = len(allFrames)
+    else:
+        # Fallback: sin frames del video, usar solo la selfie
+        print("[Anverso] Sin frames del video, usando selfie original")
+        face, confidence, _ = recognize([selfieOrientada], documentSelfie)
+        resultsDict['bestFrame'] = None
+        resultsDict['framesAnalyzed'] = 0
+
+    faceComparisonEnd = time.time()
+    print(f"[Anverso] Tiempo comparación facial: {faceComparisonEnd - faceComparisonInit:.3f}s")
 
     resultsDict['face'] = face
     resultsDict['confidence'] = confidence

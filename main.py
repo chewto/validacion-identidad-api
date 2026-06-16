@@ -1,4 +1,5 @@
 import base64
+import cv2
 import ffmpeg
 import hmac
 import hashlib
@@ -8,7 +9,7 @@ from blueprints.recognition_bp import recognition_bp
 from blueprints.time_log_bp import time_log_bp
 from blueprints.document_detection_bp import document_detection_bp
 import utilities.logs as logs
-from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection
+from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection, frame_to_dataurl
 import request.controlador_db as controlador_db
 from utilities.utilidades import readDataURL
 import os
@@ -120,6 +121,9 @@ def antiSpoofing():
 
     photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
+    # Convertir TODOS los frames a dataURLs para devolverlos al cliente
+    allFramesDataURLs = [frame_to_dataurl(f) for f in frames]
+
     photoAccess = readDataURL(photoDataURL)
 
     result = extractFaces(imageArray=photoAccess, anti_spoofing=True)
@@ -153,7 +157,10 @@ def antiSpoofing():
 
     return jsonify({
         "movimientoDetectado": movimientoDetectado,
-        "photo": photoDataURL, "photoResult": result,
+        "photo": photoDataURL,
+        "photoResult": result,
+        "allFrames": allFramesDataURLs,
+        "framesCount": len(allFramesDataURLs),
         "messages": messages,
         "faceDetected": resultDetected
     }), 200
