@@ -371,7 +371,13 @@ def validateMrz(document, documentType, documentSide, nombre, apellido, userCoun
             'code': mrz_raw if mrz_raw else 'No se pudo detectar MRZ válido en la imagen.',
             'data': {
                 'name': name_mrz['data'] if len(name_mrz['data']) >= 1 else '',
-                'lastName': lastname_mrz['data'] if len(lastname_mrz['data']) >= 1 else ''
+                'lastName': lastname_mrz['data'] if len(lastname_mrz['data']) >= 1 else '',
+                'documentNumber': mrz.get('number', ''),
+                'dateOfBirth': mrz.get('date_of_birth', ''),
+                'expirationDate': mrz.get('expiration_date', ''),
+                'nationality': mrz.get('nationality', ''),
+                'sex': mrz.get('sex', ''),
+                'mrzType': mrz.get('mrz_type', '')
             },
             'percentages': {
                 'name': name_mrz['percent'],
@@ -412,6 +418,6 @@ def validateMrz(document, documentType, documentSide, nombre, apellido, userCoun
     # no MRZ
     return {
         'code': '',
-        'data': {'name': '', 'lastName': ''},
+        'data': {'name': '', 'lastName': '', 'documentNumber': '', 'dateOfBirth': '', 'expirationDate': '', 'nationality': '', 'sex': '', 'mrzType': ''},
         'percentages': {'name': 0, 'lastName': 0}
     }, {}, [], None

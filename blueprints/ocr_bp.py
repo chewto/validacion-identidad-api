@@ -75,18 +75,24 @@ def verificarAnverso():
       "face": False,
       "documentFace": None,
       "image": "",
-      "mrz": {
-          "code": None,
-          "data": {
-              "lastName": "",
-              "name": ""
-          },
-          "percentages": {
-              "lastName": 0,
-              "name": 0
-          }
-      },
-      "ocr": {
+            "mrz": {
+                "code": None,
+                "data": {
+                    "lastName": "",
+                    "name": "",
+                    "documentNumber": "",
+                    "dateOfBirth": "",
+                    "expirationDate": "",
+                    "nationality": "",
+                    "sex": "",
+                    "mrzType": ""
+                },
+                "percentages": {
+                    "lastName": 0,
+                    "name": 0
+                }
+            },
+            "ocr": {
           "data": {
               "ID": "",
               "lastName": "",
@@ -333,12 +339,22 @@ def verificarAnverso():
                       'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
                       'data': {
                         'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
-                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else ''
+                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
                       },
                       'percentages': {
                         'name': nameMRZ['percent'],
                         'lastName': lastNameMRZ['percent']
-                      }
+                      },
+                      'extractedData': {
+                        'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
+                        'documentNumber': mrz.get('number', ''),
+                        'dateOfBirth': mrz.get('date_of_birth', ''),
+                        'expirationDate': mrz.get('expiration_date', ''),
+                        'nationality': mrz.get('nationality', ''),
+                        'sex': mrz.get('sex', ''),
+                        'mrzType': mrz.get('mrz_type', '')
+                        }
                     }
 
                 # Si MRZ no es opcional, siempre se agregan los checks y mensajes
@@ -367,6 +383,16 @@ def verificarAnverso():
                   'percentages': {
                     'name': 0,
                     'lastName': 0
+                  },
+                  "extractedData": {
+                    'name': '',
+                    'lastName': '',
+                    'documentNumber': '',
+                    'dateOfBirth': '',
+                    'expirationDate': '',
+                    'nationality': '',
+                    'sex': '',
+                    'mrzType': ''
                   }
                 }
 
@@ -472,14 +498,25 @@ def verificarReverso():
         "code": None,
         "data": {
             "lastName": "",
-            "name": ""
+            "name": "",
         },
         "percentages": {
             "lastName": 0,
             "name": 0
+        },
+        "extractedData": {
+            "lastName": "",
+            "name": "",
+            "documentNumber": "",
+            "dateOfBirth": "",
+            "expirationDate": "",
+            "nationality": "",
+            "sex": "",
+            "mrzType": ""
         }
+      }
     }
-  }
+
 
     checkSide = {
 
@@ -569,6 +606,16 @@ def verificarReverso():
               'percentages': {
                 'name': nameMRZ['percent'],
                 'lastName': lastNameMRZ['percent']
+              },
+              "extractedData": {
+                'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
+                'documentNumber': mrz.get('number', ''),
+                'dateOfBirth': mrz.get('date_of_birth', ''),
+                'expirationDate': mrz.get('expiration_date', ''),
+                'nationality': mrz.get('nationality', ''),
+                'sex': mrz.get('sex', ''),
+                'mrzType': mrz.get('mrz_type', '')
               }
             }
 
@@ -598,7 +645,17 @@ def verificarReverso():
               'percentages': {
                 'name': 0,
                 'lastName': 0
-              }
+              },
+              "extractedData": {
+                  'name': '',
+                  'lastName': '',
+                  'documentNumber': '',
+                  'dateOfBirth': '',
+                  'expirationDate': '',
+                  'nationality': '',
+                  'sex': '',
+                  'mrzType': ''
+                }
             }
 
             messages.append('No se pudo detecar el código mrz del documento.')
