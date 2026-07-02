@@ -10,6 +10,7 @@ from blueprints.time_log_bp import time_log_bp
 from blueprints.document_detection_bp import document_detection_bp
 import utilities.logs as logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection, frame_to_dataurl
+from document_detection import detectDocumentInFrames
 import request.controlador_db as controlador_db
 from utilities.utilidades import readDataURL
 import os
@@ -81,7 +82,7 @@ def getLink():
 def antiSpoofing():
     path = request.args.get("path")
 
-    framesCounter = 12
+    framesCounter = 1
 
     if not path or not os.path.exists(path):
         return jsonify({"error": "El path no existe"}), 400
@@ -121,6 +122,9 @@ def antiSpoofing():
 
     photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
+    # Detectar si en algún frame aparece un documento
+    documentDetectionResult = detectDocumentInFrames(frames)
+
     # Convertir TODOS los frames a dataURLs para devolverlos al cliente
     allFramesDataURLs = [frame_to_dataurl(f) for f in frames]
 
@@ -148,6 +152,9 @@ def antiSpoofing():
     if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
         messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
 
+    if documentDetectionResult.get("document_detected"):
+        messages.append('Se ha detectado un documento en el video de selfie. Para la prueba de vida no debe mostrar ningún documento.')
+
     # Delete the normalized video to free disk space
     try:
         if os.path.exists(video):
@@ -159,10 +166,11 @@ def antiSpoofing():
         "movimientoDetectado": movimientoDetectado,
         "photo": photoDataURL,
         "photoResult": result,
-        "allFrames": allFramesDataURLs,
+        # "allFrames": allFramesDataURLs,
         "framesCount": len(allFramesDataURLs),
         "messages": messages,
-        "faceDetected": resultDetected
+        "faceDetected": resultDetected,
+        "documentDetection": documentDetectionResult
     }), 200
 
 
