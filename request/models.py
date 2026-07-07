@@ -69,6 +69,7 @@ class EvidenciasAdicionales(Base):
     video_hash: Mapped[Optional[str]] = mapped_column(LONGTEXT)
     intentos_reverso: Mapped[Optional[int]] = mapped_column(INTEGER(11))
     intentos_anverso: Mapped[Optional[int]] = mapped_column(INTEGER(11))
+    intentos_rostro: Mapped[Optional[int]] = mapped_column(INTEGER(11))
 
 
 class EvidenciasUsuario(Base):
