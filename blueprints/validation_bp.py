@@ -460,6 +460,7 @@ def validate():
     validationAttendance = params['validationAttendance']
     validationPercent = params['validationPercent']
     validationPercent = int(validationPercent)
+    faceTries = params['faceTries']
 
 
     # #evidencias adicionales
@@ -543,15 +544,15 @@ def validate():
     # failedFront = request.form.get('failed_front')
 
     face = documentValidation['face']
-    faceTries = face['tries']
+
     confidenceValue = documentValidation['confidence']
     confidenceValue = float(confidenceValue)
     documentFace = documentValidation['documentFace']
 
     countryData = controlador_db.selectData(f'''
-        SELECT * FROM pki_validacion.pais as pais 
+        SELECT * FROM pki_validacion.pais as pais
       WHERE pais.codigo = "{country}"''', ())
-    
+
     mrzData = json.loads(countryData[3])
     barcodeData = json.loads(countryData[4])
 
