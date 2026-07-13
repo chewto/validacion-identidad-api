@@ -21,11 +21,11 @@ def _parse_db_uri(uri):
   }
 
 DB_CONFIGS = {
-    "CO": _parse_db_uri(os.getenv("DB_COL_URI", "")),
-    "HN": _parse_db_uri(os.getenv("DB_HON_URI", "")),
+    "COL": _parse_db_uri(os.getenv("DB_COL_URI", "")),
+    "HND": _parse_db_uri(os.getenv("DB_HON_URI", "")),
 }
 
-DEFAULT_COUNTRY = "CO"
+DEFAULT_COUNTRY = "COL"
 
 def get_country_code():
   try:
