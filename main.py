@@ -12,6 +12,7 @@ import utilities.logs as logs
 from reconocimiento import extractFaces, getFrames, faceDetection, movementDetection, frame_to_dataurl
 from document_detection import detectDocumentInFrames
 import request.controlador_db as controlador_db
+from request.controlador_db import close_db_connections
 from utilities.utilidades import readDataURL
 import os
 from blueprints.country_bp import country_bp
@@ -29,7 +30,7 @@ CORS(app, resources={
   r"/*": {
     "origins": ["http://localhost:5173", "*"],
     "methods": ["POST", "GET", "HEAD", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "x-api-key"]
+    "allow_headers": ["Content-Type", "Authorization", "x-api-key", "x-country-code"]
   }
 }, supports_credentials=True)
 app.config['CORS_HEADER'] = 'Content-type'
@@ -44,6 +45,8 @@ app.register_blueprint(document_detection_bp)
 app.register_blueprint(time_log_bp)
 app.register_blueprint(recognition_bp)
 app.register_blueprint(auth_bp)
+
+app.teardown_appcontext(close_db_connections)
 
 
 @app.route('/ping', methods=['POST', 'HEAD'])
