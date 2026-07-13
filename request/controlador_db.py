@@ -43,21 +43,22 @@ def get_db(pais=None):
   if pais is None:
     pais = get_country_code()
   key = f"db_{pais}"
-  if key not in g:
+  g_dict = vars(g)
+  if key not in g_dict:
     config = DB_CONFIGS.get(pais)
     if not config:
       raise ValueError(f"País no soportado: {pais}")
-    g[key] = mariadb.connect(**config)
-  return g[key]
+    g_dict[key] = mariadb.connect(**config)
+  return g_dict[key]
 
 def close_db_connections(exception=None):
-  for key in list(g.keys()):
-    if key.startswith("db_"):
-      conn = g.pop(key)
-      try:
-        conn.close()
-      except Exception:
-        pass
+  g_dict = vars(g)
+  for key in [k for k in g_dict if k.startswith("db_")]:
+    conn = g_dict.pop(key)
+    try:
+      conn.close()
+    except Exception:
+      pass
 
 def obtenerIpPrivada():
   hostname = socket.gethostname()
