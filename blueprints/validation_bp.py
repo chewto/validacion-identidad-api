@@ -570,9 +570,13 @@ def validate():
 
     faceValidation = {}
 
-    # isIdentical = True if(face == 'OK') else False
+    isIdentical = True if(face == 'OK') else False
 
-    checkValuesDict['confidence'] = face
+    checkValuesDict['confidence'] = isIdentical
+
+    confidenceThreshold = 0.5
+    confidenceScoreCheck = confidenceValue >= confidenceThreshold
+    checkValuesDict['confidence_score'] = confidenceScoreCheck
 
     movementCheck = True if(movementTest == 'OK') else False
     checkValuesDict['movement'] = movementCheck
@@ -580,7 +584,7 @@ def validate():
     antiSpoof = antiSpoofingTest(fotoPersonaData)
     checkValuesDict['antiSpoofing'] = antiSpoof
 
-    test = [movementCheck, antiSpoof, face]
+    test = [movementCheck, antiSpoof, isIdentical]
 
     faceValidation['liveness_test'] = {
       'movement': movementCheck,
@@ -873,7 +877,7 @@ def validate():
       'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
     })
 
-    return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":face, "estadoVerificacion":resultState})
+    return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
 
 @validation_bp.route('/standalone', methods=['POST'])
