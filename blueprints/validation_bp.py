@@ -60,6 +60,8 @@ def validationProvider():
 
   return jsonify({"provider": validationProvider})
 
+
+
 @validation_bp.route('/check-validation', methods=['GET'])
 @token_required
 def checkValidation():
@@ -77,7 +79,7 @@ INNER JOIN pki_validacion.evidencias_adicionales ev ON doc.id_evidencias_adicion
 INNER JOIN pki_validacion.parametros_validacion AS params ON params.parametros_hash = doc.id_usuario
 WHERE params.parametros_hash = '{userHash}'
 ORDER BY ev.id DESC
-LIMIT 1;
+LIMIT 1
 """)
 
     return jsonify({'results':checkVal})
@@ -344,31 +346,69 @@ def testingCal():
 @validation_bp.route('/get-user', methods=['GET'])
 @token_required
 def getInfo():
+  firmador_id = request.args.get('id')
+  pais = request.args.get('pais')
 
-  userHash = request.args.get('hash')
+  if not firmador_id:
+    return jsonify({'error': 'El parámetro id es requerido'}), 400
 
-  info = controlador_db.selectUserData(userHash)
+  row = controlador_db.selectData(
+    '''SELECT
+      f_pki.id,
+      f_pki.firma_electronica_id,
+      f_pki.nombre,
+      f_pki.apellido,
+      f_pki.correo,
+      f_pki.tipo_documento,
+      f_pki.documento,
+      f_pki.evidencias_cargadas,
+      f_pki.evidencias_voz,
+      f_pki.enlace_temporal,
+      f_pki.orden_firma,
+      f_pki.tipo_firmador,
+      f_pki.tipo_firma,
+      f_pki.ubicacion_x_firma,
+      f_pki.ubicacion_y_firma,
+      f_pki.logo_firma,
+      f_pki.ubicacion,
+      f_pki.motivo,
+      f_pki.usuario_final_predeterminado,
+      f_pki.requiere_firma_grafica,
+      f_pki.fecha_creacion,
+      f_pki.fecha_actualizacion
+    FROM pki_firma_electronica.firmador_pki AS f_pki
+    WHERE f_pki.id = ?''',
+    firmador_id,
+    pais=pais.upper() if pais else None
+  )
 
-  if(info == None):
-    return jsonify({'dato':None})
+  if not row:
+    return jsonify({'error': 'Firmador no encontrado'}), 404
 
-  livenessTest = True if(info[9] == 1) else False
-
-  info = {
-    'idUsuario': info[0],
-    'nombre': info[1],
-    'apellido': info[2],
-    'documento': info[3],
-    'tipoDocumento': info[4],
-    'correo': info[5],
-    'tipoValidacion': info[6],
-    'callback': info[7],
-    'redireccion': info[8],
-    'validacionVida': livenessTest,
-    'usoModelo': info[10]
-  }
-
-  return jsonify({'dato':info})
+  return jsonify({'dato': {
+    'id': row[0],
+    'firmaElectronicaId': row[1],
+    'nombre': row[2],
+    'apellido': row[3],
+    'correo': row[4],
+    'tipoDocumento': row[5],
+    'documento': row[6],
+    'evidenciasCargadas': bool(row[7]) if row[7] is not None else False,
+    'evidenciasVoz': bool(row[8]) if row[8] is not None else False,
+    'enlaceTemporal': row[9],
+    'ordenFirma': row[10],
+    'tipoFirmador': row[11],
+    'tipoFirma': row[12],
+    'ubicacionXFirma': row[13],
+    'ubicacionYFirma': row[14],
+    'logoFirma': row[15] if row[15] else '',
+    'ubicacion': row[16] if row[16] else '',
+    'motivo': row[17] if row[17] else '',
+    'usuarioFinalPredeterminado': row[18] if row[18] else '',
+    'requiereFirmaGrafica': bool(row[19]) if row[19] is not None else False,
+    'fechaCreacion': row[20].isoformat() if hasattr(row[20], 'isoformat') else row[20],
+    'fechaActualizacion': row[21].isoformat() if hasattr(row[21], 'isoformat') else row[21]
+  }})
 
 @validation_bp.route('/get-livenesstest', methods=['GET'])
 @token_required
