@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timezone
 from threading import Lock
 
-from request.controlador_db import insert_time_log_record, select_time_logs, updateSpeedtest, updateDate
+import request.controlador_db as controlador_db
 
 time_log_bp = Blueprint("time_logs", __name__, url_prefix="/time-logs")
 
@@ -17,14 +17,14 @@ def genTimestamp():
 def create_time_log():
     user_id = request.args.get("user_id")
 
-    results = select_time_logs(user_id)
+    results = controlador_db.select_time_logs(user_id)
 
     if (len(results) > 0):
         result = results[0]
         id = result[0]
         return jsonify({"id": id})
 
-    id_log = insert_time_log_record(user_id)
+    id_log = controlador_db.insert_time_log_record(user_id)
 
     return jsonify({"id": id_log}), 201
 
@@ -38,7 +38,7 @@ def add_time_log():
 
     column_name = f"{action}_{column}"
 
-    b = updateDate(column_name, id)
+    b = controlador_db.updateDate(column_name, id)
 
     return jsonify({"result": b}), 201
 
@@ -56,6 +56,6 @@ def add_speedtest_log():
     uploadSeconds = upload["seconds"]
     ping = reqBody.get("ping")
 
-    b = updateSpeedtest(id, (downloadMbps, downloadSeconds, uploadMbps, uploadSeconds, ping))
+    b = controlador_db.updateSpeedtest(id, (downloadMbps, downloadSeconds, uploadMbps, uploadSeconds, ping))
 
     return jsonify({"result": b}), 201

@@ -1,4 +1,6 @@
+import os
 import re
+from typing import List, Optional
 from ultralytics import YOLO
 from utilities.check_result import testingCountry, testingType
 from ocr import  validateDocumentCountry, validateDocumentType
@@ -574,6 +576,107 @@ def getMrz(data):
   mrz = mrz[0]
   mrz = mrz['dataOcr']
   return mrz, True
+
+def detectDocumentInFrames(frames: List[np.ndarray], confidence_threshold: float = 0.3, frame_step: int = 2) -> dict:
+    """
+    Detecta si en algún frame del video de selfie aparece un documento.
+    Usa todos los modelos YOLO configurados en documentDetection (COL, HND, etc.).
+
+    Args:
+        frames: Lista de frames en formato numpy.ndarray (BGR).
+        confidence_threshold: Confianza mínima para considerar una detección válida.
+        frame_step: Procesa 1 de cada N frames (ej: 2 = salta un frame intermedio).
+                    Útil para acelerar el procesamiento en videos largos.
+
+    Returns:
+        dict: {
+            "document_detected": bool,
+            "frames_with_document": list[int],
+            "total_frames_with_document": int,
+            "total_frames": int,
+            "total_frames_processed": int,
+            "frame_step": int,
+            "detections": list[{"frame_index": int, "detections": list[{"label": str, "confidence": float, "country_model": str}]}]
+        }
+    """
+    if not frames:
+        return {
+            "document_detected": False,
+            "frames_with_document": [],
+            "total_frames_with_document": 0,
+            "total_frames": 0,
+            "total_frames_processed": 0,
+            "frame_step": frame_step,
+            "detections": []
+        }
+
+    # Cargar cada modelo YOLO una sola vez (cache)
+    models_cache = {}
+    for country, config in documentDetection.items():
+        if config.get("hasModel"):
+            modelPath = config.get("modelPath")
+            if modelPath and os.path.exists(modelPath):
+                try:
+                    models_cache[country] = YOLO(modelPath)
+                except Exception as e:
+                    print(f"[detectDocumentInFrames] Error cargando modelo {country}: {e}")
+
+    if not models_cache:
+        print("[detectDocumentInFrames] No hay modelos YOLO disponibles.")
+        return {
+            "document_detected": False,
+            "frames_with_document": [],
+            "total_frames_with_document": 0,
+            "total_frames": len(frames),
+            "total_frames_processed": 0,
+            "frame_step": frame_step,
+            "detections": []
+        }
+
+    document_detected = False
+    frames_with_document = []
+    all_detections = []
+    processed_count = 0
+
+    for i in range(0, len(frames), frame_step):
+        frame = frames[i]
+        processed_count += 1
+        frame_detections = []
+
+        for country, model in models_cache.items():
+            try:
+                results = model(frame)[0]
+                names = results.names
+                for box, cls, conf in zip(results.boxes.xyxy, results.boxes.cls, results.boxes.conf):
+                    if conf >= confidence_threshold:
+                        label = names[int(cls)]
+                        frame_detections.append({
+                            "label": label,
+                            "confidence": round(float(conf), 4),
+                            "country_model": country
+                        })
+            except Exception as e:
+                print(f"[detectDocumentInFrames] Error en frame {i} con modelo {country}: {e}")
+                continue
+
+        if frame_detections:
+            document_detected = True
+            frames_with_document.append(i)
+            all_detections.append({
+                "frame_index": i,
+                "detections": frame_detections
+            })
+
+    return {
+        "document_detected": document_detected,
+        "frames_with_document": frames_with_document,
+        "total_frames_with_document": len(frames_with_document),
+        "total_frames": len(frames),
+        "total_frames_processed": processed_count,
+        "frame_step": frame_step,
+        "detections": all_detections
+    }
+
 
 def detection(img, classes:list[str], country):
   """

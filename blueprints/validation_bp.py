@@ -60,6 +60,8 @@ def validationProvider():
 
   return jsonify({"provider": validationProvider})
 
+
+
 @validation_bp.route('/check-validation', methods=['GET'])
 @token_required
 def checkValidation():
@@ -77,7 +79,7 @@ INNER JOIN pki_validacion.evidencias_adicionales ev ON doc.id_evidencias_adicion
 INNER JOIN pki_validacion.parametros_validacion AS params ON params.parametros_hash = doc.id_usuario
 WHERE params.parametros_hash = '{userHash}'
 ORDER BY ev.id DESC
-LIMIT 1;
+LIMIT 1
 """)
 
     return jsonify({'results':checkVal})
@@ -101,7 +103,7 @@ def validationParams():
     userHash = request.args.get('hash')
 
     if (userHash is not None):
-        validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos FROM usuarios.entidades AS usu_ent 
+        validationParameters = controlador_db.selectValidationParams(id=userHash, query="""SELECT usu_ent.tipo_validacion, usu_ent.porcentaje_acierto, usu_ent.intentos_documentos, usu_ent.intentos_rostro FROM usuarios.entidades AS usu_ent 
         inner join usuarios.usuarios AS usu ON usu.entity_id = usu_ent.entity_id
         INNER JOIN pki_validacion.parametros_validacion AS params ON usu.id = params.id_usuario 
         WHERE params.parametros_hash = ?""")
@@ -109,12 +111,13 @@ def validationParams():
         params = {
             "validationAttendance": validationParameters[0],
             "validationPercent": validationParameters[1],
-            "documentsTries": validationParameters[2]
+            "documentsTries": validationParameters[2],
+            "faceTries": validationParameters[3]
         }
         return jsonify(params)
 
     validationParameters = controlador_db.selectValidationParams(id=userSignId, query="""
-      SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos, ent.intentos_deteccion from pki_firma_electronica.firmador_pki fir
+      SELECT ent.tipo_validacion, ent.porcentaje_acierto, ent.intentos_documentos, ent.intentos_deteccion, ent.intentos_rostro from pki_firma_electronica.firmador_pki fir
       INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id
       INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id
       INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id WHERE fir.id = ?
@@ -124,7 +127,8 @@ def validationParams():
       "validationAttendance": validationParameters[0],
       "validationPercent": validationParameters[1],
       "documentsTries": validationParameters[2],
-      "detectionTries": validationParameters[3]
+      "detectionTries": validationParameters[3],
+      "faceTries": validationParameters[4]
     }
 
     return jsonify(params)
@@ -342,31 +346,69 @@ def testingCal():
 @validation_bp.route('/get-user', methods=['GET'])
 @token_required
 def getInfo():
+  firmador_id = request.args.get('id')
+  pais = request.args.get('pais')
 
-  userHash = request.args.get('hash')
+  if not firmador_id:
+    return jsonify({'error': 'El parámetro id es requerido'}), 400
 
-  info = controlador_db.selectUserData(userHash)
+  row = controlador_db.selectData(
+    '''SELECT
+      f_pki.id,
+      f_pki.firma_electronica_id,
+      f_pki.nombre,
+      f_pki.apellido,
+      f_pki.correo,
+      f_pki.tipo_documento,
+      f_pki.documento,
+      f_pki.evidencias_cargadas,
+      f_pki.evidencias_voz,
+      f_pki.enlace_temporal,
+      f_pki.orden_firma,
+      f_pki.tipo_firmador,
+      f_pki.tipo_firma,
+      f_pki.ubicacion_x_firma,
+      f_pki.ubicacion_y_firma,
+      f_pki.logo_firma,
+      f_pki.ubicacion,
+      f_pki.motivo,
+      f_pki.usuario_final_predeterminado,
+      f_pki.requiere_firma_grafica,
+      f_pki.fecha_creacion,
+      f_pki.fecha_actualizacion
+    FROM pki_firma_electronica.firmador_pki AS f_pki
+    WHERE f_pki.id = ?''',
+    firmador_id,
+    pais=pais.upper() if pais else None
+  )
 
-  if(info == None):
-    return jsonify({'dato':None})
+  if not row:
+    return jsonify({'error': 'Firmador no encontrado'}), 404
 
-  livenessTest = True if(info[9] == 1) else False
-
-  info = {
-    'idUsuario': info[0],
-    'nombre': info[1],
-    'apellido': info[2],
-    'documento': info[3],
-    'tipoDocumento': info[4],
-    'correo': info[5],
-    'tipoValidacion': info[6],
-    'callback': info[7],
-    'redireccion': info[8],
-    'validacionVida': livenessTest,
-    'usoModelo': info[10]
-  }
-
-  return jsonify({'dato':info})
+  return jsonify({'dato': {
+    'id': row[0],
+    'firmaElectronicaId': row[1],
+    'nombre': row[2],
+    'apellido': row[3],
+    'correo': row[4],
+    'tipoDocumento': row[5],
+    'documento': row[6],
+    'evidenciasCargadas': bool(row[7]) if row[7] is not None else False,
+    'evidenciasVoz': bool(row[8]) if row[8] is not None else False,
+    'enlaceTemporal': row[9],
+    'ordenFirma': row[10],
+    'tipoFirmador': row[11],
+    'tipoFirma': row[12],
+    'ubicacionXFirma': row[13],
+    'ubicacionYFirma': row[14],
+    'logoFirma': row[15] if row[15] else '',
+    'ubicacion': row[16] if row[16] else '',
+    'motivo': row[17] if row[17] else '',
+    'usuarioFinalPredeterminado': row[18] if row[18] else '',
+    'requiereFirmaGrafica': bool(row[19]) if row[19] is not None else False,
+    'fechaCreacion': row[20].isoformat() if hasattr(row[20], 'isoformat') else row[20],
+    'fechaActualizacion': row[21].isoformat() if hasattr(row[21], 'isoformat') else row[21]
+  }})
 
 @validation_bp.route('/get-livenesstest', methods=['GET'])
 @token_required
@@ -458,6 +500,7 @@ def validate():
     validationAttendance = params['validationAttendance']
     validationPercent = params['validationPercent']
     validationPercent = int(validationPercent)
+    faceTries = params['faceTries']
 
 
     # #evidencias adicionales
@@ -541,14 +584,15 @@ def validate():
     # failedFront = request.form.get('failed_front')
 
     face = documentValidation['face']
+
     confidenceValue = documentValidation['confidence']
     confidenceValue = float(confidenceValue)
     documentFace = documentValidation['documentFace']
 
     countryData = controlador_db.selectData(f'''
-        SELECT * FROM pki_validacion.pais as pais 
+        SELECT * FROM pki_validacion.pais as pais
       WHERE pais.codigo = "{country}"''', ())
-    
+
     mrzData = json.loads(countryData[3])
     barcodeData = json.loads(countryData[4])
 
@@ -830,9 +874,9 @@ def validate():
     # #tabla evidencias adicionales
 
     # columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json')
-    columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso', 'deteccion_anverso','deteccion_reverso', 'tiempos_json')
+    columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso', 'intentos_rostro', 'deteccion_anverso','deteccion_reverso', 'tiempos_json')
     tablaEvidenciasAdicionales = 'pki_validacion.evidencias_adicionales'
-    valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movementTest, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries, frontDetection, backDetection, times)
+    valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movementTest, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries, faceTries, frontDetection, backDetection, times)
     print(valoresEvidenciasAdicionales)
     # valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario ,'eFirma', mrz, barcode, checkValuesJson)
     idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
@@ -967,6 +1011,8 @@ def standoleValidation():
 
 
   face = request.form.get('face')
+  faceTries = request.form.get('face_tries')
+  faceTries = int(faceTries) if faceTries is not None else None
   confidenceValue = request.form.get('confidence')
   confidenceValue = float(confidenceValue)
 
@@ -1191,9 +1237,9 @@ def standoleValidation():
   valoresEvidencias = (anversoOrientado, reversoBlob, fotoPersonaBlob, '', '')
   idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
 
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso')
+  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'video_hash', 'proveedor_validacion', 'mrz', 'codigo_barras', 'checks_json', 'intentos_anverso', 'intentos_reverso', 'intentos_rostro')
   tablaEvidenciasAdicionales = 'evidencias_adicionales'
-  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries)
+  valoresEvidenciasAdicionales = (resultState, dispositivo, navegador, ipPublica, ipPrivada, latitud, longitud, hora,fecha, ocrNombre, ocrApellido, ocrDocumento, dataOCRNombre, dataOCRApellido, dataOCRDocumento, movimiento, idCarpetaEntidad, idCarpetaUsuario , videoHash,'eFirma', mrz, barcode, checkValuesJson, frontTries, backTries, faceTries)
   idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
 
   #aqui debemos actualizar los indices y el tipo documento
