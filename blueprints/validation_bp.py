@@ -566,6 +566,8 @@ def validate():
     mrzNamePercent = percentagesMrz['name']
     mrzLastnamePercent = percentagesMrz['lastName']
 
+    extractedDataMrz = mrzData['extractedData']
+
     # mrz = request.form.get('mrz')
     # mrzName = request.form.get('mrz_name')
     # mrzLastname = request.form.get('mrz_lastname')
@@ -727,6 +729,16 @@ def validate():
           'percentage':{
             'name': mrzNamePercent,
             'lastName': mrzLastnamePercent
+          },
+          'extractedData': {
+            'name': extractedDataMrz.get('name', ''),
+            'lastName': extractedDataMrz.get('lastName', ''),
+            'documentNumber': extractedDataMrz.get('documentNumber', ''),
+            'dateOfBirth': extractedDataMrz.get('dateOfBirth', ''),
+            'expirationDate': extractedDataMrz.get('expirationDate', ''),
+            'nationality': extractedDataMrz.get('nationality', ''),
+            'sex': extractedDataMrz.get('sex', ''),
+            'mrzType': extractedDataMrz.get('mrzType', '')
           }
         }
 
@@ -780,6 +792,16 @@ def validate():
           'percentage':{
             'name': mrzNamePercent,
             'lastName': mrzLastnamePercent
+          },
+          'extractedData': {
+            'name': extractedDataMrz.get('name', ''),
+            'lastName': extractedDataMrz.get('lastName', ''),
+            'documentNumber': extractedDataMrz.get('documentNumber', ''),
+            'dateOfBirth': extractedDataMrz.get('dateOfBirth', ''),
+            'expirationDate': extractedDataMrz.get('expirationDate', ''),
+            'nationality': extractedDataMrz.get('nationality', ''),
+            'sex': extractedDataMrz.get('sex', ''),
+            'mrzType': extractedDataMrz.get('mrzType', '')
           }
         }
 
