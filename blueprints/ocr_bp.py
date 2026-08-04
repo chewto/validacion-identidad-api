@@ -678,7 +678,7 @@ def verificarReverso():
 
 
 
-
+# nose usa
 @ocr_bp.route('/document', methods=['POST'])
 @token_required
 def documentValidation():
