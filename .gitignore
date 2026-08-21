@@ -3,6 +3,7 @@ virtual_env/
 __pycache__/
 entorno/
 evidencias-vida/
+evidencias-progreso/
 logs/
 BarcodeReaderCLI/
 videos/

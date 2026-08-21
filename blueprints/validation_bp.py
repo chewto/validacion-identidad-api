@@ -22,6 +22,7 @@ import argparse
 
 from utilities.utilidades import removeAccents
 from utilities.token_utils import token_required
+from utilities.progreso import borrarProgresoFirmador, guardarEvidencia, leerEvidencias
 import time
 
 
@@ -130,6 +131,74 @@ def validationParams():
     }
 
     return jsonify(params)
+
+
+@validation_bp.route('/progreso', methods=['POST'])
+@token_required
+def saveProgreso():
+
+  reqBody = request.get_json()
+
+  efirmaId = reqBody.get('efirmaId')
+  paso = reqBody.get('paso')
+  resultado = reqBody.get('resultado')
+  metadata = reqBody.get('metadata')
+  evidencias = reqBody.get('evidencias') or {}
+
+  if(not efirmaId or not paso):
+    return jsonify({"error": "Faltan los campos efirmaId y paso"}), 400
+
+  idSesion = controlador_db.upsertProgreso(efirmaId, paso, resultado, metadata)
+
+  for nombre in ('anverso', 'reverso', 'selfie'):
+    if(evidencias.get(nombre)):
+      guardarEvidencia(efirmaId, nombre, evidencias[nombre])
+
+  return jsonify({"idSesion": idSesion, "paso": paso, "resultado": resultado}), 200
+
+
+@validation_bp.route('/progreso', methods=['GET'])
+@token_required
+def getProgreso():
+
+  efirmaId = request.args.get('efirmaId')
+
+  if(not efirmaId):
+    return jsonify({"error": "Falta el parámetro efirmaId"}), 400
+
+  progreso = controlador_db.selectProgreso(efirmaId)
+
+  if(progreso is None):
+    return jsonify({"progreso": None, "evidencias": {}})
+
+  evidencias = leerEvidencias(efirmaId)
+
+  return jsonify({"progreso": progreso, "evidencias": evidencias})
+
+
+@validation_bp.route('/abandonadas', methods=['GET'])
+@token_required
+def getAbandonadas():
+
+  minutos = request.args.get('minutos', default=30, type=int)
+
+  abandonadas = controlador_db.selectAbandonadas(minutos)
+
+  return jsonify({"abandonadas": abandonadas})
+
+
+@validation_bp.route('/limpiar-progreso', methods=['POST'])
+@token_required
+def limpiarProgreso():
+
+  ttlHoras = request.args.get('ttl_horas', default=24, type=int)
+
+  resultado = controlador_db.limpiarProgreso(ttlHoras)
+
+  for firmador in resultado.get('firmadores', []):
+    borrarProgresoFirmador(firmador)
+
+  return jsonify(resultado)
 
 
 @validation_bp.route('/validation-lleida', methods=['POST'])
@@ -877,6 +946,9 @@ def validate():
       'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
     })
 
+    controlador_db.marcarProgresoCompletado(idUsuario)
+    borrarProgresoFirmador(idUsuario)
+
     return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
 
@@ -1312,6 +1384,9 @@ def rejectedValidation():
   #callback
 
 
+
+  controlador_db.marcarProgresoCompletado(idUser)
+  borrarProgresoFirmador(idUser)
 
   return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUser, "coincidenciaDocumentoRostro": face, "estadoVerificacion":state})
 

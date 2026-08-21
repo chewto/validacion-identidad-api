@@ -4,6 +4,8 @@ import socket
 import requests
 import utilities.logs as logs
 import os
+import json
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import g, request as flask_request
 from dotenv import load_dotenv
@@ -364,3 +366,191 @@ def updateBodySize(values: tuple, pais=None) -> bool:
     except mariadb.Error as e:
         print(e)
         return False
+
+def upsertProgreso(id_firmador, paso, resultado=None, metadata=None, pais=None):
+    conn = None
+    try:
+        conn = get_db(pais)
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, progreso_json FROM pki_validacion.progreso_validacion
+                WHERE id_firmador = ? AND estado = 'EN_PROGRESO'
+                ORDER BY id DESC
+                LIMIT 1
+            """, (id_firmador,))
+            fila = cursor.fetchone()
+
+            progreso = {}
+            if fila is not None:
+                idSesion = fila[0]
+                if fila[1]:
+                    try:
+                        progreso = json.loads(fila[1])
+                    except (ValueError, TypeError):
+                        progreso = {}
+            else:
+                cursor.execute("""
+                    INSERT INTO pki_validacion.progreso_validacion
+                    (id_firmador, paso_actual, estado, progreso_json)
+                    VALUES (?, ?, 'EN_PROGRESO', ?)
+                """, (id_firmador, paso, None))
+                idSesion = cursor.lastrowid
+
+            pasoData = {'resultado': resultado}
+            if metadata:
+                pasoData.update(metadata)
+            progreso[paso] = pasoData
+
+            cursor.execute("""
+                UPDATE pki_validacion.progreso_validacion
+                SET paso_actual = ?, progreso_json = ?
+                WHERE id = ?
+            """, (paso, json.dumps(progreso, ensure_ascii=False), idSesion))
+
+            cursor.execute("""
+                INSERT INTO pki_validacion.eventos_validacion
+                (id_firmador, paso, resultado, metadata_json)
+                VALUES (?, ?, ?, ?)
+            """, (id_firmador, paso, resultado, json.dumps(metadata, ensure_ascii=False) if metadata else None))
+
+            conn.commit()
+            return idSesion
+    except mariadb.Error as e:
+        if conn:
+            conn.rollback()
+        print(e)
+        return 0
+
+def selectProgreso(id_firmador, pais=None):
+    try:
+        conn = get_db(pais)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, id_firmador, paso_actual, estado, progreso_json, creado_en, actualizado_en, completado_en
+            FROM pki_validacion.progreso_validacion
+            WHERE id_firmador = ?
+            ORDER BY id DESC
+            LIMIT 1
+        """, (id_firmador,))
+        fila = cursor.fetchone()
+        if fila is None:
+            return None
+        progreso = None
+        if fila[4]:
+            try:
+                progreso = json.loads(fila[4])
+            except (ValueError, TypeError):
+                progreso = None
+        return {
+            "id": fila[0],
+            "idFirmador": fila[1],
+            "pasoActual": fila[2],
+            "estado": fila[3],
+            "progreso": progreso,
+            "creadoEn": fila[5].isoformat() if fila[5] else None,
+            "actualizadoEn": fila[6].isoformat() if fila[6] else None,
+            "completadoEn": fila[7].isoformat() if fila[7] else None
+        }
+    except mariadb.Error as e:
+        print(e)
+        return None
+
+def marcarProgresoCompletado(id_firmador, estado='COMPLETADO', pais=None):
+    try:
+        conn = get_db(pais)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE pki_validacion.progreso_validacion
+            SET estado = ?, completado_en = NOW()
+            WHERE id_firmador = ? AND estado = 'EN_PROGRESO'
+        """, (estado, id_firmador))
+        conn.commit()
+        return cursor.rowcount > 0
+    except mariadb.Error as e:
+        print(e)
+        return False
+
+def selectAbandonadas(minutos=30, pais=None):
+    try:
+        conn = get_db(pais)
+        cursor = conn.cursor()
+        corte = datetime.now() - timedelta(minutes=minutos)
+        cursor.execute("""
+            SELECT id, id_firmador, paso_actual, actualizado_en
+            FROM pki_validacion.progreso_validacion
+            WHERE estado = 'EN_PROGRESO' AND actualizado_en < ?
+            ORDER BY actualizado_en ASC
+        """, (corte,))
+        filas = cursor.fetchall()
+        return [
+            {
+                "id": f[0],
+                "idFirmador": f[1],
+                "pasoActual": f[2],
+                "actualizadoEn": f[3].isoformat() if f[3] else None
+            }
+            for f in filas
+        ]
+    except mariadb.Error as e:
+        print(e)
+        return []
+
+def limpiarProgreso(ttlHoras=24, pais=None):
+    conn = None
+    try:
+        conn = get_db(pais)
+        corte = datetime.now() - timedelta(hours=ttlHoras)
+        firmadores = []
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, id_firmador FROM pki_validacion.progreso_validacion
+                WHERE estado = 'EN_PROGRESO' AND actualizado_en < ?
+            """, (corte,))
+            abandonadas = cursor.fetchall()
+            idsAbandonadas = [f[0] for f in abandonadas]
+            firmadores += [f[1] for f in abandonadas]
+
+            if idsAbandonadas:
+                placeholders = ','.join(['?'] * len(idsAbandonadas))
+                cursor.execute(f"""
+                    UPDATE pki_validacion.progreso_validacion
+                    SET estado = 'ABANDONADO', completado_en = NOW()
+                    WHERE id IN ({placeholders})
+                """, idsAbandonadas)
+
+            cursor.execute("""
+                SELECT id_firmador FROM pki_validacion.progreso_validacion
+                WHERE estado = 'ABANDONADO' AND actualizado_en < ?
+            """, (corte,))
+            aBorrar = cursor.fetchall()
+            firmadores += [f[0] for f in aBorrar]
+
+            cursor.execute("""
+                DELETE FROM pki_validacion.progreso_validacion
+                WHERE estado = 'ABANDONADO' AND actualizado_en < ?
+            """, (corte,))
+            borradas = cursor.rowcount
+
+            cursor.execute("""
+                DELETE FROM pki_validacion.eventos_validacion
+                WHERE creado_en < ?
+            """, (corte,))
+            eventosBorrados = cursor.rowcount
+
+            conn.commit()
+            return {
+                "abandonadas": len(idsAbandonadas),
+                "progresoBorradas": borradas,
+                "eventosBorrados": eventosBorrados,
+                "firmadores": list(dict.fromkeys(firmadores))
+            }
+    except mariadb.Error as e:
+        if conn:
+            conn.rollback()
+        print(e)
+        return {
+            "abandonadas": 0,
+            "progresoBorradas": 0,
+            "eventosBorrados": 0,
+            "firmadores": []
+        }
