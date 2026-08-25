@@ -90,7 +90,7 @@ def hasMRZ(documentType, mrzData):
   mrzCorrespondingSide = []
 
   for key,value in mrzDocumentType.items():
-    if(key != 'mrzLetter'):
+    if(key != 'mrzLetter' and key != 'optional'):
       mrzCorrespondingSide.append(value)
 
   totalMRZ = any(mrzCorrespondingSide)

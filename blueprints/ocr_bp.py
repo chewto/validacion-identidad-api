@@ -90,6 +90,16 @@ def verificarAnverso():
                 "percentages": {
                     "lastName": 0,
                     "name": 0
+                },
+                "extractedData": {
+                    "name": "",
+                    "lastName": "",
+                    "documentNumber": "",
+                    "dateOfBirth": "",
+                    "expirationDate": "",
+                    "nationality": "",
+                    "sex": "",
+                    "mrzType": ""
                 }
             },
             "ocr": {

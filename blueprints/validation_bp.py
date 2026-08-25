@@ -759,7 +759,7 @@ def validate():
             'barcode': barcode
           }
 
-        if(tipoDocumento == "CEDULA DIGITAL" and tipoDocumento == "CEDULA DE CIUDADANIA"):
+        if(tipoDocumento == "CEDULA DIGITAL" or tipoDocumento == "CEDULA DE CIUDADANIA"):
           checkID.append({'type':'barcode', 'check': barcodeCheck})
 
 
