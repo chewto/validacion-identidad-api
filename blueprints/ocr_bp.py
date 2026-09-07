@@ -25,7 +25,7 @@ ocr_bp = Blueprint('ocr', __name__, url_prefix='/ocr')
 
 # confidenceThreshold = 0.6
 @ocr_bp.route('/anverso', methods=['POST'])
-@token_required
+# @token_required
 def verificarAnverso():
 
     parsed = _parse_request(request)
@@ -429,7 +429,7 @@ def verificarAnverso():
 #rutas para el front
 
 @ocr_bp.route('/reverso', methods=['POST'])
-@token_required
+# @token_required
 def verificarReverso():
     
     messages = []
