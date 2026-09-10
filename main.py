@@ -14,6 +14,7 @@ from document_detection import detectDocumentInFrames
 import request.controlador_db as controlador_db
 from request.controlador_db import close_db_connections
 from utilities.utilidades import readDataURL
+from utilities.gcs_storage import upload_file, build_blob_name
 import os
 from blueprints.country_bp import country_bp
 from blueprints.ocr_bp import ocr_bp
@@ -98,9 +99,18 @@ def getLink():
 
 
 @app.route('/anti-spoof', methods=['POST'])
-@token_required
+# @token_requiredl
 def antiSpoofing():
+    #validaciones_ecustodia = mi bucket
     path = request.args.get("path")
+    efirmauser = request.args.get("efirmauser")
+    pais = request.headers.get("X-Country-Code")
+
+    if not pais:
+        return jsonify({"error": "El parámetro country es requerido (header X-Country-Code)"}), 400
+
+    if not efirmauser:
+        return jsonify({"error": "El parámetro efirmauser es requerido"}), 400
 
     framesCounter = 1
 
@@ -175,6 +185,18 @@ def antiSpoofing():
     if documentDetectionResult.get("document_detected"):
         messages.append('Se ha detectado un documento en el video de selfie. Para la prueba de vida no debe mostrar ningún documento.')
 
+    # Subir el video normalizado a GCS organizado por país y usuario eFirma
+    videoUrl = None
+    try:
+        blob_name = build_blob_name(pais, efirmauser, video_name)
+        videoUrl = upload_file(video, blob_name)
+        if videoUrl:
+            print(f"[GCS] Video subido exitosamente: {videoUrl}")
+        else:
+            print(f"[GCS] No se pudo subir el video {video_name}")
+    except Exception as e:
+        print(f"[GCS] Error inesperado al subir {video_name}: {e}")
+
     # Delete the normalized video to free disk space
     try:
         if os.path.exists(video):
@@ -186,6 +208,7 @@ def antiSpoofing():
         "movimientoDetectado": movimientoDetectado,
         "photo": photoDataURL,
         "photoResult": result,
+        "videoUrl": videoUrl,
         # "allFrames": allFramesDataURLs,
         "framesCount": len(allFramesDataURLs),
         "messages": messages,
