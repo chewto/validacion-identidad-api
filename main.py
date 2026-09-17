@@ -49,6 +49,23 @@ app.register_blueprint(auth_bp)
 app.teardown_appcontext(close_db_connections)
 
 
+@app.route('/db-status', methods=['GET'])
+def db_status():
+  country = request.args.get('country')
+  if not country:
+    return jsonify({"error": "El parámetro 'country' es requerido"}), 400
+
+  try:
+    conn = controlador_db.get_db(country.upper())
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1")
+    cursor.fetchone()
+    cursor.close()
+    return jsonify({"status": "connected", "country": country.upper()}), 200
+  except Exception as e:
+    return jsonify({"status": "error", "country": country.upper(), "message": str(e)}), 500
+
+
 @app.route('/ping', methods=['POST', 'HEAD'])
 def ping():
 
