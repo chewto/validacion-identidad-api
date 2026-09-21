@@ -22,6 +22,7 @@ import argparse
 
 from utilities.utilidades import removeAccents
 from utilities.token_utils import token_required
+from utilities.progress_store import save_progress, get_progress
 import time
 
 
@@ -449,6 +450,66 @@ def test():
   print(f"peso del contenido: {length}")
 
   return ''
+
+
+@validation_bp.route('/progress', methods=['POST'])
+# @token_required
+def saveValidationProgress():
+
+  idUsuario = request.args.get('idUsuario') or request.args.get('efirmaId')
+  country = request.args.get('country')
+  paso = request.args.get('paso')
+
+  if not idUsuario:
+    return jsonify({'error': 'El parámetro idUsuario es requerido'}), 400
+
+  if paso is not None and not paso.isdigit():
+    return jsonify({'error': 'El parámetro paso debe ser un número entero'}), 400
+
+  data = request.get_json(silent=True)
+
+  if data is None:
+    return jsonify({'error': 'El cuerpo debe ser un JSON válido'}), 400
+
+  if paso is not None:
+    data['paso'] = int(paso)
+
+  try:
+    path = save_progress(idUsuario, data, country=country)
+  except ValueError as e:
+    return jsonify({'error': str(e)}), 400
+  except Exception as e:
+    return jsonify({'error': f'No se pudo guardar el progreso: {str(e)}'}), 500
+
+  return jsonify({
+    'saved': True,
+    'idUsuario': idUsuario,
+    'country': os.path.basename(os.path.dirname(path)),
+    'paso': int(paso) if paso is not None else None
+  }), 200
+
+
+@validation_bp.route('/progress', methods=['GET'])
+# @token_required
+def getValidationProgress():
+
+  idUsuario = request.args.get('idUsuario') or request.args.get('efirmaId')
+  country = request.args.get('country')
+
+  if not idUsuario:
+    return jsonify({'error': 'El parámetro idUsuario es requerido'}), 400
+
+  try:
+    progress = get_progress(idUsuario, country=country)
+  except ValueError as e:
+    return jsonify({'error': str(e)}), 400
+  except Exception as e:
+    return jsonify({'error': f'No se pudo leer el progreso: {str(e)}'}), 500
+
+  if progress is None:
+    return jsonify({'error': 'No hay progreso guardado para este usuario'}), 404
+
+  return jsonify(progress), 200
 
 @validation_bp.route('/type-3', methods=['POST'])
 @token_required
