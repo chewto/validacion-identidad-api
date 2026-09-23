@@ -5,7 +5,7 @@ import tempfile
 
 import request.controlador_db as controlador_db
 
-PROGRESS_DIR = "./progreso-validacion"
+PROGRESS_DIR = "/progreso-validacion"
 
 _ID_RE = re.compile(r"^\d+$")
 _COUNTRY_RE = re.compile(r"^[A-Za-z]{2,5}$")
@@ -61,3 +61,13 @@ def get_progress(id_usuario, country=None):
 
   with open(path, "r", encoding="utf-8") as file:
     return json.load(file)
+
+
+def delete_progress(id_usuario, country=None):
+  path = _progress_path(id_usuario, country)
+
+  if not os.path.exists(path):
+    return False
+
+  os.remove(path)
+  return True

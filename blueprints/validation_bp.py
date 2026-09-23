@@ -22,7 +22,8 @@ import argparse
 
 from utilities.utilidades import removeAccents
 from utilities.token_utils import token_required
-from utilities.progress_store import save_progress, get_progress
+from utilities.progress_store import save_progress, get_progress, delete_progress
+import utilities.logs as logs
 import time
 
 
@@ -973,6 +974,11 @@ def validate():
       'parametrosValidacion': checkValuesJSON,
       'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
     })
+
+    try:
+        delete_progress(idUsuario, country=country)
+    except Exception as e:
+        logs.addLog(logs.checkLogsFile(), f"Error al eliminar el progreso de validación: {str(e)}")
 
     return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":face, "estadoVerificacion":resultState})
 
