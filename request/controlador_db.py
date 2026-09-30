@@ -4,7 +4,7 @@ import socket
 import requests
 import utilities.logs as logs
 import os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from flask import g, request as flask_request
 from dotenv import load_dotenv
 
@@ -12,13 +12,24 @@ load_dotenv()
 
 def _parse_db_uri(uri):
   parsed = urlparse(uri)
-  return {
+  config = {
     "host": parsed.hostname,
     "port": parsed.port or 3306,
     "user": parsed.username,
     "password": parsed.password,
     "database": parsed.path.lstrip("/"),
   }
+  query = parse_qs(parsed.query)
+  if "ssl_ca" in query:
+      config["ssl_ca"] = query["ssl_ca"][0]
+  if "ssl_cert" in query:
+      config["ssl_cert"] = query["ssl_cert"][0]
+  if "ssl_key" in query:
+      config["ssl_key"] = query["ssl_key"][0]
+  if "ssl_verify_cert" in query:
+      val = query["ssl_verify_cert"][0].lower()
+      config["ssl_verify_cert"] = val in ('true', '1', 't', 'y', 'yes')
+  return config
 
 DB_CONFIGS = {
     "COL": _parse_db_uri(os.getenv("DB_COL_URI", "")),
