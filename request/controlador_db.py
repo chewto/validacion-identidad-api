@@ -4,32 +4,183 @@ import socket
 import requests
 import utilities.logs as logs
 import os
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qsl, unquote
 from flask import g, request as flask_request
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Parametros TLS que mariadb.connect() acepta tal cual en MariaDB
+# Connector/Python 1.1.12 (Connector/C 3.4.4). Cualquier otro parametro de la
+# URI se ignora, para que agregar un flag en el .env no rompa el arranque.
+_SSL_BOOL_PARAMS = ("ssl", "ssl_verify_cert")
+_SSL_PATH_PARAMS = ("ssl_ca", "ssl_capath", "ssl_cert", "ssl_key", "ssl_crlpath")
+_SSL_STR_PARAMS = ("tls_version",)
+
+# Los puertos 3300/3310 no son estandar. Sin timeouts, un firewall que dropee el
+# SYN deja la peticion colgada indefinidamente en vez de devolver un error.
+DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
+DB_READ_TIMEOUT = int(os.getenv("DB_READ_TIMEOUT", "30"))
+DB_WRITE_TIMEOUT = int(os.getenv("DB_WRITE_TIMEOUT", "30"))
+
+class DbConnectionError(mariadb.Error):
+  """Fallo al abrir una conexion a la base de datos.
+
+  Hereda de mariadb.Error a proposito: los `except mariadb.Error` que ya hay en
+  las ~20 funciones de este modulo siguen capturandola, asi que el comportamiento
+  publico de selectData, getUser, insertTabla, etc. no cambia. Solo cambia que
+  se reporta, no que se devuelve."""
+
+_TLS_WARNED = set()
+
+def _as_bool(value):
+  """Normaliza un flag booleano de la URI. Devuelve el singleton bool real y no
+  un truthy, porque el contrato de tests/test_db_tls.py compara con `is`."""
+  return str(value).strip().lower() in ("1", "true", "yes", "on")
+
 def _parse_db_uri(uri):
+  """Convierte la URI de conexion en kwargs de mariadb.connect().
+
+  NUNCA levanta excepciones: un .env mal escrito no puede impedir que gunicorn
+  arranque, porque eso se manifestaba como HTTP 502 sin log legible. Es una
+  funcion pura, sin validacion de disco; toda comprobacion ocurre despues, en
+  _validar_tls(), ya en tiempo de request. Un error de formato se devuelve en la
+  clave privada `_parse_error` para que el resto del modulo siga funcionando.
+  """
+  try:
+    return _build_db_config(uri)
+  except Exception as e:
+    return {
+      "host": None, "port": 3306, "user": None, "password": None, "database": "",
+      "_parse_error": f"URI de base de datos mal formada: no se pudo interpretar ({e})",
+    }
+
+def _build_db_config(uri):
   parsed = urlparse(uri)
+  problemas = []
+
+  # parsed.port lanza ValueError cuando el "host:puerto" no esta limpio, y eso
+  # pasa cuando la password trae un '@', '/', '?' o '#' sin percent-encodear:
+  # urlparse corta el netloc en el primer caracter raro y el resto se pierde.
+  try:
+    port = parsed.port or 3306
+  except ValueError:
+    port = 3306
+    problemas.append(
+      "el puerto no es un numero entero; la password parece traer un caracter "
+      "sin escapar (@ / ? #)"
+    )
+
+  # '#' abre fragmento: todo lo que sigue se descarta, incluida la parte de la
+  # conexion, y urlparse se queda sin usuario ni password.
+  if parsed.fragment:
+    problemas.append(
+      f"se tranco en el fragmento '{parsed.fragment[:40]}': la password parece "
+      "contener un '#' sin escapar, codificalo con %23"
+    )
+
+  # '/' sin escapar empuja el resto de la URI hacia el path.
+  if "@" in parsed.path:
+    problemas.append(
+      f"ruta de base de datos invalida '{parsed.path[:40]}': la password parece "
+      "contener un '/' sin escapar, codificalo con %2F"
+    )
+
   config = {
     "host": parsed.hostname,
-    "port": parsed.port or 3306,
-    "user": parsed.username,
-    "password": parsed.password,
+    "port": port,
+    "user": unquote(parsed.username) if parsed.username else parsed.username,
+    "password": unquote(parsed.password) if parsed.password else parsed.password,
     "database": parsed.path.lstrip("/"),
   }
-  query = parse_qs(parsed.query)
-  if "ssl_ca" in query:
-      config["ssl_ca"] = query["ssl_ca"][0]
-  if "ssl_cert" in query:
-      config["ssl_cert"] = query["ssl_cert"][0]
-  if "ssl_key" in query:
-      config["ssl_key"] = query["ssl_key"][0]
-  if "ssl_verify_cert" in query:
-      val = query["ssl_verify_cert"][0].lower()
-      config["ssl_verify_cert"] = val in ('true', '1', 't', 'y', 'yes')
+
+  if problemas:
+    config["_parse_error"] = "URI de base de datos mal formada: " + "; ".join(problemas)
+
+  tls = {}
+  for key, value in parse_qsl(parsed.query):
+    if key in _SSL_BOOL_PARAMS:
+      tls[key] = _as_bool(value)
+    elif key in _SSL_PATH_PARAMS or key in _SSL_STR_PARAMS:
+      tls[key] = value
+
+  if tls:
+    # ssl=True es lo que hace obligatorio el handshake TLS. Sin el, el connector
+    # negocia en claro en silencio cuando algo falla, y no hay forma de notarlo.
+    # ssl_verify_cert verifica la cadena del certificado del servidor; ojo, en
+    # este driver NO verifica el hostname/SAN (ver README).
+    tls.setdefault("ssl", True)
+    tls.setdefault("ssl_verify_cert", False)
+    config.update(tls)
+
   return config
+
+def _validar_tls(config, pais):
+  """Comprueba la config TLS antes de abrir el socket.
+
+  Levanta DbConnectionError para que el fallo llegue como error legible en vez de
+  degradar a texto plano. El parseo preserva las rutas tal cual; que existan de
+  verdad en el contenedor se comprueba aqui.
+  """
+  if config.get("_parse_error"):
+    raise DbConnectionError(
+      f"URI de base de datos mal formada [{pais}]: {config['_parse_error']}"
+    )
+
+  if not config.get("ssl"):
+    return
+
+  problemas = []
+  for key in _SSL_PATH_PARAMS:
+    value = config.get(key)
+    if not value:
+      continue
+    if not os.path.isabs(value):
+      problemas.append(f"{key} debe ser una ruta absoluta, se recibio: {value}")
+    elif not os.path.isfile(value):
+      problemas.append(
+        f"{key} no existe o no es un archivo: {value} "
+        "(revisa el bind mount de /ssl dentro del contenedor)"
+      )
+
+  if problemas:
+    raise DbConnectionError(f"Config TLS invalida [{pais}]: " + "; ".join(problemas))
+
+  if config.get("ssl_verify_cert"):
+    return
+
+  # Cifrado activo, identidad no validada: se avisa una sola vez por pais para no
+  # inundar el log en cada request.
+  if pais in _TLS_WARNED:
+    return
+  _TLS_WARNED.add(pais)
+  try:
+    logs.addLog(
+      logs.checkLogsFile(),
+      f"AVISO TLS: {config.get('host')} se conecta cifrado pero SIN verificar el "
+      "certificado del servidor (ssl_verify_cert=False). MariaDB Connector 1.1.12 "
+      "no puede validar el hostname/SAN del servidor; compense con firewall por "
+      "IP de origen y tls_version pineado."
+    )
+  except Exception as e:
+    # Un log que no se puede escribir jamas debe tumbar la conexion.
+    print(f"No se pudo escribir el aviso TLS en el log: {e}")
+
+def _tls_negociada(conn):
+  """Devuelve el cifrado y la version TLS realmente negociados, o "" si la
+  conexion es de texto plano. En Connector/Python 1.1.12 tls_cipher y
+  tls_version son @property, no metodos; se toleran ambas formas."""
+  negotiated = []
+  for atributo in ("tls_cipher", "tls_version"):
+    valor = getattr(conn, atributo, None)
+    if callable(valor):
+      try:
+        valor = valor()
+      except Exception:
+        valor = None
+    if valor:
+      negotiated.append(f"{atributo}={valor}")
+  return " ".join(negotiated)
 
 DB_CONFIGS = {
     "COL": _parse_db_uri(os.getenv("DB_COL_URI", "")),
@@ -59,7 +210,39 @@ def get_db(pais=None):
     config = DB_CONFIGS.get(pais)
     if not config:
       raise ValueError(f"País no soportado: {pais}")
-    g_dict[key] = mariadb.connect(**config)
+    _validar_tls(config, pais)
+
+    # Las claves que empiezan con "_" son diagnostico interno, no argumentos
+    # validos de mariadb.connect().
+    kwargs = {k: v for k, v in config.items() if not k.startswith("_")}
+    kwargs.setdefault("connect_timeout", DB_CONNECT_TIMEOUT)
+    kwargs.setdefault("read_timeout", DB_READ_TIMEOUT)
+    kwargs.setdefault("write_timeout", DB_WRITE_TIMEOUT)
+
+    tls_requerido = bool(config.get("ssl"))
+    try:
+      conn = mariadb.connect(**kwargs)
+    except mariadb.Error as e:
+      raise DbConnectionError(
+        f"Fallo de conexion a {config.get('host')}:{config.get('port')}/"
+        f"{config.get('database')} [{pais}, {'TLS' if tls_requerido else 'SIN TLS'}]: {e}"
+      ) from e
+
+    # Conectar y confiar no es verificar. Si la URI pedia TLS, se comprueba que la
+    # conexion realmente lo haya negociado antes de entregarla: si no, se cierra
+    # para no mandar credenciales ni datos en texto plano.
+    if tls_requerido and not _tls_negociada(conn):
+      try:
+        conn.close()
+      except Exception:
+        pass
+      raise DbConnectionError(
+        f"Degradacion de seguridad en {config.get('host')}:{config.get('port')}/"
+        f"{config.get('database')} [{pais}, TLS]: la conexion se abrio pero no "
+        "negocio TLS. Se cierra para no enviar credenciales en texto plano."
+      )
+
+    g_dict[key] = conn
   return g_dict[key]
 
 def close_db_connections(exception=None):

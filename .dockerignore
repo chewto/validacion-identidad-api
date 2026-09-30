@@ -1,0 +1,64 @@
+# ============================================================================
+# Build context de Docker para validacion-identidad-api
+#
+# El contexto de build es el SISTEMA DE ARCHIVOS, no git: .gitignore no protege
+# nada aca. Sin este archivo, `COPY . .` hornea en la imagen el .env con los
+# passwords reales de la BD y cualquier clave privada que alguien deje en el
+# arbol. Eso sale en `docker history` y al extraer capas de la imagen.
+# ============================================================================
+
+# --- Credenciales y material criptografico: NUNCA dentro de la imagen ---
+.env
+.env.*
+*.env
+gcs.json
+*.json.key
+
+# Los PEM de mTLS se montan en /ssl con bind mount :ro desde el host.
+# Copiarlos aqui seria equivalente a embeber la clave privada del cliente.
+ssl/
+*.pem
+*.key
+*.crt
+*.cer
+*.csr
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# --- Entorno virtual local: 3.7 GB, y un venv de Windows dentro de una imagen
+#     Linux pisa el site-packages del sistema ---
+entorno/
+virtual_env/
+venv/
+.venv/
+
+# --- Version control y estado de pruebas ---
+.git
+.gitignore
+.github/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# OJO: NO se excluyen recortes/, videos/, progreso-validacion/ ni assets/.
+# La app escribe ahi en runtime y persistirRecortes() NO crea el directorio:
+# si recortes/ no existe en la imagen, esa feature falla. Se resuelven por
+# volumen en el servidor o se crean en el arranque.
+
+# --- Herramientas de desarrollo y otros proyectos del directorio ---
+BarcodeReaderCLI/
+postman/
+.idea/
+.vscode/
+*.md

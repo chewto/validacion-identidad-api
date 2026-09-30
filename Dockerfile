@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3-dev \
     cmake \
+    pkg-config \
+    libssl-dev \
     python3-opencv \
     libgl1 \
     libopencv-dev \
@@ -17,6 +19,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
+
+# /ssl     -> punto de montaje de los PEM de mTLS (bind mount :ro desde el host,
+#            NUNCA se copian al build context; ver .dockerignore y README.md).
+# /Logs/ekyc -> destino de los accesslog/errorlog de gunicorn. Si no existe,
+#            gunicorn no puede abrir sus logs y se pierde todo diagnostico,
+#            lo que se manifestaba como "HTTP 502 sin log legible".
+RUN mkdir -p /ssl /Logs/ekyc
 
 # Copiamos solo los requerimientos primero (buena práctica para la caché de Docker)
 COPY requirements.txt ./
