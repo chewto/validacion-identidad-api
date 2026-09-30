@@ -1,6 +1,5 @@
 import json
 from flask import Blueprint, request, jsonify
-from ultralytics import YOLO
 from utilities.check_result import results, testingCountry
 import request.controlador_db as controlador_db
 from expiry import expiryDateDetection, expiryDateOCR, hasExpiryDate
@@ -25,6 +24,7 @@ confidenceValue = 0.6
 def documentDetection():
 
     testing = request.args.get("testing", "false").lower() == "true"
+    allLabels = request.args.get("all", "false").lower() == "true"
 
     documentType = request.args.get("documento")
     documentSide = request.args.get("lado")
@@ -32,6 +32,8 @@ def documentDetection():
 
     if (documentType == 'PASAPORTE'):
         document = 'PASAPORTE'
+    else:
+        document = ''
 
     if testing:
         image = request.files.get("image", None)
@@ -46,14 +48,13 @@ def documentDetection():
         if (documentSide == 'FRONTAL'):
             documentSide = 'ANVERSO'
 
-    document = f'{documentType}_{documentSide}'.upper()
+    if documentType and documentSide:
+        document = f'{documentType}_{documentSide}'.upper()
 
-    if ('PASAPORTE' in documentType):
+    if (documentType and 'PASAPORTE' in documentType):
         return jsonify({
           "documentoValido": True,
         }), 200
-
-    print(document)
 
     countryData = controlador_db.selectData(f'''
         SELECT yolo_labels, tipo_documento_validacion  FROM pki_validacion.pais as pais
@@ -73,10 +74,12 @@ def documentDetection():
     for result in results:
         labels.append(result['label'])
 
-        if 'CEDULA_DIGITAL' in result['label'] and documentType in 'CEDULA_CIUDADANIA':
+        if 'CEDULA_DIGITAL' in result['label'] and documentType and documentType in 'CEDULA_CIUDADANIA':
             document = f'CEDULA_DIGITAL_{documentSide}'
 
-        if document in result['label'] or 'FOTO' in result['label']:
+        isTarget = allLabels or (document and document in result['label']) or 'FOTO' in result['label']
+
+        if isTarget:
 
             crop = {
               "left": int(result['crop'][1][0]),
@@ -84,14 +87,13 @@ def documentDetection():
               "top": int(result['crop'][0][0]),
               "bottom": int(result['crop'][0][1])
             }
-            # Recortar la imagen y convertir a base64
 
             crops.append({
               "etiqueta": result['label'],
               "recorte": crop,
             })
 
-    if document in labels:
+    if document and document in labels:
         isDocument = True
 
     return jsonify({

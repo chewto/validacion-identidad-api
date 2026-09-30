@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import request.controlador_db as controlador_db
 import json
 from reconocimiento import orientacionImagen, verifyFaces, antiSpoofingTest
-from utilities.utilidades import cv2Blob, getBrowser, readDataURL, recorteData, stringBool
+from utilities.utilidades import cv2Blob, getBrowser, readDataURL, recorteData, saveYoloCrops, stringBool
 from request.eKYC import ekycDataDTO,ekycRules, getAdminToken, getSession, getValidationMedia, getVideoToken, getRequest, getSessionStatus
 from mrz import validateMRZ, hasMRZ
 from utilities.check_result import results
@@ -16,8 +16,6 @@ import request.controlador_db as controlador_db
 import requests
 import base64
 import json
-import cv2
-import numpy as np
 import argparse
 
 from utilities.utilidades import removeAccents
@@ -25,10 +23,16 @@ from utilities.token_utils import token_required
 from utilities.progress_store import save_progress, get_progress, delete_progress
 import utilities.logs as logs
 import time
+import document_detection
 
 
 
 validation_bp = Blueprint('validation', __name__, url_prefix="/validation")
+
+# Raiz de almacenamiento de los recortes generados por YOLO.
+# En produccion debe apuntar a un volumen montado, de lo contrario los ficheros
+# se pierden en cada `docker compose up -d --build`.
+RECORTES_DIR = os.getenv("RECORTES_DIR", "./recortes")
 
 
 
@@ -1541,6 +1545,111 @@ def revalidacion():
 
   return jsonify({"state": resultState, "checkValues":checkValuesDict})
 
+def roisDeDeteccion(results):
+  """
+  Convierte la salida de document_detection.detection al contrato de
+  POST /document/detection: {"label", "crop": [[y1, y2], [x1, x2]]}
+  -> [{"etiqueta": str, "recorte": {"left", "right", "top", "bottom"}}, ...]
+  """
+  rois = []
+
+  for result in results or []:
+    crop = result.get('crop') or []
+    if len(crop) < 2:
+      continue
+
+    (y1, y2), (x1, x2) = crop[0], crop[1]
+
+    rois.append({
+      "etiqueta": result.get('label', 'desconocido'),
+      "recorte": {
+        "left": int(x1),
+        "right": int(x2),
+        "top": int(y1),
+        "bottom": int(y2)
+      }
+    })
+
+  return rois
+
+
+def persistirRecortes(sides, country, signerId, outputDir, padding=0.0, contexto=""):
+  """
+  Recorta y persiste en disco las ROIs ya detectadas de cada lado del documento.
+
+  Los bounding boxes son absolutos respecto a la imagen ORIGINAL de cada lado, que
+  debe llegar decodificada en sides[lado]['array']. Aplicarlos sobre un recorte
+  previo produce recortes doblemente recortados.
+
+  Args:
+    sides: {"front": {"coords": {...}, "array": ndarray}, "back": {...}}
+      'coords' usa el contrato de /document/detection. Si no trae 'recortes' (por
+      ejemplo el short-circuit de PASAPORTE) el lado simplemente se omite.
+    country: codigo de pais, primer nivel de la ruta.
+    signerId: id del firmador, segundo nivel de la ruta.
+    outputDir: raiz de almacenamiento.
+    padding: margen proporcional alrededor de cada bbox.
+    contexto: prefijo para las lineas de log.
+  Returns:
+    dict con el manifiesto por lado y la lista de archivos escritos.
+  """
+  logsPath = logs.checkLogsFile()
+  resumen = {}
+  archivos = []
+  prefix = f"{contexto} " if contexto else ""
+
+  for side in ('front', 'back'):
+    lado = sides.get(side) or {}
+    coords = lado.get('coords')
+    recortes = coords.get('recortes', []) if isinstance(coords, dict) else []
+
+    detalle = []
+    guardados = []
+
+    if recortes:
+      guardados = saveYoloCrops(
+        image=lado.get('array'),
+        recortes=recortes,
+        country=country,
+        signerId=signerId,
+        side=side,
+        outputDir=outputDir,
+        padding=padding
+      )
+
+      # saveYoloCrops omite los bboxes degenerados, asi que se empareja por indice
+      # solo cuando la cantidad coincide.
+      if len(guardados) == len(recortes):
+        detalle = [{"etiqueta": r["etiqueta"], "recorte": r["recorte"],
+                    "archivo": os.path.basename(p), "ruta": p}
+                   for r, p in zip(recortes, guardados)]
+      else:
+        detalle = [{"archivo": os.path.basename(p), "ruta": p} for p in guardados]
+
+    imagen = lado.get('array')
+    dimensiones = {"ancho": int(imagen.shape[1]), "alto": int(imagen.shape[0])} if imagen is not None else None
+
+    resumen[side] = {
+      "dimensiones": dimensiones,
+      "roisDetectadas": len(recortes),
+      "recortesGuardados": len(guardados),
+      "rois": detalle
+    }
+
+    archivos.extend(guardados)
+
+    if guardados:
+      logs.addLog(logsPath, f"{prefix}firmador {signerId} {side}: {len(guardados)} recortes en {os.path.dirname(guardados[0])}")
+
+  if resumen['front']['roisDetectadas'] != resumen['front']['recortesGuardados'] or \
+     resumen['back']['roisDetectadas'] != resumen['back']['recortesGuardados']:
+    logs.addLog(logsPath, f"{prefix}firmador {signerId}: ROIs detectadas y recortes guardados no coinciden "
+                          f"(front {resumen['front']['roisDetectadas']}/{resumen['front']['recortesGuardados']}, "
+                          f"back {resumen['back']['roisDetectadas']}/{resumen['back']['recortesGuardados']})")
+
+  return {"lados": resumen, "archivos": archivos}
+
+
 @validation_bp.route('/process-revalidation', methods=['POST'])
 def process_revalidation():
 
@@ -1587,38 +1696,9 @@ LIMIT 1
 '''
 
     if not entityId:
-      return jsonify({"error": "El parámetro 'id_entidad' es requerido"}), 400
-
-    output_dir = "./recortes"
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
+        return jsonify({"error": "El parámetro 'id_entidad' es requerido"}), 400
 
     validations = controlador_db.selectValidations(queryValidation, ())
-
-    print(validations)
-
-    def save_crop(base64_image, crop, label, side, id):
-      img_data = base64.b64decode(base64_image.split(",")[1])
-      np_arr = np.frombuffer(img_data, np.uint8)
-      img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-      if img is None:
-        print(f"Error: La imagen no se pudo decodificar correctamente.")
-        return
-      x, y, w, h = crop['x'], crop['y'], crop['width'], crop['height']
-      if x < 0 or y < 0 or w <= 0 or h <= 0:
-        print(f"Advertencia: Coordenadas no válidas para el crop en {side} {label}: {crop}")
-        return
-      crop_img = img[y:y+h, x:x+w]
-      if crop_img.size != 0:
-        id_dir = os.path.join(output_dir, str(id))
-        if not os.path.exists(id_dir):
-          os.makedirs(id_dir)
-        filename = f"{side}_{label}.jpg"
-        file_path = os.path.join(id_dir, filename)
-        cv2.imwrite(file_path, crop_img)
-        print(f"Guardado: {file_path}")
-      else:
-        print(f"Advertencia: El recorte está vacío para {side} {label} en las coordenadas {crop}")
 
     results_list = []
     for validation in validations:
@@ -1662,9 +1742,14 @@ LIMIT 1
       ocr = {}
 
       def getLabelCrop(image, country, side):
-        response = requests.post(f"{validateUrl}/document/detection", json={"image":image, "country": country})
+        # `all=true` devuelve todas las ROIs detectadas, no solo documento y FOTO,
+        # para poder persistir despues los recortes de cada campo del documento.
+        response = requests.post(f"{validateUrl}/document/detection?all=true", json={"image":image, "country": country})
         sides[side]['coords'] = json.loads(response.text)
         sides[side]['image'] = image
+        # Los bounding boxes son absolutos respecto a la imagen original, por lo que
+        # hay que conservarla decodificada para recortar sobre ella.
+        sides[side]['array'] = readDataURL(image)
 
 
       getLabelCrop(frontImage, country, 'front')
@@ -1731,27 +1816,13 @@ LIMIT 1
       checkValues = resJson['checkValues']
       checkValues['documentValidation'] = documentDataStore
 
-      for val in documentValidation:
-        payload = {
-          "labels": yoloLabels,
-          "image": documentValidation[val]['image'],
-          "country": country
-        }
-        response = requests.post(f"{validateUrl}/document/detection", json=payload)
-        if response.status_code == 200:
-          crops = json.loads(response.text)
-          for crop in crops:
-            label = crop.get('label', 'unknown')
-            y1, y2 = crop['crop'][0]
-            x1, x2 = crop['crop'][1]
-            x = x1
-            y = y1
-            w = x2 - x1
-            h = y2 - y1
-            crop_dict = {'x': x, 'y': y, 'width': w, 'height': h}
-            save_crop(documentValidation[val]['image'], crop_dict, label, val, id)
-        else:
-          print(f"Error en la solicitud de detección para {val}: {response.status_code}")
+      # Recortes: se reaprovechan las coordenadas ya obtenidas en getLabelCrop,
+      # que se calcularon sobre la imagen original de cada lado. Antes se volvia a
+      # detectar sobre documentValidation['image'], que ya es un recorte del
+      # documento, produciendo recortes doblemente recortados.
+      recorteResult = persistirRecortes(sides, country, signerId, RECORTES_DIR,
+                                        contexto=f"revalidacion {id}")
+      recortesGuardados = len(recorteResult['archivos'])
 
       columns = ('revalidacion_registro.revalidacion', 'revalidacion_registro.id_recortes', 'revalidacion_registro.estado', 'revalidacion_registro.id_entidad', 'estado_original', 'id_firmador', 'ocr_yolo')
       table = 'pki_validacion.revalidacion_registro'
@@ -1761,10 +1832,197 @@ LIMIT 1
       estado_value = state
       values = (revalidacion_value, id_recortes_value, estado_value, entityId, originalState, signerId, ocrValue)
       controlador_db.insertTabla(columns, table, values)
-      print(f"finalizada revalidacion id: {id}")
-      results_list.append({"id": id, "estado": state})
+      logs.addLog(logs.checkLogsFile(), f"finalizada revalidacion id: {id}")
+      results_list.append({"id": id, "estado": state, "recortes": recortesGuardados, "pais": country, "idFirmador": signerId})
 
       endTime = time.time()
       print(f"Tiempo transcurrido para la revalidación id {id}: {endTime - initTime:.2f} segundos")
 
-    return jsonify({"procesados": len(results_list), "resultados": results_list})
+    return jsonify({"procesados": len(results_list), "resultados": results_list, "directorioRecortes": RECORTES_DIR})
+
+
+def _readTestRecortesBody():
+  """
+  Normaliza el cuerpo de POST /validation/test-recortes.
+
+  Acepta dos formatos en el mismo handler:
+    - application/json: subconjunto de type-3 (info.anverso / info.reverso,
+      signInfo.pais). Es lo que manda el front.
+    - multipart/form-data: anverso y reverso como ficheros, mas los campos de
+      texto. Es lo comodo desde Postman o curl.
+
+  Returns:
+    dict con 'pais', 'idUsuario', 'idFirmador' e 'imagenes' {lado: dataURL|None}.
+  Raises:
+    ValueError con mensaje legible para el cliente.
+  """
+  imagenes = {'front': None, 'back': None}
+  campos = {}
+
+  contentType = (request.content_type or '').lower()
+
+  if contentType.startswith('multipart/form-data'):
+    campos = request.form.to_dict()
+    for lado, key in (('front', 'anverso'), ('back', 'reverso')):
+      archivo = request.files.get(key)
+      if archivo is not None and archivo.filename:
+        # Se reenvuelve como data URL para reutilizar readDataURL y no duplicar
+        # la decodificacion CV.
+        bytesImagen = archivo.read()
+        if not bytesImagen:
+          raise ValueError(f"el archivo '{key}' llego vacio")
+        imagenes[lado] = f"data:image/jpeg;base64,{base64.b64encode(bytesImagen).decode('utf-8')}"
+
+  else:
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+      raise ValueError("el cuerpo debe ser un JSON valido o multipart/form-data")
+
+    campos = data
+
+    info = data.get('info') or {}
+    signInfo = data.get('signInfo') or {}
+
+    if not isinstance(info, dict) or not isinstance(signInfo, dict):
+      raise ValueError("'info' y 'signInfo' deben ser objetos")
+
+    for lado, key in (('front', 'anverso'), ('back', 'reverso')):
+      valor = info.get(key)
+      if valor:
+        imagenes[lado] = valor
+
+    # signInfo.pais es el que usa type-3; se acepta 'pais' plano como atajo.
+    if not campos.get('pais') and signInfo.get('pais'):
+      campos = dict(campos, pais=signInfo['pais'])
+
+  def _entero(valor, nombre, porDefecto):
+    if valor is None or valor == '':
+      return porDefecto
+    try:
+      return int(valor)
+    except (TypeError, ValueError):
+      raise ValueError(f"'{nombre}' debe ser un entero, se recibio {valor!r}")
+
+  paddingBruto = request.args.get('padding', campos.get('padding'))
+
+  try:
+    padding = float(paddingBruto) if paddingBruto not in (None, '') else 0.0
+  except (TypeError, ValueError):
+    raise ValueError(f"'padding' debe ser numerico, se recibio {paddingBruto!r}")
+
+  if not 0.0 <= padding < 1.0:
+    raise ValueError("'padding' debe estar en el rango [0, 1)")
+
+  idUsuario = _entero(request.args.get('idUsuario', campos.get('idUsuario')), 'idUsuario', 0)
+  # El firmador es el segundo nivel de la ruta; si no viene se cae al idUsuario
+  # para que una llamada de prueba no necesite dos identificadores.
+  idFirmador = _entero(request.args.get('idFirmador', campos.get('idFirmador')), 'idFirmador', idUsuario)
+
+  return {
+    'pais': (request.args.get('pais') or campos.get('pais') or '').strip().upper(),
+    'idUsuario': idUsuario,
+    'idFirmador': idFirmador,
+    'padding': padding,
+    'imagenes': imagenes
+  }
+
+
+@validation_bp.route('/test-recortes', methods=['POST'])
+def testRecortes():
+  """
+  Ruta auxiliar para probar el recorte YOLO de un solo firmador.
+
+  Recibe el pais, los ids y las imagenes en el cuerpo con la misma forma que
+  POST /validation/type-3 (info.anverso / info.reverso, signInfo.pais), o bien
+  multipart/form-data con los ficheros, y persiste los recortes en el mismo
+  RECORTES_DIR que usa el lote.
+
+  Sin autenticacion, por decision explicita. Al no estar protegida y disparar
+  inferencia YOLO escribiendo en disco, conviene no exponerla fuera de la red
+  interna.
+
+  La deteccion se ejecuta en proceso con document_detection.detection(), no por
+  HTTP contra /document/detection: esa ruta exige token y llamarla exigiria
+  fabricar un JWT para hablar consigo mismo. El resultado es identico, misma
+  funcion y mismo modelo cacheado.
+  """
+  initTime = time.time()
+
+  try:
+    params = _readTestRecortesBody()
+  except ValueError as e:
+    return jsonify({"ok": False, "error": str(e)}), 400
+
+  country = params['pais']
+
+  if not country:
+    return jsonify({"ok": False, "error": "falta el pais (signInfo.pais o el parametro pais)"}), 400
+
+  if country not in document_detection.documentDetection:
+    return jsonify({"ok": False,
+                    "error": f"pais no soportado: {country}",
+                    "paisesSoportados": sorted(document_detection.documentDetection.keys())}), 400
+
+  if not any(params['imagenes'].values()):
+    return jsonify({"ok": False, "error": "se requiere al menos una imagen: info.anverso o info.reverso"}), 400
+
+  countryData = controlador_db.selectData(
+    'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = %s', (country,))
+
+  if not countryData:
+    return jsonify({"ok": False, "error": f"no hay yolo_labels configurados para {country}"}), 400
+
+  yoloLabels = [label.strip() for label in str(countryData[0]).upper().split(',') if label.strip()]
+
+  sides = {'front': {}, 'back': {}}
+  errores = {}
+
+  for side, imagen in params['imagenes'].items():
+    if not imagen:
+      continue
+
+    try:
+      array = readDataURL(imagen)
+    except Exception as e:
+      errores[side] = f"no se pudo decodificar la imagen: {e}"
+      continue
+
+    if array is None:
+      errores[side] = "la imagen no se pudo decodificar a un array de OpenCV"
+      continue
+
+    sides[side]['array'] = array
+
+    try:
+      results = document_detection.detection(array, yoloLabels, country)
+    except Exception as e:
+      errores[side] = f"fallo la deteccion YOLO: {e}"
+      continue
+
+    sides[side]['coords'] = {'recortes': roisDeDeteccion(results)}
+
+  if not any(side.get('array') is not None for side in sides.values()):
+    return jsonify({"ok": False,
+                    "error": "ninguna imagen pudo procesarse",
+                    "detalle": errores}), 400
+
+  recorteResult = persistirRecortes(sides, country, params['idFirmador'], RECORTES_DIR,
+                                   padding=params['padding'],
+                                   contexto=f"test-recortes {params['idUsuario']}")
+
+  tiempoMs = int((time.time() - initTime) * 1000)
+
+  return jsonify({
+    "ok": True,
+    "pais": country,
+    "idUsuario": params['idUsuario'],
+    "idFirmador": params['idFirmador'],
+    "modelo": document_detection.documentDetection[country]['modelPath'],
+    "directorio": os.path.join(RECORTES_DIR, country, str(params['idFirmador'])),
+    "tiempoMs": tiempoMs,
+    "lados": recorteResult['lados'],
+    "archivos": recorteResult['archivos'],
+    "totalRecortes": len(recorteResult['archivos']),
+    **({"errores": errores} if errores else {})
+  }), 200

@@ -1,3 +1,4 @@
+import os
 import random
 import string
 import time
@@ -214,3 +215,100 @@ def orientation(image):
     return rotated
   
   return image
+
+
+def sanitizeFileName(value):
+  """
+  Reduce un valor a un segmento de ruta seguro.
+  Las etiquetas provienen de pais.yolo_labels en base de datos, por lo que un
+  '/' o un '..' allowrian escribir fuera del directorio de recortes.
+  """
+  cleaned = re.sub(r'[^A-Za-z0-9_-]', '_', str(value))
+  return cleaned.strip('_') or 'desconocido'
+
+
+def saveYoloCrops(image, recortes, country, signerId, side, outputDir, padding=0.0):
+  """
+  Recorta y persiste en disco las regiones de interes detectadas por YOLO.
+
+  Args:
+    image: ndarray BGR de la imagen ORIGINAL sobre la que se detectaron los
+      bounding boxes. Debe ser la imagen completa, no un recorte previo.
+    recortes: lista con el contrato de POST /document/detection, es decir
+      [{"etiqueta": str, "recorte": {"left","right","top","bottom"}}, ...]
+    country: codigo de pais (COL, HND) usado como primer nivel de la ruta.
+    signerId: id del firmador usado como segundo nivel de la ruta.
+    side: 'front' o 'back', se antepone al nombre del archivo.
+    outputDir: raiz de almacenamiento.
+    padding: margen proporcional alrededor del bbox para no cortar bordes.
+  Returns:
+    list[str]: rutas de los archivos escritos.
+  """
+  if image is None:
+    return []
+
+  savedPaths = []
+  height, width = image.shape[:2]
+  targetDir = os.path.join(outputDir, sanitizeFileName(country), sanitizeFileName(signerId))
+  # YOLO puede devolver la misma etiqueta mas de una vez en una imagen. El contador
+  # se reinicia en cada llamada, de forma que reprocesar el mismo firmador
+  # sobreescribe los archivos en vez de acumular sufijos de ejecuciones anteriores.
+  labelCounters = {}
+
+  for item in recortes or []:
+    label = sanitizeFileName(item.get('etiqueta', 'desconocido'))
+    box = item.get('recorte') or {}
+
+    x1 = int(box.get('left', 0))
+    y1 = int(box.get('top', 0))
+    x2 = int(box.get('right', 0))
+    y2 = int(box.get('bottom', 0))
+
+    boxWidth = x2 - x1
+    boxHeight = y2 - y1
+
+    if boxWidth <= 0 or boxHeight <= 0:
+      continue
+
+    if padding > 0:
+      padX = int(boxWidth * padding)
+      padY = int(boxHeight * padding)
+      x1 -= padX
+      y1 -= padY
+      x2 += padX
+      y2 += padY
+
+    x1 = max(0, x1)
+    y1 = max(0, y1)
+    x2 = min(width, x2)
+    y2 = min(height, y2)
+
+    if x2 <= x1 or y2 <= y1:
+      continue
+
+    crop = image[y1:y2, x1:x2]
+
+    if crop.size == 0:
+      continue
+
+    os.makedirs(targetDir, exist_ok=True)
+
+    labelCounters[label] = labelCounters.get(label, 0) + 1
+    occurrence = labelCounters[label]
+    fileName = f"{sanitizeFileName(side)}_{label}.jpg"
+    if occurrence > 1:
+      fileName = f"{sanitizeFileName(side)}_{label}_{occurrence}.jpg"
+
+    filePath = os.path.join(targetDir, fileName)
+
+    isWritten, encoded = cv2.imencode('.jpg', crop, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+
+    if not isWritten:
+      continue
+
+    with open(filePath, 'wb') as cropFile:
+      cropFile.write(encoded.tobytes())
+
+    savedPaths.append(filePath)
+
+  return savedPaths

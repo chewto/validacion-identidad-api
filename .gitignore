@@ -20,3 +20,5 @@ test.py
 test-reglas.py
 test_ocr.py
 .env
+postman/
+tests/
