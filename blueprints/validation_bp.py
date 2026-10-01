@@ -979,6 +979,31 @@ def validate():
       'enlaceFirma': f'https://honducert.firma.e-custodia.com/mostrar_validacion?idUsuario={idUsuario}'
     })
 
+    # Guardado de recortes YOLO al final de la validacion, igual que el lote:
+    # deteccion en proceso sobre la imagen ORIGINAL ya decodificada, mismas
+    # coordenadas 'all' y mismo RECORTES_DIR. Si falla no debe alterar el
+    # resultado de la validacion, solo queda registrado en logs.
+    if tipoDocumento != 'PASAPORTE':
+      try:
+        yoloLabelsRow = controlador_db.selectData(
+          'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = %s',
+          (country.upper(),))
+
+        if yoloLabelsRow:
+          labelsPais = [l.strip() for l in str(yoloLabelsRow[0]).upper().split(',') if l.strip()]
+          sidesDetectadas, _ = detectarLadosParaRecorte(
+            {'front': anversoData, 'back': reversoData}, labelsPais, country.upper())
+          recorteResult = persistirRecortes(
+            sidesDetectadas, country.upper(), int(idUsuario), RECORTES_DIR,
+            contexto=f"type-3 {idUsuario}")
+
+          if recorteResult['archivos']:
+            logs.addLog(logs.checkLogsFile(),
+                        f"type-3 {idUsuario}: {len(recorteResult['archivos'])} recortes en "
+                        f"{os.path.join(RECORTES_DIR, country.upper(), str(idUsuario))}")
+      except Exception as e:
+        logs.addLog(logs.checkLogsFile(), f"type-3 {idUsuario}: no se guardaron recortes: {e}")
+
     try:
         delete_progress(idUsuario, country=country)
     except Exception as e:
@@ -1335,92 +1360,6 @@ def standoleValidation():
 
   return jsonify({"idValidacion":documentoUsuarioId, "idUsuario":idUsuario, "coincidenciaDocumentoRostro":isIdentical, "estadoVerificacion":resultState})
 
-@validation_bp.route('/failed', methods=['POST'])
-@token_required
-def rejectedValidation():
-
-  idUser = request.args.get('idUsuario')
-  idUser = int(idUser)
-
-  reqBody = request.get_json()
-
-  signInfo = reqBody['informacionFirmador']
-
-  name = signInfo['nombre']
-  lastName = signInfo['apellido']
-  email = signInfo['correo']
-  documentID = signInfo['documento']
-
-
-  generalInfo = reqBody['informacion']
-
-  anverse = generalInfo['anverso']
-  anverse = readDataURL(anverse)
-  anverse = cv2Blob(anverse)
-  reverse = generalInfo['reverso']
-  reverse = readDataURL(reverse)
-  reverse = cv2Blob(reverse)
-  selfie = generalInfo['foto_persona']
-  selfie = readDataURL(selfie)
-  selfie = cv2Blob(selfie)
-  documentType = generalInfo['tipoDocumento']
-  device = generalInfo['dispositivo']
-  browser = generalInfo['navegador']
-
-  privateIp = controlador_db.obtenerIpPrivada()
-  publicIp = generalInfo['ip']
-  
-  latitude = generalInfo['latitud']
-  longitude = generalInfo['longitud']
-
-  hour = generalInfo['hora']
-  date = generalInfo['fecha']
-
-  documentValidation = reqBody['validacionDocumento']
-
-  ocr = documentValidation['ocr']
-  dataOCR = ocr['data']
-  percentageOCR = ocr['percentage']
-
-  mrz = documentValidation['mrz']
-  mrzCode = mrz['code']
-
-  face = documentValidation['face']
-
-  barcode = documentValidation['barcode']
-
-  livenessTest = reqBody['pruebaVida']
-
-  movement = livenessTest['movimiento']
-  idFolderEntity = livenessTest['idCarpetaEntidad']
-  idFolderUser = livenessTest['idCarpetaUsuario']
-
-  state = "Procesando validación"
-
-
-  #tabla evidencias 
-  columnasEvidencias = ('anverso_documento', 'reverso_documento', 'foto_usuario', 'estado_verificacion', 'tipo_documento')
-  tablaEvidencias = 'pki_validacion.evidencias_usuario'
-  valoresEvidencias = (anverse, reverse, selfie, '', '')
-  idEvidenciasUsuario = controlador_db.insertTabla(columnasEvidencias, tablaEvidencias, valoresEvidencias)
-
-  #tabla evidencias adicionales
-
-  columnasEvidenciasAdicionales = ('estado_verificacion', 'dispositivo', 'navegador', 'ip_publica', 'ip_privada', 'latitud', 'longitud', 'hora', 'fecha', 'validacion_nombre_ocr', 'validacion_apellido_ocr', 'validacion_documento_ocr', 'nombre_ocr', 'apellido_ocr', 'documento_ocr', 'validacion_vida', 'id_carpeta_entidad', 'id_carpeta_usuario', 'proveedor_validacion', 'mrz', 'codigo_barras')
-  tablaEvidenciasAdicionales = 'pki_validacion.evidencias_adicionales'
-  valoresEvidenciasAdicionales = (state, device, browser, publicIp, privateIp, latitude, longitude, hour,date, percentageOCR['name'], percentageOCR['lastName'],percentageOCR['ID'] , dataOCR['name'], dataOCR['lastName'], dataOCR['ID'],  movement, idFolderEntity, idFolderUser ,'eFirma', '', '')
-  idEvidenciasAdicionales = controlador_db.insertTabla(columnasEvidenciasAdicionales, tablaEvidenciasAdicionales, valoresEvidenciasAdicionales)
-
-  columnasDocumentoUsuario = ('nombres', 'apellidos', 'numero_documento', 'tipo_documento', 'email', 'id_evidencias', 'id_evidencias_adicionales', 'id_usuario_efirma')
-  tablaDocumento = 'pki_validacion.documento_usuario'
-  valoresDocumento = (name, lastName, documentID, documentType, email, idEvidenciasUsuario, idEvidenciasAdicionales, idUser)
-  documentoUsuario = controlador_db.insertTabla(columnasDocumentoUsuario, tablaDocumento, valoresDocumento)
-
-  #callback
-
-
-
-  return jsonify({"idValidacion":documentoUsuario, "idUsuario":idUser, "coincidenciaDocumentoRostro": face, "estadoVerificacion":state})
 
 @validation_bp.route('/revalidacion', methods=['POST'])
 def revalidacion():
@@ -1648,6 +1587,40 @@ def persistirRecortes(sides, country, signerId, outputDir, padding=0.0, contexto
                           f"back {resumen['back']['roisDetectadas']}/{resumen['back']['recortesGuardados']})")
 
   return {"lados": resumen, "archivos": archivos}
+
+
+def detectarLadosParaRecorte(arrays, yoloLabels, country):
+  """
+  Corre la deteccion YOLO en proceso sobre cada lado ya decodificado y arma la
+  estructura 'sides' que espera persistirRecortes. Unico camino de deteccion ->
+  coordenadas que comparten type-3, test-recortes y cualquier futuro consumidor.
+
+  Args:
+    arrays: {'front': ndarray|None, 'back': ndarray|None}.
+    yoloLabels: etiquetas del modelo para el pais (lista de str).
+    country: clave de documentDetection, en mayusculas.
+  Returns:
+    (sides, errores): sides[lado]= {'array', 'coords': {'recortes': [...]}} para
+    los lados con array; errores[lado]= mensaje si la deteccion fallo.
+  """
+  sides = {'front': {}, 'back': {}}
+  errores = {}
+
+  for side, array in arrays.items():
+    if array is None:
+      continue
+
+    sides[side]['array'] = array
+
+    try:
+      results = document_detection.detection(array, yoloLabels, country)
+    except Exception as e:
+      errores[side] = f"fallo la deteccion YOLO: {e}"
+      continue
+
+    sides[side]['coords'] = {'recortes': roisDeDeteccion(results)}
+
+  return sides, errores
 
 
 @validation_bp.route('/process-revalidation', methods=['POST'])
@@ -1975,7 +1948,7 @@ def testRecortes():
 
   yoloLabels = [label.strip() for label in str(countryData[0]).upper().split(',') if label.strip()]
 
-  sides = {'front': {}, 'back': {}}
+  arrays = {'front': None, 'back': None}
   errores = {}
 
   for side, imagen in params['imagenes'].items():
@@ -1992,15 +1965,15 @@ def testRecortes():
       errores[side] = "la imagen no se pudo decodificar a un array de OpenCV"
       continue
 
-    sides[side]['array'] = array
+    arrays[side] = array
 
-    try:
-      results = document_detection.detection(array, yoloLabels, country)
-    except Exception as e:
-      errores[side] = f"fallo la deteccion YOLO: {e}"
-      continue
+  if not any(a is not None for a in arrays.values()):
+    return jsonify({"ok": False,
+                    "error": "ninguna imagen pudo procesarse",
+                    "detalle": errores}), 400
 
-    sides[side]['coords'] = {'recortes': roisDeDeteccion(results)}
+  sides, erroresDetectados = detectarLadosParaRecorte(arrays, yoloLabels, country)
+  errores.update(erroresDetectados)
 
   if not any(side.get('array') is not None for side in sides.values()):
     return jsonify({"ok": False,
