@@ -264,7 +264,13 @@ def obtenerIpPublica():
 def _execute_query(cursor, query, values=None):
   if isinstance(query, str) and "?" in query:
     query = query.replace("?", "%s")
-  if values is not None and values != ():
+    
+  # Si enviaron un solo argumento y es una tupla, la desempaquetamos.
+  # Esto soluciona el caso donde se llama selectData(query, ()) y values llega como ((),)
+  if values is not None and len(values) == 1 and isinstance(values[0], tuple):
+      values = values[0]
+      
+  if values:
     return cursor.execute(query, values)
   return cursor.execute(query)
 
