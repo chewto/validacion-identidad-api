@@ -167,17 +167,15 @@ def _tls_negociada(conn):
   if negotiated:
     return " ".join(negotiated)
   try:
-    if hasattr(conn, 'get_ssl_cipher'):
-      cipher_info = conn.get_ssl_cipher()
-      if cipher_info:
-        if isinstance(cipher_info, tuple):
-          return f"tls_cipher={cipher_info[0]} tls_version={cipher_info[1] if len(cipher_info) > 1 else ''}"
-        return str(cipher_info)
-    sock = getattr(conn, 'socket', None)
+    sock = getattr(conn, '_sock', None)
+    if not sock:
+        sock = getattr(conn, 'socket', None)
     if sock and hasattr(sock, 'cipher') and sock.cipher():
       cipher = sock.cipher()
-      version = sock.version() if hasattr(sock, 'version') else ''
+      version = sock.version() if hasattr(sock, 'version') else (cipher[1] if len(cipher) > 1 else '')
       return f"tls_cipher={cipher[0]} tls_version={version}"
+    if getattr(conn, '_secure', False):
+      return "tls_cipher=secured tls_version=unknown"
   except Exception:
     pass
   return ""
