@@ -118,3 +118,78 @@ el firewall dropea el SYN en los puertos no estandar:
 | `DB_CONNECT_TIMEOUT` | `10`    |
 | `DB_READ_TIMEOUT`    | `30`    |
 | `DB_WRITE_TIMEOUT`   | `30`    |
+
+## Validacion de ubicacion y politica anti-VPN
+
+`GET /validation/document-config?hash=<standalone>|efirmaId=<embebido>&country=<XX>`
+(autenticado con el JWT de sesion) devuelve a la SPA dos flags por documento:
+
+- `require_location_validation`: el body de firma debe traer `location`
+  (`{latitude, longitude, accuracy}` en WGS84 y metros) y el punto debe quedar
+  dentro del radio y del centro configurados.
+- `block_on_vpn`: se resuelve la IP publica del firmante y se consulta el
+  proveedor de inteligencia. **Si el proveedor falla no se bloquea**
+  (fail-open) y el incidente queda en el log.
+
+La configuracion son **cinco columnas de `usuarios.entidades`**, una fila por
+entidad, junto al resto de parametros de validacion que ya viven ahi
+(`validacion_vida`, `porcentaje_acierto`, `intentos_documentos`,
+`intentos_deteccion`, `intentos_rostro`). No hay tabla nueva: el documento se
+resuelve a su entidad con los mismos joins que usa `/validation-params`.
+
+| Columna | Tipo | Default | Que hace |
+|---------|------|---------|----------|
+| `validar_ubicacion` | `TINYINT(1)` | `0` | Exige `location` en la firma. |
+| `bloquear_vpn` | `TINYINT(1)` | `0` | Bloquea VPN / proxy / Tor / datacenter. |
+| `radio_ubicacion_m` | `INT` NULL | `NULL` | Radio en metros. `NULL` = `LOCATION_DEFAULT_RADIUS_METERS`. |
+| `ubicacion_lat` | `DECIMAL(10,7)` NULL | `NULL` | Centro permitido (WGS84). |
+| `ubicacion_lng` | `DECIMAL(10,7)` NULL | `NULL` | Centro permitido (WGS84). |
+
+`usuarios.entidades` es del schema `usuarios`, compartido con los apps de firma
+y portal, asi que el alta la hace el DBA de ese schema **por pais** (COL y
+HND). Con los defaults `0/NULL` ninguna entidad cambia de comportamiento: si
+las columnas no estan, la consulta falla y el guard queda en fail-open
+(`false/false`) con aviso en el log.
+
+Para activarlo en una entidad:
+
+```sql
+UPDATE usuarios.entidades
+SET validar_ubicacion = 1, radio_ubicacion_m = 500,
+    ubicacion_lat = 4.7110000, ubicacion_lng = -74.0721000
+WHERE entity_id = 7;
+```
+
+Con `validar_ubicacion = 1` y las coordenadas en `NULL` el chequeo queda solo
+por precision (`accuracy <= radio`), sin exigir un centro.
+
+| Variable | Default | Descripcion |
+|----------|---------|-------------|
+| `IP_INTEL_PROVIDER` | `ipapi.is` | Proveedor de inteligencia de IP (hoy solo `ipapi.is`). |
+| `IP_INTEL_API_KEY` | — | **Obligatoria** para que `block_on_vpn` bloquee de verdad. Sin ella el chequeo queda en fail-open silencioso (solo log). |
+| `IP_INTEL_TIMEOUT` | `3` | Timeout HTTP al proveedor, en segundos. |
+| `IP_INTEL_CACHE_TTL` | `300` | TTL de la cache de veredictos (por worker de gunicorn). Los fallos se cachean 30 s como maximo. |
+| `IP_INTEL_BLOCK_FLAGS` | `is_vpn,is_proxy,is_tor,is_datacenter` | Flags que disparan el rechazo. `is_proxy` responde `PROXY_DETECTED`; el resto responden `VPN_DETECTED`. |
+| `LOCATION_DEFAULT_RADIUS_METERS` | `500` | Radio efectivo cuando la entidad no define `radio_ubicacion_m`. |
+| `TRUST_XFF` | `true` | Con `true`, la IP autoritativa es el primer hop de `X-Forwarded-For`; si no, `remote_addr`. `info.ip` del body es solo el ultimo respaldo. |
+
+Los errores nuevos usan siempre el shape `{"error": {"code", "message"}}`:
+
+| `code` | HTTP |
+|--------|------|
+| `LOCATION_REQUIRED` | 400 |
+| `LOCATION_MISMATCH` | 403 |
+| `LOCATION_UNAVAILABLE` | 403 |
+| `VPN_DETECTED` | 403 |
+| `PROXY_DETECTED` | 403 |
+
+El veredicto de cada firma queda como clave `location_security` dentro de
+`checks_json` de `evidencias_adicionales` (con `entity_id` y `result`), ademas
+de en el log.
+
+### Pruebas de esta feature
+
+```bash
+python -m unittest discover -s tests -v
+python -m compileall blueprints utilities
+```

@@ -1,5 +1,5 @@
 import uuid
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, g, request, jsonify
 import request.controlador_db as controlador_db
 import json
 from reconocimiento import orientacionImagen, verifyFaces, antiSpoofingTest
@@ -21,6 +21,10 @@ import argparse
 from utilities.utilidades import removeAccents
 from utilities.token_utils import token_required
 from utilities.progress_store import save_progress, get_progress, delete_progress
+from utilities.api_errors import INVALID_PARAMS, error_response
+from utilities.document_config import load_document_config
+from utilities.request_fields import request_json, standalone_fields
+from utilities.signature_security import evaluate_signature_security
 import utilities.logs as logs
 import time
 import document_detection
@@ -138,6 +142,36 @@ def validationParams():
     }
 
     return jsonify(params)
+
+
+@validation_bp.route('/document-config', methods=['GET'])
+@token_required
+def documentConfig():
+    """Configuracion de seguridad del documento para la SPA.
+
+    GET /validation/document-config?hash=<standalone>|efirmaId=<embebido>&country=<XX>
+
+    El frontend trata cualquier error como fail-open (false/false); por eso
+    aqui solo se responde 400 cuando faltan los dos identificadores y se
+    devuelven los defaults cuando no hay fila configurada.
+    """
+    userHash = (request.args.get('hash') or '').strip()
+    efirmaId = (request.args.get('efirmaId') or '').strip()
+
+    if not userHash and not efirmaId:
+        return error_response(INVALID_PARAMS, status=400)
+
+    config = load_document_config(hash_=userHash or None, efirma_id=efirmaId or None)
+
+    body = {
+        "require_location_validation": config.require_location_validation,
+        "block_on_vpn": config.block_on_vpn,
+    }
+    if config.location_radius_meters is not None:
+        # El frontend solo conserva el valor si llega como number.
+        body["location_radius_meters"] = config.location_radius_meters
+
+    return jsonify(body), 200
 
 
 @validation_bp.route('/validation-lleida', methods=['POST'])
@@ -531,6 +565,16 @@ def validate():
     idUsuario = int(idUsuario)
     tipo = request.args.get('tipo')
 
+    # Politica de ubicacion obligatoria + anti-VPN del documento.
+    # Se evalua antes de tocar imagenes ni base de datos para rechazar barato.
+    _configDocumento, errorSeguridad = evaluate_signature_security(
+        efirma_id=idUsuario,
+        location=reqBody.get('location'),
+        info_ip=(reqBody.get('info') or {}).get('ip'),
+    )
+    if errorSeguridad:
+        return errorSeguridad
+
     info = reqBody['info']
     signer = reqBody['signInfo']
     livesnessT = reqBody['livenessTest']
@@ -921,6 +965,11 @@ def validate():
     #   if(failedFront == '!OK'):
     #     resultState += ' el reverso no es válido'
 
+    # Evidencia auditable de la validacion de ubicacion / anti-VPN.
+    locationSecurity = getattr(g, 'location_security', None)
+    if locationSecurity:
+        checkValuesJSON['location_security'] = locationSecurity
+
     checkValuesJson = json.dumps(checkValuesJSON)
 
     #compresiones
@@ -1020,63 +1069,81 @@ def standoleValidation():
   tipoValidacion = request.args.get('tipo')
   userHash = request.args.get('hash')
 
-  nombres = request.form.get('nombres')
-  apellidos = request.form.get('apellidos')
-  tipoDocumento = request.form.get('tipo_documento')
-  documento = request.form.get('numero_documento')
+  # La SPA manda JSON (mismo payload que /type-3); los callers legacy siguen
+  # pudiendo mandar multipart/form-data. standalone_fields() traduce el JSON a
+  # los campos planos y sentinels 'OK'/'!OK' que espera este endpoint.
+  fields = standalone_fields()
+  payloadJson = request_json()
+  if not isinstance(payloadJson, dict):
+    payloadJson = None
 
-  email = request.form.get('email')
+  # Politica de ubicacion obligatoria + anti-VPN del documento.
+  _configDocumento, errorSeguridad = evaluate_signature_security(
+      hash_=userHash,
+      efirma_id=idUsuario,
+      location=payloadJson.get('location') if payloadJson else None,
+      info_ip=(payloadJson.get('info') or {}).get('ip') if payloadJson else None,
+  )
+  if errorSeguridad:
+    return errorSeguridad
 
-  idCarpetaEntidad = request.form.get('carpeta_entidad_prueba_vida')
-  idCarpetaUsuario = request.form.get('carpeta_usuario_prueba_vida')
-  movimiento = request.form.get('movement_test')
+  nombres = fields.get('nombres')
+  apellidos = fields.get('apellidos')
+  tipoDocumento = fields.get('tipo_documento')
+  documento = fields.get('numero_documento')
 
-  tipoDocumento = request.form.get('tipo_documento')
+  email = fields.get('email')
+
+  idCarpetaEntidad = fields.get('carpeta_entidad_prueba_vida')
+  idCarpetaUsuario = fields.get('carpeta_usuario_prueba_vida')
+  movimiento = fields.get('movement_test')
+
+  tipoDocumento = fields.get('tipo_documento')
 
   #evidencias adicionales
   ipPrivada = controlador_db.obtenerIpPrivada()
-  ipPublica = request.form.get('ip')
+  ipPublica = fields.get('ip')
 
-  dispositivo = request.form.get('dispositivo')
-  navegador = request.form.get('navegador')
-  latitud = request.form.get('latitud')
-  longitud = request.form.get('longitud')
-  hora = request.form.get('hora')
-  fecha = request.form.get('fecha')
+  dispositivo = fields.get('dispositivo')
+  navegador = fields.get('navegador')
+  latitud = fields.get('latitud')
+  longitud = fields.get('longitud')
+  hora = fields.get('hora')
+  fecha = fields.get('fecha')
 
   #evidencias usuario
-  fotoPersona = request.form.get('foto_persona')
-  anverso = request.form.get('anverso')
-  reverso = request.form.get('reverso')
+  fotoPersona = fields.get('foto_persona')
+  anverso = fields.get('anverso')
+  reverso = fields.get('reverso')
 
-  frontCode = request.form.get('front_code')
-  frontCountry = request.form.get('front_country')
-  frontCountryCheck = request.form.get('front_country_check')
-  frontType = request.form.get('front_type')
-  frontTypeCheck = request.form.get('front_type_check')
-  frontIsExpired = request.form.get('front_isExpired')
-  frontTries = request.form.get('front_tries')
+  frontCode = fields.get('front_code')
+  frontCountry = fields.get('front_country')
+  frontCountryCheck = fields.get('front_country_check')
+  frontType = fields.get('front_type')
+  frontTypeCheck = fields.get('front_type_check')
+  frontIsExpired = fields.get('front_isExpired')
+  frontTries = fields.get('front_tries')
   frontTries = int(frontTries) if frontTries is not None else None
 
-  backCode = request.form.get('back_code')
-  backCountry = request.form.get('back_country')
-  backCountryCheck = request.form.get('back_country_check')
-  backType = request.form.get('back_type')
-  backTypeCheck = request.form.get('back_type_check')
-  backIsExpired = request.form.get('back_isExpired')
-  backTries = request.form.get('back_tries')
+  backCode = fields.get('back_code')
+  backCountry = fields.get('back_country')
+  backCountryCheck = fields.get('back_country_check')
+  backType = fields.get('back_type')
+  backTypeCheck = fields.get('back_type_check')
+  backIsExpired = fields.get('back_isExpired')
+  backTries = fields.get('back_tries')
   backTries = int(backTries) if backTries is not None else None
 
-  movementTest = request.form.get('movement_test')
+  movementTest = fields.get('movement_test')
 
   #validacion del ocr
-  ocrNombre = request.form.get('porcentaje_nombre_ocr')
-  ocrApellido = request.form.get('porcentaje_apellido_ocr')
-  ocrDocumento = request.form.get('porcentaje_documento_ocr')
+  ocrNombre = fields.get('porcentaje_nombre_ocr')
+  ocrApellido = fields.get('porcentaje_apellido_ocr')
+  ocrDocumento = fields.get('porcentaje_documento_ocr')
 
-  dataOCRNombre = request.form.get('nombre_ocr')
-  dataOCRApellido = request.form.get('apellido_ocr')
-  dataOCRDocumento = request.form.get('documento_ocr')
+  dataOCRNombre = fields.get('nombre_ocr')
+  dataOCRApellido = fields.get('apellido_ocr')
+  dataOCRDocumento = fields.get('documento_ocr')
 
   if(nombres == 'NULL' or nombres == 'null' and apellidos == 'NULL' or apellidos == 'null' and documento == 'NULL' or documento == 'null'):
     nombres = dataOCRNombre
@@ -1086,33 +1153,33 @@ def standoleValidation():
     nombres = nombres.upper()
     apellidos = apellidos.upper()
 
-  mrz = request.form.get('mrz')
-  mrzName = request.form.get('mrz_name')
-  mrzLastname = request.form.get('mrz_lastname')
-  mrzNamePercent = request.form.get('mrz_name_percent')
-  mrzLastnamePercent = request.form.get('mrz_lastname_percent')
+  mrz = fields.get('mrz')
+  mrzName = fields.get('mrz_name')
+  mrzLastname = fields.get('mrz_lastname')
+  mrzNamePercent = fields.get('mrz_name_percent')
+  mrzLastnamePercent = fields.get('mrz_lastname_percent')
 
-  barcode = request.form.get('codigo_barras')
-  videoHash =  request.form.get('video_hash')
+  barcode = fields.get('codigo_barras')
+  videoHash =  fields.get('video_hash')
 
-  validationAttendance = request.form.get('validation_attendance')
-  validationPercent = request.form.get('validation_percent')
-  validationPercent = int(validationPercent)
+  validationAttendance = fields.get('validation_attendance')
+  validationPercent = fields.get('validation_percent')
+  validationPercent = int(validationPercent) if validationPercent not in (None, '') else 60
 
-  failed = request.form.get('failed')
-  failedBack = request.form.get('failed_back')
-  failedFront = request.form.get('failed_front')
+  failed = fields.get('failed')
+  failedBack = fields.get('failed_back')
+  failedFront = fields.get('failed_front')
 
-  callback = request.form.get('callback')
+  callback = fields.get('callback')
 
 
-  face = request.form.get('face')
-  faceTries = request.form.get('face_tries')
+  face = fields.get('face')
+  faceTries = fields.get('face_tries')
   faceTries = int(faceTries) if faceTries is not None else None
-  confidenceValue = request.form.get('confidence')
-  confidenceValue = float(confidenceValue)
+  confidenceValue = fields.get('confidence')
+  confidenceValue = float(confidenceValue) if confidenceValue not in (None, '') else 0.0
 
-  country = request.form.get('country')
+  country = fields.get('country') or request.args.get('country')
   countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
     WHERE pais.codigo = "{country}"''', ())
@@ -1318,6 +1385,11 @@ def standoleValidation():
       resultState += ' el anverso no es válido'
     if(failedFront == '!OK'):
       resultState += ' el reverso no es válido'
+
+  # Evidencia auditable de la validacion de ubicacion / anti-VPN.
+  locationSecurity = getattr(g, 'location_security', None)
+  if locationSecurity:
+    checkValuesJSON['location_security'] = locationSecurity
 
   checkValuesJson = json.dumps(checkValuesJSON)
 
