@@ -114,7 +114,7 @@ def load_document_config(hash_=None, efirma_id=None, country=None) -> DocumentCo
         return DEFAULT_CONFIG
 
     try:
-        row = controlador_db.selectData(query, (value,),country=country)
+        row = controlador_db.selectData(query=query, values=(value,), pais=country)
     except Exception as e:
         _log(f"entidades: fallo consultando {origen}={value}: {e}")
         return DEFAULT_CONFIG
