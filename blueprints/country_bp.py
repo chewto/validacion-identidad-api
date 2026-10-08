@@ -17,9 +17,11 @@ def getCountry():
   fuente = request.args.get('X-Fuente')
 
   pais = {
-    "COL": "prueba01",
-    "HND": "prueba02",
+    "COLOMBIA": "COL",
+    "HONDURAS": "HND",
   }
+
+  selPais = pais.get(fuente.upper(), None)
 
   data = None
 
