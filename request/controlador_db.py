@@ -5,11 +5,15 @@ import socket
 import requests
 import utilities.logs as logs
 import os
+from pathlib import Path
 from urllib.parse import urlparse, parse_qsl, unquote
 from flask import g, request as flask_request
 from dotenv import load_dotenv
 
-load_dotenv()
+# Cargar .env desde la raíz del proyecto (absoluto) para que funcione
+# independientemente del directorio de trabajo del servidor
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(_PROJECT_ROOT / ".env")
 
 _SSL_BOOL_PARAMS = ("ssl", "ssl_verify_cert")
 _SSL_PATH_PARAMS = ("ssl_ca", "ssl_capath", "ssl_cert", "ssl_key", "ssl_crlpath")
@@ -206,8 +210,12 @@ def get_db(pais=None):
   g_dict = vars(g)
   if key not in g_dict:
     config = DB_CONFIGS.get(pais)
-    if not config:
-      raise ValueError(f"País no soportado: {pais}")
+    # Validar que el config exista y tenga campos mínimos requeridos
+    if not config or not config.get("host") or not config.get("database"):
+      raise ValueError(
+        f"País no soportado o configuración incompleta: {pais}. "
+        f"Verificá que DB_{pais}_URI esté definida en .env y el .env se cargue correctamente."
+      )
     _validar_tls(config, pais)
 
     kwargs = {k: v for k, v in config.items() if not k.startswith("_") and not k.startswith("ssl_") and k != "tls_version" and k != "ssl"}

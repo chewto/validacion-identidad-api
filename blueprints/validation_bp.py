@@ -1035,8 +1035,8 @@ def validate():
     if tipoDocumento != 'PASAPORTE':
       try:
         yoloLabelsRow = controlador_db.selectData(
-          'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = %s',
-          (country.upper(),))
+          f'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = {country.upper()}',
+          ())
 
         if yoloLabelsRow:
           labelsPais = [l.strip() for l in str(yoloLabelsRow[0]).upper().split(',') if l.strip()]

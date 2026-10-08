@@ -37,7 +37,7 @@
 
 | Tema | Decisión |
 |---|---|
-| Origen de la config | Tabla nueva `pki_validacion.config_documento` |
+| Origen de la config | **Columnas en `usuarios.entidades`**, una fila por entidad (sin tabla nueva) |
 | Detección VPN/proxy | API externa con key — **`ipapi.is`** (1.000 req/día gratis, comercial permitido, `is_vpn/is_proxy/is_tor/is_datacenter` + geolip). Adaptador swapeable por env. |
 | Región esperada | Centro `(region_lat, region_lng)` + `location_radius_meters` por documento |
 | IP autoritativa | `X-Forwarded-For` (1er hop) → `remote_addr` → `info.ip` si el resultado es privado/loopback (con log) |
@@ -48,30 +48,36 @@
 
 ## 4. Esquema BD y migración
 
-Archivo `migrations/001_config_documento.sql` — ejecutar en **las dos** BD (COL y HND):
+**No hay tabla nueva.** La config son cinco columnas de `usuarios.entidades`, que
+ya es la tabla de parámetros de validación por entidad (`validacion_vida`,
+`porcentaje_acierto`, `intentos_documentos`, `intentos_deteccion`,
+`intentos_rostro`). El documento se resuelve a su entidad con los mismos joins
+que ya usa `/validation-params`.
+
+`ALTER` a ejecutar **por pais** (COL y HND), con el DBA del schema `usuarios`
+— el microservicio no aplica migraciones:
 
 ```sql
-CREATE TABLE IF NOT EXISTS pki_validacion.config_documento (
-  id                         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  parametros_hash             VARCHAR(128)    NULL,  -- flujo standalone
-  id_firmador                BIGINT UNSIGNED NULL,  -- flujo embebido (firmador_pki.id)
-  require_location_validation TINYINT(1)      NOT NULL DEFAULT 0,
-  block_on_vpn               TINYINT(1)      NOT NULL DEFAULT 0,
-  location_radius_meters     INT UNSIGNED    NULL,
-  region_lat                 DECIMAL(9,6)    NULL,
-  region_lng                 DECIMAL(9,6)    NULL,
-  fecha_creacion             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  fecha_actualizacion        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-                                             ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_config_hash     (parametros_hash),
-  UNIQUE KEY uk_config_firmador (id_firmador)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE `usuarios`.`entidades`
+  ADD COLUMN `validar_ubicacion`  TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Exige location en la firma',
+  ADD COLUMN `bloquear_vpn`      TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Bloquea VPN/proxy/Tor/datacenter',
+  ADD COLUMN `radio_ubicacion_m` INT           NULL COMMENT 'Radio en metros; NULL = LOCATION_DEFAULT_RADIUS_METERS',
+  ADD COLUMN `ubicacion_lat`     DECIMAL(10,7) NULL COMMENT 'Centro permitido, WGS84',
+  ADD COLUMN `ubicacion_lng`     DECIMAL(10,7) NULL COMMENT 'Centro permitido, WGS84';
 ```
 
+- Nombres en español para seguir la convención de la tabla; el JSON de la API
+  sigue en inglés (`require_location_validation`, `block_on_vpn`).
+- `TINYINT(1) NOT NULL DEFAULT 0` es la convención real de esa tabla:
+  `validacion_vida` se lee y se compara con `== 1`.
+- **Granularidad por entidad**, no por documento: no se puede exigir ubicación
+  para una firma puntual de una entidad que la tiene desactivada.
 - **Sin columna `country`**: la BD ya se elige por query param (patrón del resto del código).
-- **Sin fila → defaults fail‑open** (`false/false/null`), idénticos a `DEFAULT_DOCUMENT_CONFIG` del frontend.
-- Añadir la definición al final de `pki_validacion.sql` (mismo estilo `CREATE TABLE IF NOT EXISTS` del dump).
+- **Columnas sin aplicar / entidad sin fila → defaults fail‑open**
+  (`false/false`), idénticos a `DEFAULT_DOCUMENT_CONFIG` del frontend, con
+  aviso en el log. Ojo: `selectData` no propaga `pymysql.Error`, así que un
+  `Unknown column` llega como fila vacía, no como excepción.
+- El dump `pki_validacion.sql` **no se toca**: no incluye el schema `usuarios`.
 
 ---
 
@@ -148,7 +154,7 @@ Se ejecuta **después** de `@token_required` y **antes** de cualquier procesamie
 en `/validation/type-3` y `/validation/standalone`:
 
 ```
-1. Cargar config_documento (hash o id_firmador + country)
+1. Cargar la config de la entidad del documento (hash o efirmaId + country)
 
 2. if require_location_validation:
    2a. ¿existe y es dict `location`?                    no → 400 LOCATION_REQUIRED
@@ -237,9 +243,11 @@ python -m unittest tests.test_type3_recortes tests.test_process_revalidation -v 
 
 ## 10. Despliegue e integración
 
-1. Ejecutar `migrations/001_config_documento.sql` en BD **COL** y **HND**.
+1. `ALTER` de las cinco columnas en `usuarios.entidades`, en BD **COL** y **HND**
+   (lo aplica el DBA de ese schema; el microservicio no toca el esquema).
 2. Añadir `IP_INTEL_API_KEY` (+ resto de env) al entorno de testing.
-3. Insertar filas de prueba en `config_documento`.
+3. Activar con `UPDATE usuarios.entidades SET validar_ubicacion = 1, ...`
+   en una entidad de prueba.
 4. Verificar en staging que nginx inyecta `X-Forwarded-For`
    (si no, `client_ip()` cae a `info.ip` y queda logueado).
 5. Aviso al frontend: la ruta es definitiva
@@ -249,10 +257,10 @@ python -m unittest tests.test_type3_recortes tests.test_process_revalidation -v 
 
 ## 11. Criterios de aceptación
 
-1. `document-config` devuelve ambos flags según la fila de `config_documento`.
+1. `document-config` devuelve ambos flags según la entidad del documento.
 2. Firma sin `location` siendo obligatoria → `400 LOCATION_REQUIRED`.
-3. Firma con VPN y `block_on_vpn=true` → `403 VPN_DETECTED`;
-   con `block_on_vpn=false` → procesa normalmente.
+3. Firma con VPN y `bloquear_vpn=1` → `403 VPN_DETECTED`;
+   con `bloquear_vpn=0` → procesa normalmente.
 4. Coordenadas fuera del radio/centro → `403 LOCATION_MISMATCH`.
 5. Todos los errores nuevos cumplen `{ error: { code, message } }`.
 6. Los flujos existentes (type‑3 y standalone) siguen comportándose igual
@@ -266,6 +274,9 @@ python -m unittest tests.test_type3_recortes tests.test_process_revalidation -v 
   Mitigado con la tabla de normalización + tests de regresión dual (JSON y form).
 - `tests/` está en `.gitignore` → los tests nuevos **no se commitean**.
   *Pendiente de decisión: ¿sacarlo del gitignore para que viajen en el repo?*
+- `usuarios.entidades` es del schema compartido con firma/portal: el `ALTER` con
+  columnas `NOT NULL` rompe cualquier `INSERT INTO usuarios.entidades` que no
+  liste columnas. Revisar con el DBA antes de aplicar.
 - Cache de IP por worker (3 workers) → como máximo 3 llamadas por IP/TTL.
 - Sin key de `ipapi.is` el guard de VPN queda en fail‑open silencioso (solo log):
   hay que generar la key antes de dar por entregado el criterio de aceptación nº 3.
@@ -274,7 +285,7 @@ python -m unittest tests.test_type3_recortes tests.test_process_revalidation -v 
 
 ## 13. Pasos de implementación (orden)
 
-1. Migración SQL + definición en `pki_validacion.sql`.
+1. Columnas en `usuarios.entidades` (sin archivo de migración en el repo: se aplican a mano).
 2. `utilities/api_errors.py` + `utilities/request_fields.py`.
 3. `utilities/document_config.py` + endpoint `GET /validation/document-config`.
 4. `utilities/location_guard.py`.
@@ -283,4 +294,4 @@ python -m unittest tests.test_type3_recortes tests.test_process_revalidation -v 
 7. Integrar el guard en `/validation/type-3`.
 8. Portar `/validation/standalone` a lector dual + normalización + guard.
 9. Tests nuevos + suite de regresión.
-10. README: nuevas variables de entorno.
+10. README: columnas de la entidad + variables de entorno.

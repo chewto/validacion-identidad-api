@@ -11,7 +11,7 @@ recortes/
 videos_normalized/
 progreso-validacion/
 video_out.mp4
-
+ssl/
 #archivos
 prueba.py
 dlib_face_recognition_resnet_model_v1.dat
@@ -22,3 +22,4 @@ test_ocr.py
 .env
 postman/
 tests/
+docs/
