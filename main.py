@@ -91,8 +91,9 @@ def savelog():
 def getLink():
 
     id = request.args.get('id')
+    pais = request.args.get('country')
 
-    data = controlador_db.selectData("SELECT firmador.enlace_temporal FROM pki_firma_electronica.firmador_pki AS firmador WHERE firmador.id = ?;", id)
+    data = controlador_db.selectData("SELECT firmador.enlace_temporal FROM pki_firma_electronica.firmador_pki AS firmador WHERE firmador.id = ?;", id, pais=pais)
 
     return jsonify({"enlace": data[0] if data else None})
 
