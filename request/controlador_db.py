@@ -8,12 +8,19 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse, parse_qsl, unquote
 from flask import g, request as flask_request
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Cargar .env desde la raíz del proyecto (absoluto) para que funcione
-# independientemente del directorio de trabajo del servidor
+# ----------------------------------------------------------------------
+class MissingDbUriError(RuntimeError):
+    """Raised when a required DB URI environment variable is absent."""
+    pass
+
+# if the current working directory changes (e.g. when the app is
+# executed from a sub‑process or test runner).
+# ----------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-load_dotenv(_PROJECT_ROOT / ".env")
+_ENV_PATH = find_dotenv(str(_PROJECT_ROOT / ".env"))
+load_dotenv(_ENV_PATH, override=True)
 
 _SSL_BOOL_PARAMS = ("ssl", "ssl_verify_cert")
 _SSL_PATH_PARAMS = ("ssl_ca", "ssl_capath", "ssl_cert", "ssl_key", "ssl_crlpath")
@@ -184,10 +191,27 @@ def _tls_negociada(conn):
     pass
   return ""
 
+# Load DB configurations with graceful handling of missing env vars
+def _load_db_config(pais: str) -> dict:
+    """Return DB config dict for *pais*.
+    If the required ``DB_{PAIS}_URI`` environment variable is missing, an empty
+    dict is returned and a warning is logged.
+    """
+    env_key = f"DB_{pais}_URI"
+    uri = os.getenv(env_key)
+    if not uri:
+        logs.addLog(
+            logs.checkLogsFile(),
+            f"WARNING: {env_key} not defined in .env – DB config will be empty."
+        )
+        return {}
+    return _parse_db_uri(uri)
+
 DB_CONFIGS = {
-    "COL": _parse_db_uri(os.getenv("DB_COL_URI", "")),
-    "HND": _parse_db_uri(os.getenv("DB_HON_URI", "")),
+    "COL": _load_db_config("COL"),
+    "HND": _load_db_config("HND"),
 }
+
 
 DEFAULT_COUNTRY = "COL"
 
@@ -210,12 +234,12 @@ def get_db(pais=None):
   g_dict = vars(g)
   if key not in g_dict:
     config = DB_CONFIGS.get(pais)
-    # Validar que el config exista y tenga campos mínimos requeridos
+    # Validate that the config exists and has required fields
     if not config or not config.get("host") or not config.get("database"):
-      raise ValueError(
-        f"País no soportado o configuración incompleta: {pais}. "
-        f"Verificá que DB_{pais}_URI esté definida en .env y el .env se cargue correctamente."
-      )
+        raise MissingDbUriError(
+            f"País no soportado o configuración incompleta: {pais}. "
+            f"Verificá que DB_{pais}_URI esté definida en .env y el .env se cargue correctamente."
+        )
     _validar_tls(config, pais)
 
     kwargs = {k: v for k, v in config.items() if not k.startswith("_") and not k.startswith("ssl_") and k != "tls_version" and k != "ssl"}

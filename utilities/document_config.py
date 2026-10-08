@@ -56,10 +56,13 @@ def _log(message):
 
 
 def default_radius_meters():
-    """Radio por defecto si la entidad no lo define."""
+    """Radio por defecto si la entidad no lo define.
+    Logs a warning when the environment variable is missing or malformed.
+    """
     try:
         return int(os.getenv("LOCATION_DEFAULT_RADIUS_METERS", "500"))
     except (TypeError, ValueError):
+        _log("WARNING: LOCATION_DEFAULT_RADIUS_METERS not set or invalid – using default 500.")
         return 500
 
 
