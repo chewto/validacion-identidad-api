@@ -113,8 +113,18 @@ def load_document_config(hash_=None, efirma_id=None, country=None) -> DocumentCo
     else:
         return DEFAULT_CONFIG
 
+    query = f"""
+SELECT {_COLS}
+FROM pki_firma_electronica.firmador_pki AS fir
+INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id
+INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id
+INNER JOIN usuarios.entidades AS ent ON ent.entity_id = usu.entity_id
+WHERE fir.id = {value}
+LIMIT 1
+"""
+
     try:
-        row = controlador_db.selectData(query=query, values=(value,), pais=country)
+        row = controlador_db.selectData(query, (), pais=country)
     except Exception as e:
         _log(f"entidades: fallo consultando {origen}={value}: {e}")
         return DEFAULT_CONFIG
