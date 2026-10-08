@@ -14,15 +14,8 @@ def getCountry():
 
   userHash = request.args.get('hash')
 
-  fuente = request.args.get('X-Fuente')
-
-  pais = {
-    "COLOMBIA": "COL",
-    "HONDURAS": "HND",
-  }
-
-  selPais = pais.get(fuente.upper(), None)
-
+  pais = request.args.get('country')
+  
   data = None
 
   if(id is not None):
