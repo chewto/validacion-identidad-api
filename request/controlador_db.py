@@ -307,8 +307,7 @@ def _execute_query(cursor, query, values=None):
   return cursor.execute(query)
 
 def selectData(query, *values, pais):
-  logsPath = logs.checkLogsFile()
-  logs.addLog(logsPath, f"selectData: query={query}, values={values}, pais={pais}")
+
   try:
     conn = get_db(pais)
     cursor = conn.cursor()
