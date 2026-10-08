@@ -99,7 +99,7 @@ def _to_config(row) -> DocumentConfig:
     )
 
 
-def load_document_config(hash_=None, efirma_id=None) -> DocumentConfig:
+def load_document_config(hash_=None, efirma_id=None, country=None) -> DocumentConfig:
     """Config de seguridad del documento, resuelta a traves de su entidad.
 
     `hash_` (standalone) tiene prioridad sobre `efirma_id` (embebido).
@@ -114,7 +114,7 @@ def load_document_config(hash_=None, efirma_id=None) -> DocumentConfig:
         return DEFAULT_CONFIG
 
     try:
-        row = controlador_db.selectData(query, (value,))
+        row = controlador_db.selectData(query, (value,),country=country)
     except Exception as e:
         _log(f"entidades: fallo consultando {origen}={value}: {e}")
         return DEFAULT_CONFIG

@@ -157,11 +157,12 @@ def documentConfig():
     """
     userHash = (request.args.get('hash') or '').strip()
     efirmaId = (request.args.get('efirmaId') or '').strip()
+    pais = (request.args.get('country') or '').strip().upper()
 
     if not userHash and not efirmaId:
         return error_response(INVALID_PARAMS, status=400)
 
-    config = load_document_config(hash_=userHash or None, efirma_id=efirmaId or None)
+    config = load_document_config(hash_=userHash or None, efirma_id=efirmaId or None, country=pais)
 
     body = {
         "require_location_validation": config.require_location_validation,
