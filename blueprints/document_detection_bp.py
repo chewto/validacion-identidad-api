@@ -58,7 +58,7 @@ def documentDetection():
 
     countryData = controlador_db.selectData(f'''
         SELECT yolo_labels, tipo_documento_validacion  FROM pki_validacion.pais as pais
-        WHERE pais.codigo = "{country}"''', ())
+        WHERE pais.codigo = "{country}"''', (), pais=country)
 
     yoloLabels = countryData[0]
     # documents = countryData[1]

@@ -702,7 +702,7 @@ def validate():
 
     countryData = controlador_db.selectData(f'''
         SELECT * FROM pki_validacion.pais as pais
-      WHERE pais.codigo = "{country}"''', ())
+      WHERE pais.codigo = "{country}"''', (), pais=country)
 
     mrzData = json.loads(countryData[3])
     barcodeData = json.loads(countryData[4])
@@ -1183,7 +1183,7 @@ def standoleValidation():
   country = fields.get('country') or request.args.get('country')
   countryData = controlador_db.selectData(f'''
       SELECT * FROM pki_validacion.pais as pais 
-    WHERE pais.codigo = "{country}"''', ())
+    WHERE pais.codigo = "{country}"''', (), pais=country)
   
   mrzData = json.loads(countryData[3])
   barcodeData = json.loads(countryData[4])
@@ -2014,7 +2014,7 @@ def testRecortes():
     return jsonify({"ok": False, "error": "se requiere al menos una imagen: info.anverso o info.reverso"}), 400
 
   countryData = controlador_db.selectData(
-    'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = %s', (country,))
+    'SELECT yolo_labels FROM pki_validacion.pais as pais WHERE pais.codigo = %s', (country,), pais=country)
 
   if not countryData:
     return jsonify({"ok": False, "error": f"no hay yolo_labels configurados para {country}"}), 400
