@@ -182,7 +182,7 @@ def _tls_negociada(conn):
 
 DB_CONFIGS = {
     "COL": _parse_db_uri(os.getenv("DB_COL_URI", "")),
-    "HND": _parse_db_uri(os.getenv("DB_HON_URI", "")),
+    "HND": _parse_db_uri(os.getenv("DB_HND_URI", "")),
 }
 
 DEFAULT_COUNTRY = "COL"
