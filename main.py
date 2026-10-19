@@ -16,6 +16,7 @@ from request.controlador_db import close_db_connections
 from utilities.utilidades import readDataURL
 import os
 from blueprints.country_bp import country_bp
+from blueprints.logo_entidad_bp import logo_entidad_bp
 from blueprints.ocr_bp import ocr_bp
 from blueprints.validation_bp import validation_bp
 from blueprints.auth_bp import auth_bp
@@ -41,6 +42,7 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 app.register_blueprint(ocr_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(country_bp)
+app.register_blueprint(logo_entidad_bp)
 app.register_blueprint(document_detection_bp)
 app.register_blueprint(time_log_bp)
 app.register_blueprint(recognition_bp)

@@ -420,6 +420,24 @@ def obtenerEntidadHash(hash, pais=None):
     print(e)
     return 0
 
+def obtenerIdEntidadPorFirmador(idFirmador, pais=None):
+  try:
+    conn = get_db(pais)
+    cursor = conn.cursor()
+    # TODO: confirmar/ajustar con la query definitiva del equipo.
+    query = """SELECT usu.entity_id
+    FROM pki_firma_electronica.firmador_pki AS fir
+    INNER JOIN pki_firma_electronica.firma_electronica_pki AS fe ON fe.id = fir.firma_electronica_id
+    INNER JOIN usuarios.usuarios AS usu ON usu.id = fe.usuario_id
+    WHERE fir.id = %s"""
+    _execute_query(cursor, query, (idFirmador,))
+    entidad = cursor.fetchone()
+    cursor.close()
+    return entidad if entidad is not None else ()
+  except pymysql.Error as e:
+    print(e)
+    return ()
+
 def selectProvider(id, pais=None):
   try:
     conn = get_db(pais)
