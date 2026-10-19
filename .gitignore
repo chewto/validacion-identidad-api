@@ -9,6 +9,7 @@ videos/
 runs/
 recortes/
 videos_normalized/
+progreso-validacion/
 video_out.mp4
 
 #archivos
@@ -19,3 +20,5 @@ test.py
 test-reglas.py
 test_ocr.py
 .env
+postman/
+tests/

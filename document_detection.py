@@ -1,6 +1,7 @@
 import os
 import re
 from typing import List, Optional
+from functools import lru_cache
 from ultralytics import YOLO
 from utilities.check_result import testingCountry, testingType
 from ocr import  validateDocumentCountry, validateDocumentType
@@ -298,8 +299,16 @@ def checkModel(country):
   modelPath = documentDetection[country]["modelPath"]
   return hasModel, modelPath
 
+@lru_cache(maxsize=None)
+def getYoloModel(modelPath):
+  """
+  Carga el modelo YOLO una sola vez por proceso y lo reutiliza en las siguientes
+  inferencias. Los pesos ocupan 40-50 MB y antes se recargaban en cada llamada.
+  """
+  return YOLO(modelPath)
+
 def yoloReader(img, modelPath):
-  yoloModel = YOLO(modelPath)
+  yoloModel = getYoloModel(modelPath)
 
   results = yoloModel(img)[0]
 
@@ -610,14 +619,14 @@ def detectDocumentInFrames(frames: List[np.ndarray], confidence_threshold: float
             "detections": []
         }
 
-    # Cargar cada modelo YOLO una sola vez (cache)
+    # Reutilizar el cache global de modelos, compartido con el resto de inferencias
     models_cache = {}
     for country, config in documentDetection.items():
         if config.get("hasModel"):
             modelPath = config.get("modelPath")
             if modelPath and os.path.exists(modelPath):
                 try:
-                    models_cache[country] = YOLO(modelPath)
+                    models_cache[country] = getYoloModel(modelPath)
                 except Exception as e:
                     print(f"[detectDocumentInFrames] Error cargando modelo {country}: {e}")
 
@@ -697,7 +706,7 @@ def detection(img, classes:list[str], country):
 
   modelPath = documentDetection[country]['modelPath']
 
-  yoloModel = YOLO(modelPath)
+  yoloModel = getYoloModel(modelPath)
 
   results = yoloModel(img)[0]
 
