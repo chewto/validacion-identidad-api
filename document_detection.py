@@ -77,6 +77,30 @@ documentDetection = {
   }
 }
 
+def getDocumentContainerLabels() -> set:
+  """
+  Construye el set de etiquetas que representan un documento completo (contenedor:
+  anverso/reverso de cédula, pasaporte, etc.), derivadas de la configuración
+  documentDetection. Las etiquetas de campos internos (FOTO, NOMBRES, MRZ, etc.)
+  no forman parte de este set.
+  """
+  labels = set()
+  for country, config in documentDetection.items():
+    if not isinstance(config, dict):
+      continue
+    for docType, docConfig in config.items():
+      if not isinstance(docConfig, dict):
+        continue
+      for side in ("anverso", "reverso"):
+        value = docConfig.get(side)
+        if isinstance(value, str) and value.strip():
+          labels.update(label for label in value.split() if label)
+  return labels
+
+
+DOCUMENT_CONTAINER_LABELS = getDocumentContainerLabels()
+
+
 def getLabelContent(data,labelName):
 
     for item in data:
@@ -605,8 +629,11 @@ def detectDocumentInFrames(frames: List[np.ndarray], confidence_threshold: float
             "total_frames": int,
             "total_frames_processed": int,
             "frame_step": int,
-            "detections": list[{"frame_index": int, "detections": list[{"label": str, "confidence": float, "country_model": str}]}]
+            "detections": list[{"frame_index": int, "detections": list[{"label": str, "confidence": float, "country_model": str, "isDocumentClass": bool}]}]
         }
+        document_detected solo es True si se detectó una etiqueta de documento
+        completo (anverso/reverso/pasaporte); las etiquetas de campos internos
+        (FOTO, NOMBRES, etc.) no lo activan.
     """
     if not frames:
         return {
@@ -646,11 +673,13 @@ def detectDocumentInFrames(frames: List[np.ndarray], confidence_threshold: float
     frames_with_document = []
     all_detections = []
     processed_count = 0
+    container_labels = {label.lower() for label in DOCUMENT_CONTAINER_LABELS}
 
     for i in range(0, len(frames), frame_step):
         frame = frames[i]
         processed_count += 1
         frame_detections = []
+        frame_has_document = False
 
         for country, model in models_cache.items():
             try:
@@ -659,22 +688,27 @@ def detectDocumentInFrames(frames: List[np.ndarray], confidence_threshold: float
                 for box, cls, conf in zip(results.boxes.xyxy, results.boxes.cls, results.boxes.conf):
                     if conf >= confidence_threshold:
                         label = names[int(cls)]
+                        is_document_class = label.lower() in container_labels
+                        if is_document_class:
+                            frame_has_document = True
                         frame_detections.append({
                             "label": label,
                             "confidence": round(float(conf), 4),
-                            "country_model": country
+                            "country_model": country,
+                            "isDocumentClass": is_document_class
                         })
             except Exception as e:
                 print(f"[detectDocumentInFrames] Error en frame {i} con modelo {country}: {e}")
                 continue
 
         if frame_detections:
-            document_detected = True
-            frames_with_document.append(i)
             all_detections.append({
                 "frame_index": i,
                 "detections": frame_detections
             })
+            if frame_has_document:
+                document_detected = True
+                frames_with_document.append(i)
 
     return {
         "document_detected": document_detected,
