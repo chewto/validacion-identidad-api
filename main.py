@@ -55,7 +55,7 @@ app.teardown_appcontext(close_db_connections)
 def db_status():
   country = request.args.get('country')
   if not country:
-    return jsonify({"error": "El parámetro 'country' es requerido"}), 400
+    return jsonify({"error": "El parámetro 'country' es obligatorio."}), 400
 
   try:
     conn = controlador_db.get_db(country.upper())
@@ -107,7 +107,7 @@ def antiSpoofing():
     framesCounter = 1
 
     if not path or not os.path.exists(path):
-        return jsonify({"error": "El path no existe"}), 400
+        return jsonify({"error": "La ruta del archivo no existe o no es válida."}), 400
 
     video_dir = os.path.join('.', 'videos_normalized')
     os.makedirs(video_dir, exist_ok=True)
@@ -161,7 +161,7 @@ def antiSpoofing():
             faceDetected = face.get('detected')
             resultDetected = faceDetected
             if not faceDetected:
-                messages.append('No se ha detectado ningun rostro, vuelva a intentarlo.')
+                messages.append('No se detectó ningún rostro en la imagen. Por favor, intente nuevamente.')
 
     movimientoDetectado = movementDetection(rostroReferencia, rostrosComparacion)
 
@@ -169,13 +169,13 @@ def antiSpoofing():
     isRealFilter = list(isRealFilter)
 
     if (movimientoDetectado != 'OK'):
-        messages.append('No fue posible confirmar la captura, vuelva a intentarlo.')
+        messages.append('No se pudo validar el movimiento facial. Por favor, intente nuevamente.')
 
     if (len(isRealFilter) >= 1 and len(photoDataURL) >= 1):
-        messages.append('La prueba de vida que ha realizado no alcanzó el porcentaje mínimo de coincidencia requerido para su validación. Por favor, repítala asegurándose de estar en un lugar bien iluminado y siguiendo las instrucciones en pantalla.')
+        messages.append('Prueba de vida no superada. Por favor, repita el proceso en un lugar bien iluminado y de frente a la cámara.')
 
     if documentDetectionResult.get("document_detected"):
-        messages.append('Se ha detectado un documento en el video de selfie. Para la prueba de vida no debe mostrar ningún documento.')
+        messages.append('Se detectó un documento en el video. Para la prueba de vida solo debe mostrar su rostro, sin documentos.')
 
     # Delete the normalized video to free disk space
     try:
@@ -233,10 +233,10 @@ def getUserMedia():
       return jsonify({"evidencias": False})
 
   if not image_files:
-      return jsonify({'error': 'No image found'}), 404
+      return jsonify({'error': 'No se encontraron imágenes asociadas al usuario.'}), 404
 
   if not video_files:
-      return jsonify({'error': 'No video found'}), 404
+      return jsonify({'error': 'No se encontraron videos asociados al usuario.'}), 404
 
   image_path = os.path.join(pathUsuario, image_files[0])
   video_path = os.path.join(pathUsuario, video_files[0])
@@ -370,7 +370,7 @@ def livenessTest():
     video = request.files.get("video")
     image = request.files.get("image")
     if not video or not image:
-        return jsonify({"error": "Missing video or image file"}), 400
+        return jsonify({"error": "Debe adjuntar los archivos de video e imagen requeridos."}), 400
 
     # Open the image and convert it to a NumPy array
     try:

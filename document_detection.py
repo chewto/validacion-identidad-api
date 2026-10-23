@@ -262,11 +262,11 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
         checkSide['documentValidation'] = document_validation
 
         if not document_validation:
-            messages.append(f'El tipo de documento no coincide con el seleccionado, documento detectado: {documentLabelNormalized}. se requiere {tipo_documento.lower()} {documentSide}')
+            messages.append(f'El documento detectado ({documentLabelNormalized}) no corresponde con el solicitado ({tipo_documento.lower()} {documentSide}). Por favor, verifique el lado y tipo de documento.')
             # if(requieredSide != documentSide):
             #   messages.append(f'se requiere que suba el {requieredSide} de su documento')
         if not isCountry:
-          messages.append('El pais del documento no se encontro en el documento.')
+          messages.append('El país del documento no coincide con el país seleccionado por usted.')
         # if not isCountry:
         #     country_code_pre, country_detected_pre, doc_country_validation_pre = validateDocumentCountry(ocr, country=user_country)
         #     code_c, country_name, country_validation = testingCountry([
@@ -282,7 +282,7 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
         #     checkSide['countryValidation'] = isCountry
 
         #     if documentSection['countryCheck'] != True:
-        #         messages.append('El pais del documento no se encontro en el documento.')
+        #         messages.append('El país del documento no coincide con el país seleccionado por usted.')
 
 
     else:
@@ -309,10 +309,10 @@ def validateDocument(documento_data, ocr, tipo_documento, lado_documento, user_c
         }
 
         if not country_validation and tipo_documento != "PASAPORTE":
-          messages.append('El pais del documento no se encontro en el documento.')
+          messages.append('El país del documento no coincide con el país seleccionado por usted.')
 
         if not document_validation and tipo_documento != "PASAPORTE":
-            messages.append('El tipo de documento no coincide con el seleccionado.')
+            messages.append('El documento presentado no coincide con el tipo que usted seleccionó.')
 
     return documentSection, checkSide, messages, cropImage
 
