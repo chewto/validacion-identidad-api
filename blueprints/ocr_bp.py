@@ -16,7 +16,16 @@ from expiry import expiryDateOCR, hasExpiryDate
 from reconocimiento import extractFaces, getFrames, orientacionImagen, recognize, verifyFaces, frame_to_dataurl
 from utilities.request_parser import _parse_request
 from utilities.utilidades import readDataURL, textNormalize, imageToDataURL, fileCv2, orientation, rotateImage
-from utilities.check_result import testingCountry, testingType, results
+from utilities.check_result import (
+  testingCountry,
+  testingType,
+  results,
+  OCR_MATCH_THRESHOLD,
+  MRZ_MATCH_THRESHOLD,
+  hasReadableOcr,
+  isValidMrz,
+  evaluateField,
+)
 import time
 import request.controlador_db as controlador_db
 import cv2
@@ -104,8 +113,12 @@ def verificarAnverso():
               "name": 0
           }
       },
+      "mismatches": [],
+      "hasMismatch": False,
     }
     messages = []
+    mismatches = []
+    faceDetected = False
     checkSide = {}
     documentoOrientado = rotateImage(documentoData, textAngle)
 
@@ -207,7 +220,7 @@ def verificarAnverso():
     messages.extend(doc_messages)
     resultsDict['document'] = document_section
 
-    numeroDocumento = _formatDocumentNumber(numeroDocumento)
+    numeroDocumento = _formatDocumentNumber(numeroDocumento) or ''
 
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
@@ -220,18 +233,18 @@ def verificarAnverso():
     apellidoOcr, pctApellido = validacionOCR(ocr, apellido, onlyNumbers=False)
     numeroOcr, pctNumero = validacionOCR(ocr, numeroDocumento, onlyNumbers=True)
 
-    checkSide['percentName'] = True if pctNombre >= 50 else False
-    checkSide['percentLastname'] = True if pctApellido >= 50 else False
-    checkSide['percentID'] = True if pctNumero >= 50 else False
+    checkSide['percentName'] = True if pctNombre >= OCR_MATCH_THRESHOLD else False
+    checkSide['percentLastname'] = True if pctApellido >= OCR_MATCH_THRESHOLD else False
+    checkSide['percentID'] = True if pctNumero >= OCR_MATCH_THRESHOLD else False
 
-    if pctNombre <= 50:
-        messages.append('Su nombre no coincide con los datos legibles del documento.')
-    if pctApellido <= 50:
-        messages.append('Su apellido no coincide con los datos legibles del documento.')
-    if pctNumero <= 50:
-        messages.append(
-          'Su número de documento no coincide con los datos detectados.'
-        )
+    ocrReadable = hasReadableOcr(ocr)
+
+    evaluateField(mismatches, messages, 'name', 'ocr', nombre, pctNombre,
+                  readable=ocrReadable)
+    evaluateField(mismatches, messages, 'lastName', 'ocr', apellido, pctApellido,
+                  readable=ocrReadable)
+    evaluateField(mismatches, messages, 'ID', 'ocr', numeroDocumento, pctNumero,
+                  readable=ocrReadable)
 
     resultsDict['ocr'] = {
         'data': {
@@ -302,75 +315,78 @@ def verificarAnverso():
         if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
             messages.append('No se pudo leer la zona de lectura mecánica (MRZ). Verifique que esté nítida y visible.')
 
-        if 'valid_score' in mrz:
-            if mrz['valid_score'] >= 51:
-                if (userCountry == 'HND' and tipoDocumento =='PASAPORTE' and checkSide['documentValidation'] == False):
-                    if (mrz['type'] == 'P<'):
-                        checkSide['documentValidation'] = True
-                        resultsDict['document']['type'] = 'Pasaporte'
-                        resultsDict['document']['typeCheck'] = True
-                    else:
-                      messages.append('El documento presentado no coincide con el tipo seleccionado por usted.')
+        if isValidMrz(mrz):
+            if (userCountry == 'HND' and tipoDocumento =='PASAPORTE' and checkSide['documentValidation'] == False):
+                if (mrz['type'] == 'P<'):
+                    checkSide['documentValidation'] = True
+                    resultsDict['document']['type'] = 'Pasaporte'
+                    resultsDict['document']['typeCheck'] = True
+                else:
+                  messages.append('El documento presentado no coincide con el tipo seleccionado por usted.')
 
-                    if (mrz['country'] == 'HND' and checkSide['countryValidation'] == False):
-                        checkSide['countryValidation'] = True
-                        resultsDict['document']["code"] = 'HND'
-                        resultsDict['document']['country'] = 'HONDURAS'
-                        resultsDict['document']['countryCheck'] = True
-                    else:
-                      messages.append('El país emisor del documento no coincide con el país seleccionado.') 
+                if (mrz['country'] == 'HND' and checkSide['countryValidation'] == False):
+                    checkSide['countryValidation'] = True
+                    resultsDict['document']["code"] = 'HND'
+                    resultsDict['document']['country'] = 'HONDURAS'
+                    resultsDict['document']['countryCheck'] = True
+                else:
+                  messages.append('El país emisor del documento no coincide con el país seleccionado.')
 
-                extractName = mrzInfo(
-                  mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
-                  searchTerm=nombre
-                )
-                extractLastname = mrzInfo(
-                  mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
-                  searchTerm=apellido
-                )
+            extractName = mrzInfo(
+              mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
+              searchTerm=nombre
+            )
+            extractLastname = mrzInfo(
+              mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '',
+              searchTerm=apellido
+            )
 
-                nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
-                lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
+            nameMRZ = comparisonMRZInfo([extractName], nombre, 'name')
+            lastNameMRZ = comparisonMRZInfo([extractLastname], apellido, 'surname')
 
-                #Si MRZ no es opcional, siempre se agrega.
-                #Si es opcional, solo si se detecta.
-                if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
-                    resultsDict['mrz'] = {
-                      'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
-                      'data': {
-                        'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
-                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
-                      },
-                      'percentages': {
-                        'name': nameMRZ['percent'],
-                        'lastName': lastNameMRZ['percent']
-                      },
-                      'extractedData': {
-                        'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
-                        'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
-                        'documentNumber': mrz.get('number', ''),
-                        'dateOfBirth': mrz.get('date_of_birth', ''),
-                        'expirationDate': mrz.get('expiration_date', ''),
-                        'nationality': mrz.get('nationality', ''),
-                        'sex': mrz.get('sex', ''),
-                        'mrzType': mrz.get('mrz_type', '')
-                        }
+            #Si MRZ no es opcional, siempre se agrega.
+            #Si es opcional, solo si se detecta.
+            if (not mrzIsOptional) or (mrzIsOptional and 'raw_text' in mrz):
+                resultsDict['mrz'] = {
+                  'code': mrz['raw_text'] if 'raw_text' in mrz else 'No se pudo detectar MRZ válido en la imagen.',
+                  'data': {
+                    'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                    'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
+                  },
+                  'percentages': {
+                    'name': nameMRZ['percent'],
+                    'lastName': lastNameMRZ['percent']
+                  },
+                  'extractedData': {
+                    'name': nameMRZ['data'] if len(nameMRZ['data']) >= 1 else '',
+                    'lastName': lastNameMRZ['data'] if len(lastNameMRZ['data']) >= 1 else '',
+                    'documentNumber': mrz.get('number', ''),
+                    'dateOfBirth': mrz.get('date_of_birth', ''),
+                    'expirationDate': mrz.get('expiration_date', ''),
+                    'nationality': mrz.get('nationality', ''),
+                    'sex': mrz.get('sex', ''),
+                    'mrzType': mrz.get('mrz_type', '')
                     }
+                }
 
-                # Si MRZ no es opcional, siempre se agregan los checks y mensajes
-                if not mrzIsOptional:
-                    checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
-                    checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
-                    if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-                        messages.append('Su nombre no coincide con la zona de lectura mecánica (MRZ).')
-                    if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-                        messages.append('Su apellido no coincide con la zona de lectura mecánica (MRZ).')
-                # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
-                elif mrzIsOptional and 'raw_text' in mrz:
-                    if nameMRZ['percent'] >= 51:
-                        checkSide['nameMrz'] = True
-                    if lastNameMRZ['percent'] >= 51:
-                        checkSide['lastNameMrz'] = True
+            # Si MRZ no es opcional, siempre se agregan los checks y mensajes
+            if not mrzIsOptional:
+                checkSide['nameMrz'] = True if nameMRZ['percent'] >= MRZ_MATCH_THRESHOLD else False
+                checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= MRZ_MATCH_THRESHOLD else False
+                evaluateField(mismatches, messages, 'name', 'mrz', nombre,
+                              nameMRZ['percent'],
+                              readable=bool(mrz.get('raw_text')),
+                              detectedValue=nameMRZ['data'])
+                evaluateField(mismatches, messages, 'lastName', 'mrz', apellido,
+                              lastNameMRZ['percent'],
+                              readable=bool(mrz.get('raw_text')),
+                              detectedValue=lastNameMRZ['data'])
+            # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
+            elif mrzIsOptional and 'raw_text' in mrz:
+                if nameMRZ['percent'] >= MRZ_MATCH_THRESHOLD:
+                    checkSide['nameMrz'] = True
+                if lastNameMRZ['percent'] >= MRZ_MATCH_THRESHOLD:
+                    checkSide['lastNameMrz'] = True
         else:
             # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
             if not mrzIsOptional:
@@ -404,6 +420,8 @@ def verificarAnverso():
 
     valid_side, _, _ = results(49, 'AUTOMATICA', checkSide)
 
+    resultsDict['mismatches'] = mismatches
+    resultsDict['hasMismatch'] = len(mismatches) > 0
     resultsDict['messages'] = messages
 
     if confidence <= confidenceThreshold and valid_side and faceDetected:
@@ -423,6 +441,7 @@ def verificarAnverso():
 def verificarReverso():
     
     messages = []
+    mismatches = []
 
     is_testing = request.args.get('testing', 'false').lower() == 'true'
 
@@ -467,8 +486,8 @@ def verificarReverso():
 
     preprocessedDocument = preprocessing(imagenDocumento, resolution, filters='sharp')
 
-    nombre = textNormalize(nombre)
-    apellido = textNormalize(apellido)
+    nombre = textNormalize(nombre or '')
+    apellido = textNormalize(apellido or '')
 
     countryData = controlador_db.selectData(f'''
       SELECT mrz,barcode,ocr,yolo_labels FROM pki_validacion.pais as pais 
@@ -514,7 +533,9 @@ def verificarReverso():
             "sex": "",
             "mrzType": ""
         }
-      }
+      },
+      "mismatches": [],
+      "hasMismatch": False
     }
 
 
@@ -587,8 +608,7 @@ def verificarReverso():
       if (mrz == "No se pudo detectar MRZ válido en la imagen." and not mrzIsOptional):
         messages.append('No se pudo leer la zona de lectura mecánica (MRZ). Verifique que esté nítida y visible.')
 
-      if 'valid_score' in mrz:
-        if mrz['valid_score'] >= 51:
+      if isValidMrz(mrz):
           extractName = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=nombre)
           extractLastname = mrzInfo(mrz=mrz['raw_text'].replace("\n", "") if 'raw_text' in mrz else '', searchTerm=apellido)
 
@@ -619,23 +639,30 @@ def verificarReverso():
               }
             }
 
-          # Si MRZ no es opcional, siempre se agregan los checks y mensajes
+          # El aviso de nombre/apellido se aplica siempre que el MRZ sea válido,
+          # sea opcional o no, para que el frontend muestre qué dato no coincide.
+          evaluateField(mismatches, messages, 'name', 'mrz', nombre,
+                        nameMRZ['percent'],
+                        readable=bool(mrz.get('raw_text')),
+                        detectedValue=nameMRZ['data'])
+          evaluateField(mismatches, messages, 'lastName', 'mrz', apellido,
+                        lastNameMRZ['percent'],
+                        readable=bool(mrz.get('raw_text')),
+                        detectedValue=lastNameMRZ['data'])
+
+          # Si MRZ no es opcional, siempre se agregan los checks
           if not mrzIsOptional:
-            checkSide['nameMrz'] = True if nameMRZ['percent'] >= 51 else False
-            checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= 51 else False
-            if nameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-              messages.append('Su nombre no coincide con la zona de lectura mecánica (MRZ).')
-            if lastNameMRZ['percent'] <= 50 and 'raw_text' in mrz:
-              messages.append('Su apellido no coincide con la zona de lectura mecánica (MRZ).')
-          # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje, no se agregan mensajes
+            checkSide['nameMrz'] = True if nameMRZ['percent'] >= MRZ_MATCH_THRESHOLD else False
+            checkSide['lastNameMrz'] = True if lastNameMRZ['percent'] >= MRZ_MATCH_THRESHOLD else False
+          # Si MRZ es opcional, solo se agregan los checks si cumplen el porcentaje
           elif mrzIsOptional and 'raw_text' in mrz:
-            if nameMRZ['percent'] >= 51:
+            if nameMRZ['percent'] >= MRZ_MATCH_THRESHOLD:
               checkSide['nameMrz'] = True
-            if lastNameMRZ['percent'] >= 51:
+            if lastNameMRZ['percent'] >= MRZ_MATCH_THRESHOLD:
               checkSide['lastNameMrz'] = True
-        else:
-          # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
-          if not mrzIsOptional:
+      else:
+        # Si MRZ no es opcional, siempre se agrega aunque el score sea bajo
+        if not mrzIsOptional:
             resultsDict['mrz'] = {
               'code': "No se pudo detectar MRZ válido en la imagen.",
               'data': {
@@ -670,6 +697,8 @@ def verificarReverso():
     # addLog(logsPath, logString)
 
 
+    resultsDict['mismatches'] = mismatches
+    resultsDict['hasMismatch'] = len(mismatches) > 0
     resultsDict['messages'] = messages
 
     resultsDict['validSide'] = validSide

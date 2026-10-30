@@ -94,6 +94,40 @@ En el servidor MariaDB, `SHOW STATUS LIKE 'Ssl_%'` debe traer `ssl_cipher` no
 vacio, y `ssl_type` debe incluir `CERTIFICATE` si el usuario exige `REQUIRE X509`
 (mTLSAssertion).
 
+## Respuesta de `/ocr/anverso` y `/ocr/reverso`
+
+Ademas de `messages`, ambas rutas devuelven los datos que no coinciden con el
+documento para que el frontend pueda mostrar un mensaje por campo:
+
+```json
+{
+  "mismatches": [
+    {
+      "field": "name",
+      "label": "nombre",
+      "source": "ocr",
+      "message": "Su nombre no coincide con los datos legibles del documento.",
+      "percentage": 35,
+      "threshold": 50
+    }
+  ],
+  "hasMismatch": true
+}
+```
+
+- `field`: `name`, `lastName` o `ID`.
+- `source`: `ocr` o `mrz`.
+- `threshold`: 50 para OCR y 51 para MRZ.
+- `hasMismatch`: `true` si `mismatches` tiene al menos un dato discrepante.
+
+`mismatches` siempre viene en la respuesta (`[]` si no hay discrepancias). Los
+fallos de lectura se informan en `messages` como "No se pudo leer ..." y no se
+cuentan como mismatch. En el reverso, la comparacion por MRZ solo se hace si el
+tipo de documento tiene MRZ en ese lado y el MRZ extraido alcanza
+`valid_score >= 51`; si el MRZ es opcional, el aviso se muestra igual pero
+`validSide` conserva la regla actual. El frontend debe mostrar `mismatches` (o
+`messages`) aunque `validSide` sea `true`.
+
 ## Pruebas
 
 ```bash
