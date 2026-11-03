@@ -15,6 +15,9 @@ import request.controlador_db as controlador_db
 from request.controlador_db import close_db_connections
 from utilities.utilidades import readDataURL
 import os
+
+# Directorio base de la aplicacion (independiente del CWD y del SO)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from blueprints.country_bp import country_bp
 from blueprints.logo_entidad_bp import logo_entidad_bp
 from blueprints.ocr_bp import ocr_bp
@@ -106,10 +109,16 @@ def antiSpoofing():
 
     framesCounter = 1
 
+    # Resolver la ruta contra BASE_DIR para compatibilidad Windows/Linux.
+    # Se elimina cualquier separador inicial (/ o \) para evitar rutas absolutas accidentales.
+    if path:
+        clean = path.lstrip('/').lstrip('\\')
+        path = os.path.join(BASE_DIR, clean)
+
     if not path or not os.path.exists(path):
         return jsonify({"error": "La ruta del archivo no existe o no es válida."}), 400
 
-    video_dir = os.path.join('.', 'videos_normalized')
+    video_dir = os.path.join(BASE_DIR, 'videos_normalized')
     os.makedirs(video_dir, exist_ok=True)
     video_name = os.path.splitext(os.path.basename(path))[0] + '_normalized.mp4'
     video = os.path.join(video_dir, video_name)
@@ -554,6 +563,36 @@ def ycloud_webhook():
         return jsonify({"error": "Error processing webhook body"}), 500
 
     return jsonify({"status": "received"}), 200
+
+
+
+@app.route('/upload-video', methods=['POST'])
+@token_required
+def uploadVideo():
+    """Recibe un video via multipart/form-data (campo 'video_data')
+    y lo guarda en ./videos/. Devuelve la ruta relativa del archivo."""
+    import time
+    from werkzeug.utils import secure_filename
+
+    video = request.files.get('video_data')
+    if not video:
+        return jsonify({'error': "El campo 'video_data' es requerido."}), 400
+
+    video_dir = os.path.join(BASE_DIR, 'videos')
+    os.makedirs(video_dir, exist_ok=True)
+
+    # Nombre seguro con prefijo de timestamp para evitar colisiones
+    timestamp = int(time.time() * 1000)
+    filename = "{}_{}".format(timestamp, secure_filename(video.filename or 'video.webm'))
+    filepath = os.path.join(video_dir, filename)
+
+    try:
+        video.save(filepath)
+    except Exception as e:
+        return jsonify({'error': 'No se pudo guardar el video: {}'.format(str(e))}), 500
+
+    ruta = 'videos/{}'.format(filename)
+    return jsonify({'ruta': ruta}), 200
 
 
 @app.route('/', methods=['GET'])
