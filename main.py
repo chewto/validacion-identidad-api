@@ -611,7 +611,6 @@ def ycloud_webhook():
 def uploadVideo():
     """Recibe un video via multipart/form-data (campo 'video_data')
     y lo guarda en ./videos/. Devuelve la ruta relativa del archivo."""
-    import time
     from werkzeug.utils import secure_filename
 
     video = request.files.get('video_data')
@@ -621,9 +620,8 @@ def uploadVideo():
     video_dir = os.path.join(BASE_DIR, 'videos')
     os.makedirs(video_dir, exist_ok=True)
 
-    # Nombre seguro con prefijo de timestamp para evitar colisiones
-    timestamp = int(time.time() * 1000)
-    filename = "{}_{}".format(timestamp, secure_filename(video.filename or 'video.webm'))
+    # Nombre del archivo enviado por el usuario
+    filename = secure_filename(video.filename or 'video.webm')
     filepath = os.path.join(video_dir, filename)
 
     try:
