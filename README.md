@@ -152,3 +152,54 @@ el firewall dropea el SYN en los puertos no estandar:
 | `DB_CONNECT_TIMEOUT` | `10`    |
 | `DB_READ_TIMEOUT`    | `30`    |
 | `DB_WRITE_TIMEOUT`   | `30`    |
+
+## Progreso en tiempo real (WebSocket)
+
+`utilities/ws_server.py` levanta un servidor WebSocket en un hilo daemon del
+mismo proceso Flask y `notify_progress(...)` (usado por `blueprints/ocr_bp.py`)
+publica los pasos del procesamiento:
+
+- URL: `ws://<host>:4001/<efirma_id>` (o `ws://<host>:4001/ws/<efirma_id>`).
+- Suscripción por mensaje: `{"action": "subscribe", "id": "<efirma_id>"}`;
+  también `unsubscribe`/`leave` y `ping`.
+- Payload emitido (sin cambios respecto al cliente actual):
+  `{"efirma_id", "step", "message", "status", "timestamp", "extra"}`.
+
+Variables de entorno:
+
+| Variable           | Default   | Descripción |
+|--------------------|-----------|-------------|
+| `WS_ENABLED`       | `auto`    | `1`/`0` fuerza/niega. `auto` arranca salvo bajo gunicorn (ver abajo). |
+| `WS_HOST`          | `0.0.0.0` | Interfaz de escucha. |
+| `WS_PORT`          | `4001`    | Puerto del contrato con el frontend. |
+| `WS_PORT_FALLBACK` | `0`       | Puertos extra a probar si el pedido está ocupado. Si se usa, **cambia la URL** y el frontend debe apuntar al puerto nuevo. |
+| `WS_START_TIMEOUT` | `5`       | Segundos de espera al bind cuando se arranca con `wait=True`. |
+
+### Un solo proceso, no varios
+
+El estado de suscripciones vive en memoria del proceso: si corren varios
+workers (por ejemplo `workers = 3` en `gunicorn_config.py`), el progreso emitido
+en un worker no llega al cliente suscrito en otro. Por eso `WS_ENABLED=auto`
+**desactiva** el WS bajo gunicorn; el frontend debe usar el progreso persistido:
+
+- `POST /validation/progress?idUsuario=<id>` guarda el paso (`validation_bp.py`).
+- `GET /validation/progress?idUsuario=<id>` lo devuelve.
+
+Con un único proceso (`python main.py`, o gunicorn con `workers = 1` y
+`WS_ENABLED=1`) el WS funciona completo.
+
+### Diagnóstico
+
+`GET /ws-status` devuelve `{enabled, running, host, port, rooms, subscribers}`.
+Si el puerto 4001 ya está tomado por otro proceso, el arranque registra **un**
+error indicando el PID/proceso dueño (vía `psutil`) y la app sigue funcionando
+sin WS. Para liberarlo en Windows:
+
+```powershell
+Get-NetTCPConnection -LocalPort 4001 -State Listen | Select-Object OwningProcess
+Stop-Process -Id <PID>
+```
+
+El arranque es idempotente: `start_ws_server()` puede llamarse varias veces sin
+abrir un segundo puerto.
+

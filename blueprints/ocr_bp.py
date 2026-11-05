@@ -1,5 +1,6 @@
 
 from utilities.token_utils import token_required
+from utilities.ws_server import notify_progress
 import io
 import json
 from PIL import Image
@@ -40,6 +41,7 @@ def verificarAnverso():
     parsed = _parse_request(request)
     
     efirmaId = parsed['efirma_id']
+    notify_progress(efirmaId, 'start', 'Iniciando verificación del anverso...', status='processing', extra={'side': 'anverso'})
     personaData = parsed['persona_data']
     documentoData = parsed['documento_data']
     allFrames = parsed['all_frames']
@@ -122,6 +124,7 @@ def verificarAnverso():
     checkSide = {}
     documentoOrientado = rotateImage(documentoData, textAngle)
 
+    notify_progress(efirmaId, 'face_detection', 'Detectando rostro en el documento...', status='processing')
     detectFaceInitTime = time.time()
     documentSelfie = searchDocumentSelfie(
       yoloLabels=yoloLabels,
@@ -160,6 +163,7 @@ def verificarAnverso():
     # Si tenemos allFrames del video de liveness, comparar cada uno contra
     # el rostro del documento y seleccionar el que mejor coincida.
     # Si no hay allFrames, usar solo la selfie original (fallback).
+    notify_progress(efirmaId, 'face_comparison', 'Comparando rostro con prueba facial...', status='processing')
     faceComparisonInit = time.time()
 
     if allFrames and len(allFrames) >= 1:
@@ -195,6 +199,7 @@ def verificarAnverso():
         messages.append('El rostro del documento no coincide con el de su prueba facial.')
 
     
+    notify_progress(efirmaId, 'doc_validation', 'Validando tipo de documento y país...', status='processing')
     detectInit = time.time()
     document_section, doc_check, doc_messages, croppedImage = validateDocument(
         documentoOrientado,
@@ -225,6 +230,7 @@ def verificarAnverso():
     nombre = textNormalize(nombre)
     apellido = textNormalize(apellido)
 
+    notify_progress(efirmaId, 'name_validation', 'Validando nombre, apellido y número de documento...', status='processing')
     nombreOcr, pctNombre = validacionOCR(
       ocr,
       nombre,
@@ -269,6 +275,7 @@ def verificarAnverso():
     barcodeTime = None
 
     if hasbarcode:
+        notify_progress(efirmaId, 'barcode', 'Leyendo código de barras del documento...', status='processing')
         barcodeInit = time.time()
         detectedBarcodes = barcodeReader(
           preprocessedDocument,
@@ -305,7 +312,7 @@ def verificarAnverso():
     mrzTime = None
 
     if documentMRZ:
-
+        notify_progress(efirmaId, 'mrz', 'Leyendo y validando zona MRZ...', status='processing')
         mrzInit = time.time()
         mrz = extractMRZ(preprocessedDocument)
         mrzEnd = time.time()
@@ -424,11 +431,15 @@ def verificarAnverso():
     resultsDict['hasMismatch'] = len(mismatches) > 0
     resultsDict['messages'] = messages
 
-    if confidence <= confidenceThreshold and valid_side and faceDetected:
-        resultsDict['validSide'] = True if (valid_side and len(messages) <= 0) else False
-        return jsonify(resultsDict)
-
-    resultsDict['validSide'] = False
+    final_valid = (confidence <= confidenceThreshold and valid_side and faceDetected and len(messages) <= 0)
+    resultsDict['validSide'] = bool(final_valid)
+    notify_progress(
+        efirmaId,
+        'completed',
+        'Verificación de anverso finalizada',
+        status='success' if final_valid else 'warning',
+        extra={'validSide': resultsDict['validSide'], 'messages': messages}
+    )
     return jsonify(resultsDict)
 
 
@@ -477,6 +488,7 @@ def verificarReverso():
         ocr = reqBody.get('ocr')
         textAngle = reqBody.get('textAngle')
 
+    notify_progress(efirmaId, 'start', 'Iniciando verificación del reverso...', status='processing', extra={'side': 'reverso'})
 
     # resolution = 600 if tries <=1 else 1080
 
@@ -545,6 +557,7 @@ def verificarReverso():
 
     ocr = ocr
 
+    notify_progress(efirmaId, 'doc_validation', 'Validando tipo de documento y país (reverso)...', status='processing')
     detectInit = time.time()
     document_section, doc_check, doc_messages, croppedImage = validateDocument(
         imagenDocumento,
@@ -575,6 +588,7 @@ def verificarReverso():
     barcodeIsOptional = barcodeData[tipoDocumento]["optional"]
 
     if hasbarcode:
+      notify_progress(efirmaId, 'barcode', 'Leyendo código de barras del reverso...', status='processing')
       barcodeInit = time.time()
       detectedBarcodes = barcodeReader(preprocessedDocument, efirmaId, ladoDocumento, barcodeType, barcodetbr)
       barcodeEnd = time.time()
@@ -598,6 +612,7 @@ def verificarReverso():
     mrzIsOptional = mrzData[tipoDocumento]['optional']
 
     if documentMRZ:
+      notify_progress(efirmaId, 'mrz', 'Leyendo y validando zona MRZ (reverso)...', status='processing')
       mrzInit = time.time()
       mrz = extractMRZ(preprocessedDocument)
       mrzEnd = time.time()
@@ -702,6 +717,13 @@ def verificarReverso():
     resultsDict['messages'] = messages
 
     resultsDict['validSide'] = validSide
+    notify_progress(
+        efirmaId,
+        'completed',
+        'Verificación de reverso finalizada',
+        status='success' if (validSide and len(messages) <= 0) else 'warning',
+        extra={'validSide': validSide, 'messages': messages}
+    )
 
     return jsonify(resultsDict)
 

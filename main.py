@@ -3,6 +3,7 @@ import cv2
 import ffmpeg
 import hmac
 import hashlib
+import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from blueprints.recognition_bp import recognition_bp
@@ -27,6 +28,8 @@ from PIL import Image
 import numpy as np
 from werkzeug import Request
 from utilities.token_utils import token_required
+from utilities.ws_server import start_ws_server, stop_ws_server, stats as ws_stats
+from werkzeug.serving import is_running_from_reloader
 
 app = Flask(__name__)
 
@@ -52,6 +55,43 @@ app.register_blueprint(recognition_bp)
 app.register_blueprint(auth_bp)
 
 app.teardown_appcontext(close_db_connections)
+
+
+# ─── Servidor WebSocket de progreso ───────────────────────────────────────────
+# El servidor WS se arranca una sola vez y sólo en el proceso que atiende
+# peticiones HTTP. Arrancarlo a nivel de import hacía que el proceso padre del
+# reloader de Werkzeug y el hijo compitieran por el puerto 4001 ([Errno 10048]).
+_ws_attempted = False
+_ws_lock = threading.Lock()
+
+
+def _ensure_ws_started():
+    """Arranque idempotente del WS (un intento por proceso)."""
+    global _ws_attempted
+
+    if _ws_attempted:
+        return
+
+    with _ws_lock:
+        if _ws_attempted:
+            return
+        _ws_attempted = True
+        try:
+            start_ws_server(wait=True)
+        except Exception as e:
+            # Un fallo del WS nunca debe tumbar una petición de validación.
+            print(f'[WebSocket] No se pudo iniciar el servidor de progreso: {e}')
+
+
+@app.before_request
+def _start_ws_on_first_request():
+    _ensure_ws_started()
+
+
+@app.route('/ws-status', methods=['GET'])
+def ws_status():
+    """Estado del servidor WS de progreso (sin datos de usuarios)."""
+    return jsonify(ws_stats()), 200
 
 
 @app.route('/db-status', methods=['GET'])
@@ -601,12 +641,23 @@ def health():
 
 
 if __name__ == "__main__":
+    # Con el reloader de Werkzeug hay dos procesos: el padre sólo vigila
+    # archivos y el hijo es el que atiende peticiones. El servidor WS debe
+    # vivir únicamente en el proceso que atiende, o el bind del puerto falla
+    # con [Errno 10048] en el otro.
+    debug = os.environ.get("FLASK_DEBUG", "1").strip().lower() not in ("0", "false", "no", "off")
+    use_reloader = debug
+
+    if is_running_from_reloader() or not use_reloader:
+        _ensure_ws_started()
+
     try:
         app.static_folder = '.'
-        app.run(debug=True, host="0.0.0.0", port=4000)
+        app.run(debug=debug, host="0.0.0.0", port=4000, use_reloader=use_reloader)
     except Exception as e:
         # e will contain the actual error message
         print(f'An unexpected error occurred: {e}')
         print('El programa se detuvo debido a un error.')
     finally:
+        stop_ws_server()
         print('programa finalizado')
