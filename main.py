@@ -613,15 +613,23 @@ def uploadVideo():
     y lo guarda en ./videos/. Devuelve la ruta relativa del archivo."""
     from werkzeug.utils import secure_filename
 
+    country = request.args.get('country')
     video = request.files.get('video_data')
     if not video:
         return jsonify({'error': "El campo 'video_data' es requerido."}), 400
 
-    video_dir = os.path.join(BASE_DIR, 'videos')
-    os.makedirs(video_dir, exist_ok=True)
-
     # Nombre del archivo enviado por el usuario
     filename = secure_filename(video.filename or 'video.webm')
+
+    if country:
+        clean_country = secure_filename(country.strip())
+        video_dir = os.path.join(BASE_DIR, 'videos', clean_country)
+        ruta = 'videos/{}/{}'.format(clean_country, filename)
+    else:
+        video_dir = os.path.join(BASE_DIR, 'videos')
+        ruta = 'videos/{}'.format(filename)
+
+    os.makedirs(video_dir, exist_ok=True)
     filepath = os.path.join(video_dir, filename)
 
     try:
@@ -629,7 +637,6 @@ def uploadVideo():
     except Exception as e:
         return jsonify({'error': 'No se pudo guardar el video: {}'.format(str(e))}), 500
 
-    ruta = 'videos/{}'.format(filename)
     return jsonify({'ruta': ruta}), 200
 
 
