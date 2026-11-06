@@ -153,6 +153,36 @@ el firewall dropea el SYN en los puertos no estandar:
 | `DB_READ_TIMEOUT`    | `30`    |
 | `DB_WRITE_TIMEOUT`   | `30`    |
 
+## Prueba de vida (`/anti-spoof`): frames configurables
+
+`POST /anti-spoof` extrae frames del video con `getFrames()` (`reconocimiento.py`),
+que toma **1 frame cada `interval_ms` milisegundos** (no usa un contador de frames).
+En máquinas con poca CPU/RAM, leer y analizar menos frames reduce mucho el costo
+(`faceDetection`, anti-spoofing con DeepFace y detección de documento).
+
+| Variable                       | Default | Descripción |
+|--------------------------------|---------|-------------|
+| `ANTI_SPOOF_FRAME_INTERVAL_MS` | `333`   | Milisegundos entre frames muestreados (~3 fps). Mayor = menos frames leídos. Mínimo efectivo: `50`. |
+
+Ejemplo para un servidor limitado (≈ 1 fps):
+
+```bash
+ANTI_SPOOF_FRAME_INTERVAL_MS=1000 python main.py
+```
+
+Notas:
+
+- La variable se lee **al arrancar el proceso**; requiere reinicio para aplicarse.
+- Valores vacíos, no numéricos o `<= 0` caen al default (`333`) con una advertencia;
+  valores por debajo de `50` se elevan a `50`.
+- La respuesta incluye `frameIntervalMs` y `framesCount` (frames realmente
+  procesados) para verificar la configuración.
+- Intervalos muy altos degradan la prueba de vida: con pocos frames
+  `movementDetection` puede fallar ("No se pudo validar el movimiento facial").
+  Rango recomendado: `333`–`2000`.
+- Si el intervalo es tan alto (o el video tan corto) que no se extrae ningún frame,
+  el endpoint responde `400 {"error": "No se pudieron extraer frames del video."}`.
+
 ## Progreso en tiempo real (WebSocket)
 
 `utilities/ws_server.py` levanta un servidor WebSocket en un hilo daemon del

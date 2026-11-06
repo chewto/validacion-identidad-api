@@ -28,6 +28,7 @@ from PIL import Image
 import numpy as np
 from werkzeug import Request
 from utilities.token_utils import token_required
+from utilities.env_config import env_int
 from utilities.ws_server import start_ws_server, stop_ws_server, stats as ws_stats
 from werkzeug.serving import is_running_from_reloader
 
@@ -142,12 +143,32 @@ def getLink():
     return jsonify({"enlace": data[0] if data else None})
 
 
+# ─── Prueba de vida: muestreo de frames configurable por máquina ──────────────
+# getFrames() toma 1 frame cada `interval_ms` milisegundos (no usa un contador de
+# frames). 333 ms ≈ 3 fps es el valor histórico; en máquinas con poca CPU/RAM
+# conviene subirlo (p. ej. 1000 ms ≈ 1 fps) para leer y analizar menos frames.
+DEFAULT_ANTI_SPOOF_FRAME_INTERVAL_MS = 333
+MIN_ANTI_SPOOF_FRAME_INTERVAL_MS = 50  # piso: evita intervalos 0/negativos y abuso de CPU
+ANTI_SPOOF_FRAME_INTERVAL_MS = env_int(
+    "ANTI_SPOOF_FRAME_INTERVAL_MS",
+    DEFAULT_ANTI_SPOOF_FRAME_INTERVAL_MS,
+    minimum=MIN_ANTI_SPOOF_FRAME_INTERVAL_MS,
+)
+
+
+def _remove_quietly(file_path):
+    """Borra un archivo temporal sin propagar errores (limpieza best-effort)."""
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"No se pudo eliminar el archivo {file_path}: {e}")
+
+
 @app.route('/anti-spoof', methods=['POST'])
 @token_required
 def antiSpoofing():
     path = request.args.get("path")
-
-    framesCounter = 1
 
     # Resolver la ruta contra BASE_DIR para compatibilidad Windows/Linux.
     # Se elimina cualquier separador inicial (/ o \) para evitar rutas absolutas accidentales.
@@ -184,12 +205,13 @@ def antiSpoofing():
 
     messages = []
 
-    frames = getFrames(video, frameCounter=framesCounter)
+    frames = getFrames(video, interval_ms=ANTI_SPOOF_FRAME_INTERVAL_MS)
 
-    if (frames == 'no hay'):
-        return 'no se pudo abrir el video'
-    if (frames == 'path invalido'):
-        return 'path invalido'
+    # Un intervalo alto (o un video muy corto) puede no dejar ningún frame.
+    # Se corta acá para no analizar la imagen placeholder de readDataURL(None).
+    if not frames:
+        _remove_quietly(video)
+        return jsonify({"error": "No se pudieron extraer frames del video."}), 400
 
     photoDataURL, rostroReferencia, rostrosComparacion = faceDetection(frames)
 
@@ -227,11 +249,7 @@ def antiSpoofing():
         messages.append('Se detectó un documento en el video. Para la prueba de vida solo debe mostrar su rostro, sin documentos.')
 
     # Delete the normalized video to free disk space
-    try:
-        if os.path.exists(video):
-            os.remove(video)
-    except Exception as e:
-        print(f"No se pudo eliminar el video {video}: {e}")
+    _remove_quietly(video)
 
     return jsonify({
         "movimientoDetectado": movimientoDetectado,
@@ -239,6 +257,7 @@ def antiSpoofing():
         "photoResult": result,
         # "allFrames": allFramesDataURLs,
         "framesCount": len(allFramesDataURLs),
+        "frameIntervalMs": ANTI_SPOOF_FRAME_INTERVAL_MS,
         "messages": messages,
         "faceDetected": resultDetected,
         "documentDetection": documentDetectionResult
