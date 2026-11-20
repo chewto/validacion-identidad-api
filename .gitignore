@@ -1,4 +1,5 @@
 #carpetas
+models/onnx/
 virtual_env/
 __pycache__/
 entorno/
@@ -23,3 +24,5 @@ test_ocr.py
 .env
 postman/
 tests/
+scripts/
+docs/

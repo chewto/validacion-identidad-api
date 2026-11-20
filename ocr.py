@@ -234,104 +234,212 @@ def extraerPorcentaje(str1, str2):
     similitud = (1 - distance / max_len) * 100
     return similitud
 
+def _evaluarSimilitudPalabras(palabras_usuario: list[str], palabras_candidatas: list[str]):
+    """
+    Empareja biyectivamente (1 a 1) las palabras del usuario con las palabras candidatas
+    usando la máxima similitud disponible, penalizando palabras sobrantes o faltantes.
+    """
+    if not palabras_usuario or not palabras_candidatas:
+        return 0.0
+
+    similitudes = []
+    for u_idx, u_w in enumerate(palabras_usuario):
+        for c_idx, c_w in enumerate(palabras_candidatas):
+            sim = extraerPorcentaje(u_w, c_w)
+            # Si dos palabras son completamente diferentes (ej. RAMIREZ y BARRAGAN),
+            # no deben aportar porcentaje positivo residual que infle el promedio de acierto
+            if sim < 60.0:
+                sim = 0.0
+            similitudes.append((sim, u_idx, c_idx))
+
+    # Ordenar de mayor a menor similitud para emparejamiento greedy óptimo
+    similitudes.sort(key=lambda x: x[0], reverse=True)
+
+    usados_u = set()
+    usados_c = set()
+    suma_sim = 0.0
+
+    for sim, u_idx, c_idx in similitudes:
+        if u_idx not in usados_u and c_idx not in usados_c:
+            usados_u.add(u_idx)
+            usados_c.add(c_idx)
+            suma_sim += sim
+
+    # Penalizar discrepancias en cantidad de palabras
+    total_palabras = max(len(palabras_usuario), len(palabras_candidatas))
+    if total_palabras == 0:
+        return 0.0
+
+    return suma_sim / total_palabras
+
 def percentsSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
     """
-    Busca la secuencia de palabras más similar en el OCR usando Levenshtein
-    y un cálculo de porcentaje de similitud.
+    Busca la secuencia o línea en el OCR más similar a dataUsuario.
+    Para texto (nombres/apellidos), usa emparejamiento 1 a 1 de tokens con penalización
+    por palabras adicionales o faltantes, además de tolerar palabras unidas sin espacio por el OCR.
     """
     def limpiar_texto(texto):
-        texto = texto.upper().strip().replace(",", "").replace(".", "").replace("-", "")
+        texto = texto.upper().strip().replace(",", "").replace(".", "").replace("-", "").replace(":", "")
         texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
         if onlyNumbers:
             texto = re.sub(r'\D', '', texto)
         return texto
-    
-    dataUsuarioArr = [limpiar_texto(x) for x in dataUsuario.split()]
 
+    if onlyNumbers:
+        num_usuario = limpiar_texto(dataUsuario)
+        if not num_usuario:
+            return 'no encontrado', 0
 
-    n = len(dataUsuarioArr)
-    if n == 0:
+        n = len(num_usuario)
+        best_line = 'no encontrado'
+        best_pct = 0.0
+
+        for linea_orig in dataOCR:
+            if not linea_orig or not str(linea_orig).strip():
+                continue
+            linea_num = limpiar_texto(str(linea_orig))
+            if not linea_num:
+                continue
+
+            pct_direct = extraerPorcentaje(num_usuario, linea_num)
+            if pct_direct > best_pct:
+                best_pct = pct_direct
+                best_line = str(linea_orig).strip()
+
+            if len(linea_num) > n:
+                for i in range(len(linea_num) - n + 1):
+                    sub = linea_num[i:i+n]
+                    pct = extraerPorcentaje(num_usuario, sub)
+                    if pct > best_pct:
+                        best_pct = pct
+                        best_line = str(linea_orig).strip()
+
+        return best_line, round(best_pct)
+
+    # Procesamiento para texto (nombres / apellidos)
+    palabras_usuario = [limpiar_texto(x) for x in dataUsuario.split() if limpiar_texto(x)]
+    n_usr = len(palabras_usuario)
+    if n_usr == 0:
         return 'no encontrado', 0
-        
-    mejores_resultados = []
-    ocr_limpio = [limpiar_texto(linea) for linea in dataOCR if len(linea.strip()) > 0]
 
-    for linea in ocr_limpio:    
-        palabras = linea.split()
-        if len(palabras) >= n:
-            for i in range(len(palabras) - n + 1):
-                secuencia = palabras[i:i+n]
-                porcentaje_total = sum(extraerPorcentaje(dataUsuarioArr[idx], palabra_ocr) for idx, palabra_ocr in enumerate(secuencia))
-                similitud_total = sum(Levenshtein.distance(dataUsuarioArr[idx], palabra_ocr) for idx, palabra_ocr in enumerate(secuencia))
-                
-                mejores_resultados.append({
-                    "similitud": similitud_total / n,
-                    "porcentaje": porcentaje_total / n,
-                    "linea": " ".join(secuencia)
-                })
+    usuario_compacto = ''.join(palabras_usuario)
+    best_pct = 0.0
+    best_text = 'no encontrado'
 
-    if not mejores_resultados:
-        return 'no encontrado', 0
+    # Palabras de encabezados o etiquetas comunes que pueden acompañar al dato en una misma línea
+    LABEL_WORDS = {'NOMBRES', 'NOMBRE', 'APELLIDOS', 'APELLIDO', 'PRIMER', 'SEGUNDO', 'DE', 'DEL'}
 
-    mejores_resultados = sorted(mejores_resultados, key=lambda x: (-x['porcentaje'], x['similitud']))
-    
-    mejor = mejores_resultados[0]
-    return mejor['linea'], round(mejor['porcentaje'])
+    for linea_orig in dataOCR:
+        if not linea_orig or not str(linea_orig).strip():
+            continue
+        linea_limpia = limpiar_texto(str(linea_orig))
+        palabras_linea = [p for p in linea_limpia.split() if p]
+        if not palabras_linea:
+            continue
 
-# VERSIÓN CORREGIDA
+        candidatos = [palabras_linea]
+        # Si la línea contiene etiquetas de documento, considerar también la versión sin etiqueta
+        palabras_filtradas = [p for p in palabras_linea if p not in LABEL_WORDS]
+        if palabras_filtradas and palabras_filtradas != palabras_linea:
+            candidatos.append(palabras_filtradas)
+
+        for cands in candidatos:
+            score_tokens = _evaluarSimilitudPalabras(palabras_usuario, cands)
+            cand_compacto = ''.join(cands)
+            score_compacto = extraerPorcentaje(usuario_compacto, cand_compacto)
+
+            # Si el OCR unió las palabras en un solo bloque (ej: RAMIREZRAMIREZ) y la coincidencia es alta
+            if len(cands) < len(palabras_usuario) and score_compacto >= 75.0:
+                score_final = max(score_tokens, score_compacto)
+            else:
+                score_final = score_tokens
+
+            if score_final > best_pct:
+                best_pct = score_final
+                best_text = str(linea_orig).strip()
+
+    return best_text, round(best_pct)
+
 def substringSearch(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
     """
-    Busca la línea del OCR con la mayor cantidad de coincidencias de substrings
-    y retorna esa línea junto con su porcentaje de acierto.
+    Busca la coincidencia de palabras del usuario en el OCR asegurando que cada palabra
+    de la línea OCR sólo sea consumida una vez, ponderando subcadenas por cobertura real
+    y penalizando palabras discrepantes.
     """
     def limpiar_simple(texto):
-        texto = texto.upper()
+        texto = texto.upper().strip().replace(",", "").replace(".", "").replace("-", "").replace(":", "")
+        texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
         if onlyNumbers:
             return re.sub(r'\D', '', texto)
         return texto
 
-    dataUserArr = [limpiar_simple(word) for word in dataUsuario.split() if word]
+    if onlyNumbers:
+        return percentsSearch(dataOCR, dataUsuario, onlyNumbers=True)
 
+    dataUserArr = [limpiar_simple(word) for word in dataUsuario.split() if limpiar_simple(word)]
     if not dataUserArr:
         return 'no encontrado', 0
 
-    best_match = {'linea': 'no encontrado', 'score': -1, 'len': float('inf')}
+    usuario_compacto = ''.join(dataUserArr)
+    best_match = {'linea': 'no encontrado', 'pct': -1.0}
 
     for linea_original in dataOCR:
-        if not linea_original.strip():
+        if not linea_original or not str(linea_original).strip():
             continue
-        
-        linea_limpia = limpiar_simple(linea_original)
-        current_score = 0
-        
+
+        linea_limpia = limpiar_simple(str(linea_original))
+        palabras_ocr = [p for p in linea_limpia.split() if p]
+        if not palabras_ocr:
+            continue
+
+        ocr_disponibles = list(palabras_ocr)
+        suma_coincidencia = 0.0
+
         for user_word in dataUserArr:
-            if user_word in linea_limpia:
-                current_score += 1
+            mejor_coincidencia = 0.0
+            mejor_idx = None
+            for idx, ocr_w in enumerate(ocr_disponibles):
+                if user_word == ocr_w:
+                    coincidencia = 1.0
+                elif user_word in ocr_w or ocr_w in user_word:
+                    # Ponderar por la razón de longitudes para evitar dar 100% a subcadenas parciales (ej: FERNANDO en DANIELFERNANDO)
+                    coincidencia = min(len(user_word), len(ocr_w)) / max(len(user_word), len(ocr_w))
+                else:
+                    sim = extraerPorcentaje(user_word, ocr_w) / 100.0
+                    coincidencia = sim if sim >= 0.70 else 0.0
 
-        # Si el puntaje actual es mejor que el mejor que teníamos
-        if current_score > best_match['score']:
-            best_match = {'linea': linea_original.strip(), 'score': current_score, 'len': len(linea_original)}
-        # Si el puntaje es el mismo, usamos la línea más corta como desempate
-        elif current_score == best_match['score'] and current_score > 0:
-            if len(linea_original) < best_match['len']:
-                best_match = {'linea': linea_original.strip(), 'score': current_score, 'len': len(linea_original)}
+                if coincidencia > mejor_coincidencia:
+                    mejor_coincidencia = coincidencia
+                    mejor_idx = idx
 
-    if best_match['score'] == -1:
+            if mejor_idx is not None and mejor_coincidencia > 0.0:
+                suma_coincidencia += mejor_coincidencia
+                ocr_disponibles.pop(mejor_idx)
+
+        total_tokens = max(len(dataUserArr), len(palabras_ocr))
+        pct_tokens = (suma_coincidencia / total_tokens) * 100 if total_tokens > 0 else 0.0
+
+        # Tolerancia para palabras unidas por el OCR
+        ocr_compacto = ''.join(palabras_ocr)
+        pct_compacto = extraerPorcentaje(usuario_compacto, ocr_compacto)
+        if len(palabras_ocr) < len(dataUserArr) and pct_compacto >= 75.0:
+            pct = max(pct_tokens, pct_compacto)
+        else:
+            pct = pct_tokens
+
+        if pct > best_match['pct']:
+            best_match = {'linea': str(linea_original).strip(), 'pct': pct}
+
+    if best_match['pct'] <= 0:
         return 'no encontrado', 0
 
-    # El porcentaje se basa en cuántas palabras del usuario se encontraron
-    final_percent = (best_match['score'] / len(dataUserArr)) * 100
-    
-    return best_match['linea'], round(final_percent)
-
-# --- Función Principal de Validación (Ahora más simple) ---
+    return best_match['linea'], round(best_match['pct'])
 
 def validacionOCR(dataOCR: list[str], dataUsuario: str, onlyNumbers: bool):
     linea_ps, porcentaje_ps = percentsSearch(dataOCR, dataUsuario, onlyNumbers)
 
     linea_ss, porcentaje_ss = substringSearch(dataOCR, dataUsuario, onlyNumbers)
 
-    # La comparación ahora es directa
     if porcentaje_ps >= porcentaje_ss:
         return linea_ps, porcentaje_ps
     else:

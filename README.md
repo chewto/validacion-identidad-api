@@ -128,6 +128,22 @@ tipo de documento tiene MRZ en ese lado y el MRZ extraido alcanza
 `validSide` conserva la regla actual. El frontend debe mostrar `mismatches` (o
 `messages`) aunque `validSide` sea `true`.
 
+## Modelos ONNX para navegador
+
+Los modelos de deteccion de documentos (`colombia-v0.1.pt` y
+`honduras-v0.1.pt`) se pueden exportar a ONNX autocontenido para inferencia en el
+navegador con `onnxruntime-web` y publicarse como CDN en Hugging Face. La API
+sigue usando los `.pt`; estos ONNX son artefactos derivados y no se versionan
+(`models/onnx/` esta en `.gitignore` y `.dockerignore`).
+
+```bash
+python scripts/export_onnx.py     # genera models/onnx/*.onnx + metadata.json + README.md
+python scripts/verify_onnx.py     # paridad ONNX vs PyTorch y NMS sobre imagenes reales
+```
+
+Contrato de entrada/salida, ejemplo completo en JavaScript y comandos de
+publicacion en [`docs/onnx-models.md`](docs/onnx-models.md).
+
 ## Pruebas
 
 ```bash

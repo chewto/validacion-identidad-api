@@ -56,8 +56,13 @@ __pycache__/
 # si recortes/ no existe en la imagen, esa feature falla. Se resuelven por
 # volumen en el servidor o se crean en el arranque.
 
+# --- Modelos ONNX exportados para navegador/CDN: ~170 MB que la API no usa ---
+models/onnx/
+
 # --- Herramientas de desarrollo y otros proyectos del directorio ---
 postman/
 .idea/
 .vscode/
 *.md
+scripts/
+docs/
